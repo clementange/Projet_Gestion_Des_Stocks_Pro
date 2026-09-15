@@ -15,15 +15,17 @@ Phase 3, sauf le point 2 qui est pour partie legacy).
 
 ### 1. EN COURS (Phase 3c, module par module) : les 21 entites de domaine des 8 modules sont directement annotees JPA
 
-**11 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
+**14 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
 (Phase 3c/organization, `docs/phase-3c-organization-report.md`),
 `Article`/`Category` (Phase 3c/catalog, `docs/phase-3c-catalog-report.md`),
 `Permission`/`Role`/`UserRoleAssignment` (Phase 3c/identity,
-`docs/phase-3c-identity-report.md`), puis `Stock`/`StockMovement`
-(Phase 3c/inventory, `docs/phase-3c-inventory-report.md`) — mapping
-deplace vers `META-INF/orm.xml` (fichier unique partage entre modules, pas
-un fichier par module — Spring Boot n'auto-decouvre que ce nom exact).
-**10 restent a traiter**, module par module, phases futures.
+`docs/phase-3c-identity-report.md`), `Stock`/`StockMovement` (Phase
+3c/inventory, `docs/phase-3c-inventory-report.md`), puis
+`Supplier`/`PurchaseOrder`/`PurchaseOrderLine` (Phase 3c/purchasing,
+`docs/phase-3c-purchasing-report.md`) — mapping deplace vers
+`META-INF/orm.xml` (fichier unique partage entre modules, pas un fichier
+par module — Spring Boot n'auto-decouvre que ce nom exact). **7 restent a
+traiter**, module par module, phases futures.
 
 Constat d'origine (Phase 2) : **100% des entites de domaine des modules
 "neufs"** (21 sur 21, une dans chaque agregat) portaient des annotations
@@ -104,6 +106,24 @@ garantie cross-module "jamais de survente" (`CrossModuleConcurrencyIntegrationTe
 a ete reverifiee individuellement (3 executions separees, 3/3 vertes) sous
 le nouveau mapping `<version>` XML — voir `docs/phase-3c-inventory-report.md`
 §3 pour le detail du raisonnement.
+
+**Phase 3c/purchasing** : cinquieme module traite, deuxieme avec de vrais
+invariants metier (`PurchaseOrder.validate/cancel/requireReceivable/
+markFullyReceived`, `PurchaseOrderLine.receive/getQuantiteRestanteARecevoir/
+isFullyReceived`) — etape 0 golden-master repetee avec succes
+(`PurchaseOrderTest` 13 tests, `PurchaseOrderLineTest` 9 tests, verifies
+identiques avant/apres, 0 iteration de correction). Aucun consommateur
+externe direct sur les trois entites (le seul import externe,
+`services.impl.CommandeFournisseurServiceImpl`, ne reference que l'enum
+`PurchaseOrderStatus` via la couche application/DTO). Ecart inedit trouve
+et verifie sans consequence : `Supplier.numTel` a un nom de colonne
+litteral (`@Column(name = "numTel")`, camelCase) different du nom
+physique reel en base (`num_tel`, avec underscore) — resolu par
+`SpringPhysicalNamingStrategy` (transforme tout identifiant logique
+camelCase en snake_case, y compris les noms explicites), deja actif avant
+ce changement. Regle retenue : l'XML doit reprendre le meme nom litteral
+que l'annotation qu'il remplace, jamais le nom physique post-transformation
+— `ddl-auto=validate` est le filet qui detecterait une erreur ici.
 
 ### 2. ~~A corriger en Phase 3/5~~ RESOLU en Phase 3b : 16 injections par champ
 

@@ -45,7 +45,7 @@ Les invariants metier deja presents sur ces classes (`Stock.issue()`,
 `PurchaseOrder.requireReceivable()`, etc., deja testes au niveau domaine
 pur selon CLAUDE.md) devront survivre intacts a la separation.
 
-### 2. A corriger en Phase 3/5 (mineur, deja localise) : 16 injections par champ
+### 2. ~~A corriger en Phase 3/5~~ RESOLU en Phase 3b : 16 injections par champ
 
 `GeneralCodingRules.NO_CLASSES_SHOULD_USE_FIELD_INJECTION` (regle
 prete-a-l'emploi ArchUnit, qui detecte `@Autowired`/`@Value`/`@Inject`/
@@ -61,10 +61,13 @@ modules "neufs"** — toutes dans le legacy/l'infrastructure transverse :
 - `services.impl.FlickrServiceImpl` (4 champs `@Value`)
 - `utils.JwtUtil` (1 champ `@Value`)
 
-Correction simple (constructeur au lieu du champ) mais volume de classes
-touchees a evaluer avec la Phase 5 (securite) puisque plusieurs de ces
-classes (JwtUtil, ApplicationRequestFilter) sont deja identifiees comme
-sensibles ailleurs dans ce fichier/CLAUDE.md.
+**Corrige en Phase 3b** — les 6 classes converties en injection par
+constructeur, mecanisme uniquement (voir `docs/phase-3b-report.md`).
+`JwtUtil`/`ApplicationRequestFilter` n'ont recu aucun autre changement :
+toujours aucun secret en dur, `@Value("${jwt.secret}")` toujours resolu
+depuis la configuration externe, juste deplace du champ vers le parametre
+de constructeur — le contenu sensible reste un sujet Phase 5, pas touche
+ici.
 
 ### 3. ~~Deja connu (Phase 1), confirme par un mecanisme independant~~ — RESOLU en Phase 3a
 

@@ -15,12 +15,14 @@ Phase 3, sauf le point 2 qui est pour partie legacy).
 
 ### 1. EN COURS (Phase 3c, module par module) : les 21 entites de domaine des 8 modules sont directement annotees JPA
 
-**6 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
-(Phase 3c/organization, `docs/phase-3c-organization-report.md`) puis
-`Article`/`Category` (Phase 3c/catalog, `docs/phase-3c-catalog-report.md`)
-— mapping deplace vers `META-INF/orm.xml` (fichier unique partage entre
-modules, pas un fichier par module — Spring Boot n'auto-decouvre que ce
-nom exact). **15 restent a traiter**, module par module, phases futures.
+**9 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
+(Phase 3c/organization, `docs/phase-3c-organization-report.md`),
+`Article`/`Category` (Phase 3c/catalog, `docs/phase-3c-catalog-report.md`),
+puis `Permission`/`Role`/`UserRoleAssignment` (Phase 3c/identity,
+`docs/phase-3c-identity-report.md`) — mapping deplace vers
+`META-INF/orm.xml` (fichier unique partage entre modules, pas un fichier
+par module — Spring Boot n'auto-decouvre que ce nom exact). **12 restent a
+traiter**, module par module, phases futures.
 
 Constat d'origine (Phase 2) : **100% des entites de domaine des modules
 "neufs"** (21 sur 21, une dans chaque agregat) portaient des annotations
@@ -66,6 +68,15 @@ declarer une entite hors du `<package>` par defaut du fichier XML partage
 consommateur externe — meme technique appliquee par coherence, comme
 `City`/`Warehouse`.
 
+**Phase 3c/identity** : troisieme module traite, meme resultat sans
+surprise. `Permission`/`Role`/`UserRoleAssignment` n'ont aucun
+consommateur externe (verifie), mais mappees en `orm.xml` par coherence
+comme `City`/`Warehouse`/`Category`. Nouveaute technique exercee ici pour
+la premiere fois : `Role.permissions`, un `@ManyToMany`/`@JoinTable`
+(table de jointure `role_permission`) — traduit en
+`<many-to-many><join-table>` en XML, teste avec un jeu de permissions non
+vide (pas juste un ensemble vide), fonctionne sans ajustement.
+
 **A verifier a nouveau pour chaque module restant**, sans supposer que (a)
 convient par defaut : le critere determinant reste "cette entite est-elle
 referencee en `@ManyToOne`/`@OneToOne` direct par un autre module ?", pas
@@ -73,7 +84,10 @@ une propriete du module lui-meme.
 
 Les invariants metier deja presents sur ces classes (`Stock.issue()`,
 `PurchaseOrder.requireReceivable()`, etc., deja testes au niveau domaine
-pur selon CLAUDE.md) devront survivre intacts a la separation.
+pur selon CLAUDE.md) devront survivre intacts a la separation — question
+non encore eclairee par organization/catalog/identity, qui n'avaient aucun
+invariant sur leurs entites. `inventory` sera le premier module a vraiment
+tester ce point.
 
 ### 2. ~~A corriger en Phase 3/5~~ RESOLU en Phase 3b : 16 injections par champ
 

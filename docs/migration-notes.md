@@ -66,18 +66,18 @@ touchees a evaluer avec la Phase 5 (securite) puisque plusieurs de ces
 classes (JwtUtil, ApplicationRequestFilter) sont deja identifiees comme
 sensibles ailleurs dans ce fichier/CLAUDE.md.
 
-### 3. Deja connu (Phase 1), confirme par un mecanisme independant
+### 3. ~~Deja connu (Phase 1), confirme par un mecanisme independant~~ — RESOLU en Phase 3a
 
 `ArchitectureRulesTest.modules_must_be_free_of_cycles` (verification
-ArchUnit "slices" pure, independante de Spring Modulith) detecte
+ArchUnit "slices" pure, independante de Spring Modulith) detectait
 exactement les **4 memes cycles** que `ModularityTests.verifiesModularStructure`
 en Phase 1, avec la meme cause racine unique
 (`catalog.application.impl.ArticleServiceImpl` accedant directement aux
 repositories/entites internes de `purchasing`/`sales`, voir la section
 "Trouve pendant Phase 1" ci-dessous). Les deux mecanismes de detection
-(Spring Modulith et ArchUnit) sont donc en accord total sur ce point — pas
-un nouveau finding, une confirmation. Piste de correction deja proposee
-plus bas, inchangee, toujours pour Phase 3.
+(Spring Modulith et ArchUnit) etaient donc en accord total sur ce point.
+**Corrige en Phase 3a** — voir `docs/phase-3a-report.md`. Les deux tests
+passent au vert depuis ce commit.
 
 ## Trouve pendant Phase 1
 
@@ -87,7 +87,7 @@ pour le detail complet du run brut) et **non corrigees**, conformement a la
 contrainte de Phase 1 ("si des violations necessitent de deplacer du code
 entre packages, ne le fais pas maintenant — c'est la Phase 3").
 
-### A corriger en Phase 3 : `catalog.application.impl.ArticleServiceImpl` accede directement aux internes de `purchasing` et `sales`
+### ~~A corriger en Phase 3~~ RESOLU en Phase 3a : `catalog.application.impl.ArticleServiceImpl` accedait directement aux internes de `purchasing` et `sales`
 
 Root cause unique de **les 4 seules violations reelles** (hors artefacts des
 packages legacy plats) que `ApplicationModules.of(...).verify()` remonte
@@ -112,18 +112,38 @@ sales (purchasing/sales dependent legitimement de `catalog` pour
 `ArticleDto`/`Article`, et `ArticleServiceImpl` depend en retour de leurs
 internes).
 
-**Piste de correction pour Phase 3** (a valider, ne pas implementer
-maintenant) : ces methodes d'historique par article n'ont pas leur place
-dans le module `catalog` — elles interrogent des lignes de vente/commande
-pour un article donne, ce qui est une question posee DEPUIS le point de vue
-de `sales`/`purchasing` sur un article, pas une responsabilite du catalogue.
-Deux options a arbitrer en Phase 3 : (a) exposer une methode
-`findLinesByArticleId` sur les facades publiques `SaleService`/
-`CustomerOrderService`/`PurchaseOrderService` (deja partiellement le cas,
-via `findLines`/etc. cote commande) et faire consommer `ArticleServiceImpl`
-via ces API publiques plutot que les repositories, ou (b) deplacer ces
-methodes "historique" hors de `catalog` vers les modules qui possedent
-reellement la donnee.
+**Resolution effective (Phase 3a)** : l'option (a) seule (exposer
+`findLinesByArticleId` sur les facades publiques et faire consommer
+`ArticleServiceImpl` via ces API plutot que les repositories) a ete
+implementee en premier, mais **s'est averee insuffisante** — un test
+empirique l'a confirme avant de committer quoi que ce soit de definitif :
+`sales`/`purchasing` dependent deja legitimement de `catalog` (`ArticleDto`)
+pour leurs propres lignes, donc tout appel de `catalog` vers `sales`/
+`purchasing` — meme strictement limite a leur facade publique, sans toucher
+a leurs internes — recree mecaniquement un cycle catalog {@literal <->}
+sales/purchasing au niveau du graphe de dependance entre modules. Passer
+par la facade publique corrige l'encapsulation (plus d'acces direct a un
+repository/une entite d'un autre module) mais ne peut pas, a lui seul,
+rendre le graphe acyclique tant que `catalog` conserve une raison
+quelconque de dependre de `sales`/`purchasing`.
+
+L'option (b) a donc ete appliquee en complement : les trois methodes
+d'historique (`findHistoriqueVentes`/`findHistoriqueCommandeClient`/
+`findHistoriqueCommandeFournisseur`) ont ete deplacees hors de `catalog`,
+vers des controleurs legacy dedies vivant dans les modules qui possedent
+reellement la donnee — `sales.presentation.rest.legacy.SalesArticleHistoryLegacyController`
+(vente + commande client) et
+`purchasing.presentation.rest.legacy.PurchaseOrderArticleHistoryLegacyController`
+(commande fournisseur) — avec les memes URL HTTP qu'avant (aucun impact
+contrat). Le garde-fou de suppression (`delete`) ne pouvait pas non plus
+etre resolu par un simple appel aux facades (meme probleme de cycle) : il
+repose desormais sur la contrainte `FOREIGN KEY (article_id) REFERENCES
+article(id)` deja presente en base sur `sale_line`/`customer_order_line`/
+`purchase_order_line` (V1__initial_schema.sql), la violation SQL etant
+traduite en `InvalidOperationException(ARTICLE_ALREADY_IN_USE)`. Detail
+complet, tests de non-regression ajoutes et resultat de
+`ModularityTests`/`ArchitectureRulesTest` apres correction :
+`docs/phase-3a-report.md`.
 
 ### @NamedInterface proposes mais non appliques (pas de consommateur actuel parmi les 8 modules)
 

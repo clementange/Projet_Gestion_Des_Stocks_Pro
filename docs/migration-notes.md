@@ -5,6 +5,65 @@ migration Clean Architecture, releves en travaillant sur la phase courante
 mais volontairement non traites tout de suite. Voir `CLAUDE.md` pour l'ordre
 des phases.
 
+## Trouve pendant Phase 1
+
+Toutes les violations detaillees ci-dessous ont ete **rendues visibles** par
+`ModularityTests.verifiesModularStructure()` (voir `docs/phase-1-report.md`
+pour le detail complet du run brut) et **non corrigees**, conformement a la
+contrainte de Phase 1 ("si des violations necessitent de deplacer du code
+entre packages, ne le fais pas maintenant — c'est la Phase 3").
+
+### A corriger en Phase 3 : `catalog.application.impl.ArticleServiceImpl` accede directement aux internes de `purchasing` et `sales`
+
+Root cause unique de **les 4 seules violations reelles** (hors artefacts des
+packages legacy plats) que `ApplicationModules.of(...).verify()` remonte
+entre les 8 modules "neufs". La classe injecte directement :
+- `purchasing.infrastructure.persistence.PurchaseOrderLineRepository`
+  (repository JPA interne au module `purchasing`)
+- `sales.infrastructure.persistence.SaleLineRepository` et
+  `CustomerOrderLineRepository` (idem, module `sales`)
+
+et manipule directement leurs entites de domaine
+(`purchasing.domain.model.PurchaseOrderLine`,
+`sales.domain.model.{SaleLine,CustomerOrderLine}`) dans ses methodes
+`findHistoriqueVentes`, `findHistoriaueCommandeClient` (sic, faute de frappe
+existante dans le nom de methode — a corriger en meme temps),
+`findHistoriqueCommandeFournisseur` et `delete`
+(`src/main/java/.../catalog/application/impl/ArticleServiceImpl.java`).
+
+C'est une violation directe et non ambigue de la regle CLAUDE.md "Un module
+n'accede jamais au repository ou a l'entite JPA d'un autre module". Elle
+cree en prime un cycle de dependance catalog <-> purchasing et catalog <->
+sales (purchasing/sales dependent legitimement de `catalog` pour
+`ArticleDto`/`Article`, et `ArticleServiceImpl` depend en retour de leurs
+internes).
+
+**Piste de correction pour Phase 3** (a valider, ne pas implementer
+maintenant) : ces methodes d'historique par article n'ont pas leur place
+dans le module `catalog` — elles interrogent des lignes de vente/commande
+pour un article donne, ce qui est une question posee DEPUIS le point de vue
+de `sales`/`purchasing` sur un article, pas une responsabilite du catalogue.
+Deux options a arbitrer en Phase 3 : (a) exposer une methode
+`findLinesByArticleId` sur les facades publiques `SaleService`/
+`CustomerOrderService`/`PurchaseOrderService` (deja partiellement le cas,
+via `findLines`/etc. cote commande) et faire consommer `ArticleServiceImpl`
+via ces API publiques plutot que les repositories, ou (b) deplacer ces
+methodes "historique" hors de `catalog` vers les modules qui possedent
+reellement la donnee.
+
+### @NamedInterface proposes mais non appliques (pas de consommateur actuel parmi les 8 modules)
+
+Identifies en meme temps que les 12 deja appliques (voir
+`docs/phase-1-report.md` §4), mais aucun autre module "neuf" n'en depend
+aujourd'hui (seul le legacy, exclu du perimetre Phase 1, y accede) :
+- `purchasing.application` / `purchasing.application.dto`
+- `transfers.application` / `transfers.application.dto` /
+  `transfers.domain.model`
+- Tout package de `reporting` (module "feuille", personne n'en depend)
+
+A appliquer des qu'un consommateur reel apparait (Phase 3, ou si le legacy
+est un jour lui-meme modularise en Phase 4).
+
 ## Trouve pendant Phase 0
 
 Tous les points ci-dessous ont ete **figes par un test de caracterisation**

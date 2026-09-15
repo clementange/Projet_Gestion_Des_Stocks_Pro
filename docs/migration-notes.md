@@ -15,10 +15,12 @@ Phase 3, sauf le point 2 qui est pour partie legacy).
 
 ### 1. EN COURS (Phase 3c, module par module) : les 21 entites de domaine des 8 modules sont directement annotees JPA
 
-**4 des 21 entites resolues en Phase 3c/organization**
-(`Organization`/`City`/`Site`/`Warehouse`, mapping deplace vers
-`META-INF/orm.xml`, voir `docs/phase-3c-organization-report.md`) — **17
-restent a traiter**, module par module, phases futures.
+**6 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
+(Phase 3c/organization, `docs/phase-3c-organization-report.md`) puis
+`Article`/`Category` (Phase 3c/catalog, `docs/phase-3c-catalog-report.md`)
+— mapping deplace vers `META-INF/orm.xml` (fichier unique partage entre
+modules, pas un fichier par module — Spring Boot n'auto-decouvre que ce
+nom exact). **15 restent a traiter**, module par module, phases futures.
 
 Constat d'origine (Phase 2) : **100% des entites de domaine des modules
 "neufs"** (21 sur 21, une dans chaque agregat) portaient des annotations
@@ -54,10 +56,20 @@ increment. Seule (b) `orm.xml` permet de conserver EXACTEMENT le meme
 FQCN/package pour la classe tout en retirant ses annotations, donc zero
 impact sur les modules consommateurs. `City`/`Warehouse` n'avaient pas
 cette contrainte mais ont recu le meme traitement, par coherence.
-**A verifier a nouveau pour chaque module restant** : `catalog.Article` a
-le meme profil que `Site`/`Organization` (referencee en `@ManyToOne` par 4
-autres modules) — s'attendre a devoir refaire ce meme raisonnement, pas a
-supposer que (a) convient par defaut.
+**Confirme par Phase 3c/catalog** : `catalog.Article` avait effectivement
+le meme profil que `Site`/`Organization` (referencee en `@ManyToOne` par 11
+fichiers externes — 4 modules neufs + 4 entites legacy plates), et le meme
+traitement `orm.xml` a fonctionne sans surprise, y compris pour la relation
+bidirectionnelle `Category.articles` (`mappedBy`/`mapped-by`) et pour
+declarer une entite hors du `<package>` par defaut du fichier XML partage
+(class attribute pleinement qualifie). `Category`, elle, n'avait aucun
+consommateur externe — meme technique appliquee par coherence, comme
+`City`/`Warehouse`.
+
+**A verifier a nouveau pour chaque module restant**, sans supposer que (a)
+convient par defaut : le critere determinant reste "cette entite est-elle
+referencee en `@ManyToOne`/`@OneToOne` direct par un autre module ?", pas
+une propriete du module lui-meme.
 
 Les invariants metier deja presents sur ces classes (`Stock.issue()`,
 `PurchaseOrder.requireReceivable()`, etc., deja testes au niveau domaine

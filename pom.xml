@@ -160,6 +160,16 @@
       <artifactId>spring-modulith-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <!-- Phase 2 : traduit en tests qui cassent le build les regles d'architecture deja enoncees
+         dans CLAUDE.md. Version alignee sur com.tngtech.archunit:archunit deja resolu
+         transitivement (1.3.1, via spring-modulith-core) pour eviter tout conflit de version. -->
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+      <version>1.3.1</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

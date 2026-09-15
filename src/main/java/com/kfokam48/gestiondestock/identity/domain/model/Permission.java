@@ -1,26 +1,21 @@
 package com.kfokam48.gestiondestock.identity.domain.model;
 
 import com.kfokam48.gestiondestock.model.AbstractEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+// Phase 3c : mapping JPA declare dans META-INF/orm.xml, pas en annotations - voir le commentaire
+// en tete de ce fichier XML.
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Entity
-@Table(name = "permission")
 public class Permission extends AbstractEntity {
 
-  @Column(name = "code", nullable = false, unique = true)
   private String code;
 
-  @Column(name = "description")
   private String description;
 
 }

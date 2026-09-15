@@ -21,6 +21,12 @@
   FQCN/package qu'organization.Site, voir docs/phase-3c-catalog-report.md. Category n'a aucun
   consommateur externe (seul Article la reference, relation bidirectionnelle interne au module).
 
+  identity.domain.model (Permission/Role/UserRoleAssignment) : aucun consommateur externe direct
+  sur les trois (verifie avant d'ecrire ce mapping) - orm.xml applique quand meme par coherence
+  avec les modules precedents. Role.permissions est un @ManyToMany avec @JoinTable (table de
+  jointure role_permission, colonnes role_id/permission_id) - premiere relation de ce type dans ce
+  fichier, voir docs/phase-3c-identity-report.md.
+
   Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange
   pour toutes les entites ci-dessous - non redeclare ici, herite normalement.
 -->
@@ -170,6 +176,58 @@
       <many-to-one name="category" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Category">
         <join-column name="idcategory"/>
       </many-to-one>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.identity.domain.model.Permission" access="FIELD">
+    <table name="permission"/>
+    <attributes>
+      <basic name="code">
+        <column name="code" nullable="false" unique="true"/>
+      </basic>
+      <basic name="description">
+        <column name="description"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.identity.domain.model.Role" access="FIELD">
+    <table name="role"/>
+    <attributes>
+      <basic name="code">
+        <column name="code" nullable="false" unique="true"/>
+      </basic>
+      <basic name="name">
+        <column name="name" nullable="false"/>
+      </basic>
+      <basic name="description">
+        <column name="description"/>
+      </basic>
+      <many-to-many name="permissions" target-entity="com.kfokam48.gestiondestock.identity.domain.model.Permission" fetch="LAZY">
+        <join-table name="role_permission">
+          <join-column name="role_id"/>
+          <inverse-join-column name="permission_id"/>
+        </join-table>
+      </many-to-many>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.identity.domain.model.UserRoleAssignment" access="FIELD">
+    <table name="user_role_assignment"/>
+    <attributes>
+      <basic name="userId">
+        <column name="user_id" nullable="false"/>
+      </basic>
+      <many-to-one name="role" target-entity="com.kfokam48.gestiondestock.identity.domain.model.Role">
+        <join-column name="role_id" nullable="false"/>
+      </many-to-one>
+      <basic name="scopeType">
+        <enumerated>STRING</enumerated>
+        <column name="scope_type" nullable="false"/>
+      </basic>
+      <basic name="scopeId">
+        <column name="scope_id"/>
+      </basic>
     </attributes>
   </entity>
 

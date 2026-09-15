@@ -1,16 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Phase 3c : mapping JPA de Organization/City/Site/Warehouse (module organization) declare ici,
-  hors annotations sur les classes elles-memes. Organization et Site sont referencees via
-  @ManyToOne depuis d'autres modules (catalog.Article/Category pour Organization ;
+  Phase 3c : mapping JPA hors annotations pour les modules deja traites (organization, puis
+  catalog). Spring Boot n'auto-decouvre que le nom de fichier exact META-INF/orm.xml (verifie en
+  Phase 3c/organization, sans spring.jpa.mapping-resources) : un seul fichier partage pour tous
+  les modules plutot qu'un fichier par module, pour rester sur le mecanisme d'auto-decouverte deja
+  valide sans en re-verifier un second.
+
+  organization.domain.model (Organization/City/Site/Warehouse) : Organization et Site sont
+  referencees via @ManyToOne depuis d'autres modules (catalog.Article/Category pour Organization ;
   sales.Sale/CustomerOrder, inventory.Stock/StockMovement, purchasing.PurchaseOrder,
   transfers.StockTransfer pour Site - voir docs/phase-3c-organization-report.md) : conserver
   EXACTEMENT le meme FQCN/package qu'aujourd'hui pour ces deux classes est donc obligatoire, pour
   ne toucher aucun des fichiers externes qui les referencent. City et Warehouse n'ont aucun
-  consommateur externe mais sont mappees de la meme facon ici, pour la coherence d'une seule
-  strategie de mapping au sein du module (pas de raison fonctionnelle de les traiter differemment).
-  Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange -
-  non redeclare ici, herite normalement par chaque entite.
+  consommateur externe mais sont mappees de la meme facon ici, par coherence.
+
+  catalog.domain.model (Article/Category) : Article est referencee en @ManyToOne direct depuis
+  inventory (Stock, StockMovement, InventoryFacadeImpl), purchasing (PurchaseOrderLine), sales
+  (SaleLine, CustomerOrderLine), transfers (StockTransferLine), plus 4 entites legacy plates
+  (LigneVente, LigneCommandeClient, LigneCommandeFournisseur, MvtStk) - meme contrainte
+  FQCN/package qu'organization.Site, voir docs/phase-3c-catalog-report.md. Category n'a aucun
+  consommateur externe (seul Article la reference, relation bidirectionnelle interne au module).
+
+  Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange
+  pour toutes les entites ci-dessous - non redeclare ici, herite normalement.
 -->
 <entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm"
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -106,6 +118,58 @@
       <one-to-one name="site">
         <join-column name="site_id" nullable="false" unique="true"/>
       </one-to-one>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.catalog.domain.model.Category" access="FIELD">
+    <table name="category"/>
+    <attributes>
+      <basic name="code">
+        <column name="code"/>
+      </basic>
+      <basic name="designation">
+        <column name="designation"/>
+      </basic>
+      <basic name="idEntreprise">
+        <column name="identreprise"/>
+      </basic>
+      <many-to-one name="organization" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Organization">
+        <join-column name="organization_id"/>
+      </many-to-one>
+      <one-to-many name="articles" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Article" mapped-by="category"/>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.catalog.domain.model.Article" access="FIELD">
+    <table name="article"/>
+    <attributes>
+      <basic name="codeArticle">
+        <column name="codearticle"/>
+      </basic>
+      <basic name="designation">
+        <column name="designation"/>
+      </basic>
+      <basic name="prixUnitaireHt">
+        <column name="prixunitaireht"/>
+      </basic>
+      <basic name="tauxTva">
+        <column name="tauxtva"/>
+      </basic>
+      <basic name="prixUnitaireTtc">
+        <column name="prixunitairettc"/>
+      </basic>
+      <basic name="photo">
+        <column name="photo"/>
+      </basic>
+      <basic name="idEntreprise">
+        <column name="identreprise"/>
+      </basic>
+      <many-to-one name="organization" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Organization">
+        <join-column name="organization_id"/>
+      </many-to-one>
+      <many-to-one name="category" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Category">
+        <join-column name="idcategory"/>
+      </many-to-one>
     </attributes>
   </entity>
 

@@ -54,6 +54,19 @@
   XML - le XML reprend donc le meme nom litteral "numTel", pas le nom physique, par coherence avec
   la source qu'il remplace ; confirme par ddl-auto=validate au demarrage.
 
+  sales.domain.model (Customer/CustomerOrder/CustomerOrderLine/Sale/SaleLine) : aucun consommateur
+  externe direct sur les cinq (le seul import externe,
+  services.impl.CommandeClientServiceImpl, ne reference que l'enum CustomerOrderStatus au travers
+  de la couche application/DTO, meme profil que purchasing). Seule CustomerOrder porte de vrais
+  invariants (machine a etats complete : validate/requireReservable/markReserved/
+  requirePreparable/markPrepared/requireShippable/markShipped/requireDeliverable/markDelivered/
+  cancel) - Customer, CustomerOrderLine, Sale et SaleLine sont des @Data purs sans methode de
+  domaine, y compris Sale malgre l'hypothese de depart qui la supposait a invariants comme
+  PurchaseOrder (voir docs/phase-3c-sales-report.md). Golden master ecrit et verifie AVANT ce
+  mapping dans sales/domain/model/CustomerOrderTest (21 methodes, seule entite sales a en avoir
+  besoin). Customer.numTel repete le cas numTel/num_tel deja rencontre sur Supplier (Phase
+  3c/purchasing) : meme resolution, meme nom litteral repris tel quel dans le XML.
+
   Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange
   pour toutes les entites ci-dessous - non redeclare ici, herite normalement.
 -->
@@ -380,6 +393,107 @@
       </basic>
       <basic name="quantiteRecue">
         <column name="quantite_recue" nullable="false"/>
+      </basic>
+      <basic name="prixUnitaire">
+        <column name="prix_unitaire" nullable="false"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.sales.domain.model.Customer" access="FIELD">
+    <table name="customer"/>
+    <attributes>
+      <basic name="nom">
+        <column name="nom"/>
+      </basic>
+      <basic name="prenom">
+        <column name="prenom"/>
+      </basic>
+      <embedded name="adresse"/>
+      <basic name="photo">
+        <column name="photo"/>
+      </basic>
+      <basic name="mail">
+        <column name="mail"/>
+      </basic>
+      <basic name="numTel">
+        <column name="numTel"/>
+      </basic>
+      <basic name="organizationId">
+        <column name="organizationId"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.sales.domain.model.Sale" access="FIELD">
+    <table name="sale"/>
+    <attributes>
+      <basic name="code">
+        <column name="code" nullable="false" unique="true"/>
+      </basic>
+      <many-to-one name="site" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Site">
+        <join-column name="site_id" nullable="false"/>
+      </many-to-one>
+      <basic name="saleDate">
+        <column name="sale_date" nullable="false"/>
+      </basic>
+      <basic name="comment">
+        <column name="comment"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.sales.domain.model.SaleLine" access="FIELD">
+    <table name="sale_line"/>
+    <attributes>
+      <many-to-one name="sale" target-entity="com.kfokam48.gestiondestock.sales.domain.model.Sale">
+        <join-column name="sale_id" nullable="false"/>
+      </many-to-one>
+      <many-to-one name="article" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Article">
+        <join-column name="article_id" nullable="false"/>
+      </many-to-one>
+      <basic name="quantite">
+        <column name="quantite" nullable="false"/>
+      </basic>
+      <basic name="prixUnitaire">
+        <column name="prix_unitaire" nullable="false"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.sales.domain.model.CustomerOrder" access="FIELD">
+    <table name="customer_order"/>
+    <attributes>
+      <basic name="code">
+        <column name="code" nullable="false" unique="true"/>
+      </basic>
+      <basic name="customerId">
+        <column name="customer_id" nullable="false"/>
+      </basic>
+      <many-to-one name="site" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Site">
+        <join-column name="site_id" nullable="false"/>
+      </many-to-one>
+      <basic name="orderDate">
+        <column name="order_date" nullable="false"/>
+      </basic>
+      <basic name="status">
+        <enumerated>STRING</enumerated>
+        <column name="status" nullable="false"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.sales.domain.model.CustomerOrderLine" access="FIELD">
+    <table name="customer_order_line"/>
+    <attributes>
+      <many-to-one name="customerOrder" target-entity="com.kfokam48.gestiondestock.sales.domain.model.CustomerOrder">
+        <join-column name="customer_order_id" nullable="false"/>
+      </many-to-one>
+      <many-to-one name="article" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Article">
+        <join-column name="article_id" nullable="false"/>
+      </many-to-one>
+      <basic name="quantite">
+        <column name="quantite" nullable="false"/>
       </basic>
       <basic name="prixUnitaire">
         <column name="prix_unitaire" nullable="false"/>

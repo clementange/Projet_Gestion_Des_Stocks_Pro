@@ -4,42 +4,32 @@ import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.model.AbstractEntity;
 import com.kfokam48.gestiondestock.organization.domain.model.Site;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+/**
+ * Phase 3c : mapping JPA declare dans META-INF/orm.xml, pas en annotations - voir le commentaire
+ * en tete de ce fichier XML. Aucune des methodes d'invariant ci-dessous ne porte d'annotation
+ * JPA : ce deplacement ne les touche pas (golden master :
+ * sales/domain/model/CustomerOrderTest, verifie identique avant/apres).
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Entity
-@Table(name = "customer_order")
 public class CustomerOrder extends AbstractEntity {
 
-  @Column(name = "code", nullable = false, unique = true)
   private String code;
 
-  @Column(name = "customer_id", nullable = false)
   private Long customerId;
 
-  @ManyToOne
-  @JoinColumn(name = "site_id", nullable = false)
   private Site site;
 
-  @Column(name = "order_date", nullable = false)
   private Instant orderDate;
 
-  @Column(name = "status", nullable = false)
-  @Enumerated(EnumType.STRING)
   private CustomerOrderStatus status = CustomerOrderStatus.BROUILLON;
 
   public void validate() {

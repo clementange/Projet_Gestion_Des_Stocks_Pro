@@ -13,22 +13,24 @@ Violations rendues visibles par `ArchitectureRulesTest` (voir
 du code de production hors legacy plat (donc potentiellement en scope
 Phase 3, sauf le point 2 qui est pour partie legacy).
 
-### 1. EN COURS (Phase 3c, module par module) : les 21 entites de domaine des 8 modules sont directement annotees JPA
+### 1. RESOLU en Phase 3c (7 increments, un module a la fois) : les 21 entites de domaine des 8 modules etaient directement annotees JPA
 
-**19 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
+**21 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
 (Phase 3c/organization, `docs/phase-3c-organization-report.md`),
 `Article`/`Category` (Phase 3c/catalog, `docs/phase-3c-catalog-report.md`),
 `Permission`/`Role`/`UserRoleAssignment` (Phase 3c/identity,
 `docs/phase-3c-identity-report.md`), `Stock`/`StockMovement` (Phase
 3c/inventory, `docs/phase-3c-inventory-report.md`),
 `Supplier`/`PurchaseOrder`/`PurchaseOrderLine` (Phase 3c/purchasing,
-`docs/phase-3c-purchasing-report.md`), puis
+`docs/phase-3c-purchasing-report.md`),
 `Customer`/`CustomerOrder`/`CustomerOrderLine`/`Sale`/`SaleLine` (Phase
-3c/sales, `docs/phase-3c-sales-report.md`) — mapping deplace vers
-`META-INF/orm.xml` (fichier unique partage entre modules, pas un fichier
-par module — Spring Boot n'auto-decouvre que ce nom exact). **2 restent a
-traiter** (`transfers.StockTransfer`/`StockTransferLine`), dernier module
-de la phase.
+3c/sales, `docs/phase-3c-sales-report.md`), puis
+`StockTransfer`/`StockTransferLine` (Phase 3c/transfers,
+`docs/phase-3c-transfers-report.md`, dernier module) — mapping deplace
+vers `META-INF/orm.xml` (fichier unique partage entre modules, pas un
+fichier par module — Spring Boot n'auto-decouvre que ce nom exact).
+`ArchitectureRulesTest` passe desormais integralement (6/6), la regle
+`domain_must_not_depend_on_jakarta_persistence` n'a plus aucune violation.
 
 Constat d'origine (Phase 2) : **100% des entites de domaine des modules
 "neufs"** (21 sur 21, une dans chaque agregat) portaient des annotations
@@ -144,6 +146,21 @@ ailleurs, via la couche application/DTO). Deuxieme occurrence du cas
 numTel/num_tel, cette fois sur `Customer` (ajoutee dans la meme migration
 V5 que Supplier) : meme resolution, rien de nouveau. Aucun `@Version` ni
 contrainte composite dans ce module.
+
+**Phase 3c/transfers** : septieme et dernier module traite. `StockTransfer`
+porte une machine a etats complete (`submit/approve/requirePreparable/
+markInPreparation/requireShippable/markShipped/requireReceivable/
+markReceived/cancel`, avec la particularite que `approve(userId)` mute
+aussi `approvedByUserId` en plus du statut) ; `StockTransferLine` confirme
+`@Data` pur par lecture directe (pas suppose par analogie). Etape 0
+golden-master (`transfers/domain/model/StockTransferTest`, 20 tests),
+verifiee identique avant/apres, 0 iteration de correction. Aucun
+consommateur externe (recherche exhaustive, 0 resultat, pas meme un
+import d'enum contrairement a purchasing/sales). Toutes les colonnes
+physiques deja alignees sur `SpringPhysicalNamingStrategy` : pas de
+troisieme cas numTel/num_tel. Aucun `@Version` ni contrainte composite.
+**Bilan Phase 3c : 7 increments, 21 entites, 0 regression, 214 tests
+verts, `ArchitectureRulesTest` integralement vert (6/6).**
 
 ### 2. ~~A corriger en Phase 3/5~~ RESOLU en Phase 3b : 16 injections par champ
 

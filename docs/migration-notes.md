@@ -5,6 +5,80 @@ migration Clean Architecture, releves en travaillant sur la phase courante
 mais volontairement non traites tout de suite. Voir `CLAUDE.md` pour l'ordre
 des phases.
 
+## Trouve pendant Phase 2
+
+Violations rendues visibles par `ArchitectureRulesTest` (voir
+`docs/phase-2-report.md` pour le detail du run et la liste des regles) et
+**non corrigees**, conformement a la contrainte de Phase 2. Toutes touchent
+du code de production hors legacy plat (donc potentiellement en scope
+Phase 3, sauf le point 2 qui est pour partie legacy).
+
+### 1. A corriger en Phase 3 (majeur) : les 21 entites de domaine des 8 modules sont directement annotees JPA
+
+**100% des entites de domaine des modules "neufs"** (21 sur 21, une dans
+chaque agregat) portent des annotations `jakarta.persistence` directement
+sur la classe de domaine — `@Entity`, `@Table`, et au niveau des champs
+`@Column`, `@ManyToOne`/`@OneToOne`/`@OneToMany`/`@ManyToMany`,
+`@JoinColumn`, `@Enumerated`, `@Embedded`, `@Version` (272 occurrences au
+total, repartition complete dans `docs/phase-2-report.md` §2). C'est
+directement contraire a CLAUDE.md ("domain/ n'importe jamais Spring ni
+jakarta.persistence") et **c'est vrai pour la totalite des agregats**, pas
+un cas isole :
+
+`catalog.Article`, `catalog.Category`, `identity.Permission`,
+`identity.Role`, `identity.UserRoleAssignment`, `inventory.Stock`,
+`inventory.StockMovement`, `organization.City`, `organization.Organization`,
+`organization.Site`, `organization.Warehouse`, `purchasing.PurchaseOrder`,
+`purchasing.PurchaseOrderLine`, `purchasing.Supplier`, `sales.Customer`,
+`sales.CustomerOrder`, `sales.CustomerOrderLine`, `sales.Sale`,
+`sales.SaleLine`, `transfers.StockTransfer`, `transfers.StockTransferLine`.
+
+**Ampleur de la correction** (a evaluer en Phase 3, ne rien faire
+maintenant) : separer le mapping JPA du modele de domaine pur exige soit
+(a) des classes JPA distinctes par agregat (ex.
+`infrastructure.persistence.ArticleEntity`) avec un mapper vers/depuis le
+domaine pur, soit (b) un mapping XML (`orm.xml`) qui deplace les
+annotations hors du code source. Option (a) est plus idiomatique Spring/
+Hibernate moderne mais double le nombre de classes par agregat (21 -> 42+) ;
+a arbitrer specifiquement, ce n'est pas un simple "deplacer un fichier".
+Les invariants metier deja presents sur ces classes (`Stock.issue()`,
+`PurchaseOrder.requireReceivable()`, etc., deja testes au niveau domaine
+pur selon CLAUDE.md) devront survivre intacts a la separation.
+
+### 2. A corriger en Phase 3/5 (mineur, deja localise) : 16 injections par champ
+
+`GeneralCodingRules.NO_CLASSES_SHOULD_USE_FIELD_INJECTION` (regle
+prete-a-l'emploi ArchUnit, qui detecte `@Autowired`/`@Value`/`@Inject`/
+`@Resource` sur un champ — plus large que le seul `@Autowired` cite
+litteralement dans CLAUDE.md, mais coherente avec l'esprit "injection par
+constructeur uniquement") remonte 16 violations, **aucune dans les 8
+modules "neufs"** — toutes dans le legacy/l'infrastructure transverse :
+
+- `config.ApplicationRequestFilter` (2 champs `@Autowired`)
+- `config.FlickrConfiguration` (4 champs `@Value`)
+- `controller.AuthenticationController` (3 champs `@Autowired`)
+- `services.auth.ApplicationUserDetailsService` (2 champs `@Autowired`)
+- `services.impl.FlickrServiceImpl` (4 champs `@Value`)
+- `utils.JwtUtil` (1 champ `@Value`)
+
+Correction simple (constructeur au lieu du champ) mais volume de classes
+touchees a evaluer avec la Phase 5 (securite) puisque plusieurs de ces
+classes (JwtUtil, ApplicationRequestFilter) sont deja identifiees comme
+sensibles ailleurs dans ce fichier/CLAUDE.md.
+
+### 3. Deja connu (Phase 1), confirme par un mecanisme independant
+
+`ArchitectureRulesTest.modules_must_be_free_of_cycles` (verification
+ArchUnit "slices" pure, independante de Spring Modulith) detecte
+exactement les **4 memes cycles** que `ModularityTests.verifiesModularStructure`
+en Phase 1, avec la meme cause racine unique
+(`catalog.application.impl.ArticleServiceImpl` accedant directement aux
+repositories/entites internes de `purchasing`/`sales`, voir la section
+"Trouve pendant Phase 1" ci-dessous). Les deux mecanismes de detection
+(Spring Modulith et ArchUnit) sont donc en accord total sur ce point — pas
+un nouveau finding, une confirmation. Piste de correction deja proposee
+plus bas, inchangee, toujours pour Phase 3.
+
 ## Trouve pendant Phase 1
 
 Toutes les violations detaillees ci-dessous ont ete **rendues visibles** par

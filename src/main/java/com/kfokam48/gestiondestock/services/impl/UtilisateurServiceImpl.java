@@ -1,66 +1,61 @@
 package com.kfokam48.gestiondestock.services.impl;
 
 import com.kfokam48.gestiondestock.dto.ChangerMotDePasseUtilisateurDto;
+import com.kfokam48.gestiondestock.dto.EntrepriseDto;
 import com.kfokam48.gestiondestock.dto.UtilisateurDto;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
-import com.kfokam48.gestiondestock.model.Utilisateur;
-import com.kfokam48.gestiondestock.repository.UtilisateurRepository;
+import com.kfokam48.gestiondestock.identity.application.UserService;
+import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
+import com.kfokam48.gestiondestock.repository.EntrepriseRepository;
 import com.kfokam48.gestiondestock.services.UtilisateurService;
-import com.kfokam48.gestiondestock.validator.UtilisateurValidator;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-
+// Phase 4a : /utilisateurs/* garde son contrat HTTP (UtilisateurDto, y compris la faute
+// historique "moteDePasse") mais est desormais re-backe par identity.User/UserService, comme
+// FournisseurServiceImpl est re-backe par purchasing.Supplier depuis la Phase 18. Les codes
+// d'erreur legacy (UTILISATEUR_NOT_FOUND/UTILISATEUR_ALREADY_EXISTS) sont preserves explicitement
+// (contrairement a Fournisseur/Client, dont les 404 laissent deja fuiter le code du module neuf,
+// SUPPLIER_NOT_FOUND/CUSTOMER_NOT_FOUND — comportement deja characterise avant cette migration,
+// donc deja "actuel" a l'epoque ou ces adapters ont ete ecrits) : ici la migration se fait
+// maintenant, donc le comportement observable AVANT ce commit (UTILISATEUR_*) doit rester
+// identique APRES, voir docs/phase-4a-report.md et
+// UtilisateurAuthenticationCharacterizationTest.
 @Service
 @Slf4j
 public class UtilisateurServiceImpl implements UtilisateurService {
 
-  private UtilisateurRepository utilisateurRepository;
-  private PasswordEncoder passwordEncoder;
+  private UserService userService;
+  private EntrepriseRepository entrepriseRepository;
 
   @Autowired
-  public UtilisateurServiceImpl(UtilisateurRepository utilisateurRepository,
-      PasswordEncoder passwordEncoder) {
-    this.utilisateurRepository = utilisateurRepository;
-    this.passwordEncoder = passwordEncoder;
+  public UtilisateurServiceImpl(UserService userService, EntrepriseRepository entrepriseRepository) {
+    this.userService = userService;
+    this.entrepriseRepository = entrepriseRepository;
   }
 
   @Override
   public UtilisateurDto save(UtilisateurDto dto) {
-    List<String> errors = UtilisateurValidator.validate(dto);
-    if (!errors.isEmpty()) {
-      log.error("Utilisateur is not valid {}", dto);
-      throw new InvalidEntityException("L'utilisateur n'est pas valide", ErrorCodes.UTILISATEUR_NOT_VALID, errors);
+    try {
+      UserDto saved = userService.save(toUserDto(dto));
+      return toUtilisateurDto(saved);
+    } catch (InvalidEntityException ex) {
+      // UserValidator (identity) porte exactement les memes regles/messages que l'ancien
+      // UtilisateurValidator (legacy) : seul le code d'erreur est traduit, pas le message ni la
+      // liste d'erreurs, pour rester byte-for-byte identique au contrat /utilisateurs/create.
+      ErrorCodes legacyCode = ex.getErrorCode() == ErrorCodes.USER_ALREADY_EXISTS
+          ? ErrorCodes.UTILISATEUR_ALREADY_EXISTS
+          : ErrorCodes.UTILISATEUR_NOT_VALID;
+      throw new InvalidEntityException(ex.getMessage(), legacyCode, ex.getErrors());
     }
-
-    if(userAlreadyExists(dto.getEmail())) {
-      throw new InvalidEntityException("Un autre utilisateur avec le meme email existe deja", ErrorCodes.UTILISATEUR_ALREADY_EXISTS,
-          Collections.singletonList("Un autre utilisateur avec le meme email existe deja dans la BDD"));
-    }
-
-
-    dto.setMoteDePasse(passwordEncoder.encode(dto.getMoteDePasse()));
-
-    return UtilisateurDto.fromEntity(
-        utilisateurRepository.save(
-            UtilisateurDto.toEntity(dto)
-        )
-    );
-  }
-
-  private boolean userAlreadyExists(String email) {
-    Optional<Utilisateur> user = utilisateurRepository.findUtilisateurByEmail(email);
-    return user.isPresent();
   }
 
   @Override
@@ -69,18 +64,14 @@ public class UtilisateurServiceImpl implements UtilisateurService {
       log.error("Utilisateur ID is null");
       return null;
     }
-    return utilisateurRepository.findById(id)
-        .map(UtilisateurDto::fromEntity)
-        .orElseThrow(() -> new EntityNotFoundException(
-            "Aucun utilisateur avec l'ID = " + id + " n' ete trouve dans la BDD",
-            ErrorCodes.UTILISATEUR_NOT_FOUND)
-        );
+    return toUtilisateurDto(findUserOrThrow(() -> userService.findById(id),
+        "Aucun utilisateur avec l'ID = " + id + " n' ete trouve dans la BDD"));
   }
 
   @Override
   public List<UtilisateurDto> findAll() {
-    return utilisateurRepository.findAll().stream()
-        .map(UtilisateurDto::fromEntity)
+    return userService.findAll().stream()
+        .map(this::toUtilisateurDto)
         .collect(Collectors.toList());
   }
 
@@ -90,34 +81,29 @@ public class UtilisateurServiceImpl implements UtilisateurService {
       log.error("Utilisateur ID is null");
       return;
     }
-    utilisateurRepository.deleteById(id);
+    userService.delete(id);
   }
 
   @Override
   public UtilisateurDto findByEmail(String email) {
-    return utilisateurRepository.findUtilisateurByEmail(email)
-        .map(UtilisateurDto::fromEntity)
-        .orElseThrow(() -> new EntityNotFoundException(
-        "Aucun utilisateur avec l'email = " + email + " n' ete trouve dans la BDD",
-        ErrorCodes.UTILISATEUR_NOT_FOUND)
-    );
+    return toUtilisateurDto(findUserOrThrow(() -> userService.findByEmail(email),
+        "Aucun utilisateur avec l'email = " + email + " n' ete trouve dans la BDD"));
   }
 
   @Override
   public UtilisateurDto changerMotDePasse(ChangerMotDePasseUtilisateurDto dto) {
     validate(dto);
-    Optional<Utilisateur> utilisateurOptional = utilisateurRepository.findById(dto.getId());
-    if (utilisateurOptional.isEmpty()) {
-      log.warn("Aucun utilisateur n'a ete trouve avec l'ID " + dto.getId());
-      throw new EntityNotFoundException("Aucun utilisateur n'a ete trouve avec l'ID " + dto.getId(), ErrorCodes.UTILISATEUR_NOT_FOUND);
+    UserDto updated = findUserOrThrow(() -> userService.changePassword(dto.getId(), dto.getMotDePasse()),
+        "Aucun utilisateur n'a ete trouve avec l'ID " + dto.getId());
+    return toUtilisateurDto(updated);
+  }
+
+  private UserDto findUserOrThrow(Supplier<UserDto> lookup, String legacyMessage) {
+    try {
+      return lookup.get();
+    } catch (EntityNotFoundException ex) {
+      throw new EntityNotFoundException(legacyMessage, ErrorCodes.UTILISATEUR_NOT_FOUND);
     }
-
-    Utilisateur utilisateur = utilisateurOptional.get();
-    utilisateur.setMoteDePasse(passwordEncoder.encode(dto.getMotDePasse()));
-
-    return UtilisateurDto.fromEntity(
-        utilisateurRepository.save(utilisateur)
-    );
   }
 
   private void validate(ChangerMotDePasseUtilisateurDto dto) {
@@ -141,5 +127,40 @@ public class UtilisateurServiceImpl implements UtilisateurService {
       throw new InvalidOperationException("Mots de passe utilisateur non conformes:: Impossible de modifier le mote de passe",
           ErrorCodes.UTILISATEUR_CHANGE_PASSWORD_OBJECT_NOT_VALID);
     }
+  }
+
+  private UserDto toUserDto(UtilisateurDto dto) {
+    Long idEntreprise = dto.getEntreprise() != null ? dto.getEntreprise().getId() : null;
+    return UserDto.builder()
+        .id(dto.getId())
+        .nom(dto.getNom())
+        .prenom(dto.getPrenom())
+        .email(dto.getEmail())
+        .dateDeNaissance(dto.getDateDeNaissance())
+        .motDePasse(dto.getMoteDePasse())
+        .adresse(dto.getAdresse())
+        .photo(dto.getPhoto())
+        .idEntreprise(idEntreprise)
+        .build();
+  }
+
+  private UtilisateurDto toUtilisateurDto(UserDto user) {
+    if (user == null) {
+      return null;
+    }
+    EntrepriseDto entreprise = user.getIdEntreprise() != null
+        ? entrepriseRepository.findById(user.getIdEntreprise()).map(EntrepriseDto::fromEntity).orElse(null)
+        : null;
+    return UtilisateurDto.builder()
+        .id(user.getId())
+        .nom(user.getNom())
+        .prenom(user.getPrenom())
+        .email(user.getEmail())
+        .dateDeNaissance(user.getDateDeNaissance())
+        .moteDePasse(user.getMotDePasse())
+        .adresse(user.getAdresse())
+        .photo(user.getPhoto())
+        .entreprise(entreprise)
+        .build();
   }
 }

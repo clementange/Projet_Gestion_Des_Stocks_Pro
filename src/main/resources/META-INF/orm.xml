@@ -80,6 +80,16 @@
   cas numTel/num_tel ici. Aucun @Version ni contrainte composite. Module 21/21 : derniere entite
   de domaine des 8 modules "neufs" directement annotee JPA (constat d'origine, Phase 2) resolue.
 
+  identity.domain.model.User (Phase 4a, docs/phase-4a-report.md) : premiere entite migree depuis
+  le legacy plat (model.Utilisateur) plutot que depuis un module deja "neuf" - meme technique
+  orm.xml, meme table physique reutilisee telle quelle (utilisateur, aucune nouvelle migration
+  Flyway). idEntreprise reste une reference faible (Long, pas @ManyToOne) : Entreprise n'est pas
+  encore migree (Phase 4b). model.Utilisateur/UtilisateurRepository restent en place (toujours
+  annotes JPA sur la meme table) mais deviennent orphelins : plus aucun code ne les reference que
+  leur propre declaration, exactement le meme etat que model.CommandeFournisseur/
+  CommandeFournisseurRepository depuis la Phase 21. Aucun invariant metier sur User (email unique
+  et hachage de mot de passe sont des preoccupations applicatives, pas domaine).
+
   Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange
   pour toutes les entites ci-dessous - non redeclare ici, herite normalement.
 -->
@@ -280,6 +290,34 @@
       </basic>
       <basic name="scopeId">
         <column name="scope_id"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.identity.domain.model.User" access="FIELD">
+    <table name="utilisateur"/>
+    <attributes>
+      <basic name="nom">
+        <column name="nom"/>
+      </basic>
+      <basic name="prenom">
+        <column name="prenom"/>
+      </basic>
+      <basic name="email">
+        <column name="email"/>
+      </basic>
+      <basic name="dateDeNaissance">
+        <column name="datedenaissance"/>
+      </basic>
+      <basic name="motDePasse">
+        <column name="motdepasse"/>
+      </basic>
+      <embedded name="adresse"/>
+      <basic name="photo">
+        <column name="photo"/>
+      </basic>
+      <basic name="idEntreprise">
+        <column name="identreprise"/>
       </basic>
     </attributes>
   </entity>

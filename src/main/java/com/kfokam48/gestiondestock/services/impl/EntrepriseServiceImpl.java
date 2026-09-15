@@ -2,12 +2,13 @@ package com.kfokam48.gestiondestock.services.impl;
 
 import com.kfokam48.gestiondestock.dto.AdresseDto;
 import com.kfokam48.gestiondestock.dto.EntrepriseDto;
-import com.kfokam48.gestiondestock.dto.UtilisateurDto;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.identity.application.RoleService;
 import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
+import com.kfokam48.gestiondestock.identity.application.UserService;
+import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
 import com.kfokam48.gestiondestock.identity.application.dto.UserRoleAssignmentDto;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
 import com.kfokam48.gestiondestock.model.Entreprise;
@@ -15,7 +16,6 @@ import com.kfokam48.gestiondestock.organization.application.OrganizationService;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.repository.EntrepriseRepository;
 import com.kfokam48.gestiondestock.services.EntrepriseService;
-import com.kfokam48.gestiondestock.services.UtilisateurService;
 import com.kfokam48.gestiondestock.validator.EntrepriseValidator;
 import java.time.Instant;
 import java.util.List;
@@ -31,17 +31,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class EntrepriseServiceImpl implements EntrepriseService {
 
   private EntrepriseRepository entrepriseRepository;
-  private UtilisateurService utilisateurService;
+  private UserService userService;
   private RoleService roleService;
   private UserRoleAssignmentService userRoleAssignmentService;
   private OrganizationService organizationService;
 
   @Autowired
-  public EntrepriseServiceImpl(EntrepriseRepository entrepriseRepository, UtilisateurService utilisateurService,
+  public EntrepriseServiceImpl(EntrepriseRepository entrepriseRepository, UserService userService,
       RoleService roleService, UserRoleAssignmentService userRoleAssignmentService,
       OrganizationService organizationService) {
     this.entrepriseRepository = entrepriseRepository;
-    this.utilisateurService = utilisateurService;
+    this.userService = userService;
     this.roleService = roleService;
     this.userRoleAssignmentService = userRoleAssignmentService;
     this.organizationService = organizationService;
@@ -77,9 +77,9 @@ public class EntrepriseServiceImpl implements EntrepriseService {
 
     EntrepriseDto savedEntreprise = EntrepriseDto.fromEntity(savedEntrepriseEntity);
 
-    UtilisateurDto utilisateur = fromEntreprise(savedEntreprise);
+    UserDto user = fromEntreprise(savedEntreprise);
 
-    UtilisateurDto savedUser = utilisateurService.save(utilisateur);
+    UserDto savedUser = userService.save(user);
 
     // Amorcage RBAC (Phase 14) : le premier utilisateur d'une organisation recoit d'emblee le
     // role ADMINISTRATEUR en perimetre GLOBAL, sinon personne ne pourrait jamais attribuer de
@@ -96,14 +96,14 @@ public class EntrepriseServiceImpl implements EntrepriseService {
     return  savedEntreprise;
   }
 
-  private UtilisateurDto fromEntreprise(EntrepriseDto dto) {
-    return UtilisateurDto.builder()
+  private UserDto fromEntreprise(EntrepriseDto dto) {
+    return UserDto.builder()
         .adresse(dto.getAdresse())
         .nom(dto.getNom())
         .prenom(dto.getCodeFiscal())
         .email(dto.getEmail())
-        .moteDePasse(generateRandomPassword())
-        .entreprise(dto)
+        .motDePasse(generateRandomPassword())
+        .idEntreprise(dto.getId())
         .dateDeNaissance(Instant.now())
         .photo(dto.getPhoto())
         .build();

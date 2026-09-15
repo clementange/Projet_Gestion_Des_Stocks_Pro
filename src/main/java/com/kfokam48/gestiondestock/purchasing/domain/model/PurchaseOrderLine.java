@@ -4,40 +4,32 @@ import com.kfokam48.gestiondestock.catalog.domain.model.Article;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.model.AbstractEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+/**
+ * Phase 3c : mapping JPA declare dans META-INF/orm.xml, pas en annotations - voir le commentaire
+ * en tete de ce fichier XML. Aucune des methodes d'invariant ci-dessous ne porte d'annotation
+ * JPA : ce deplacement ne les touche pas (golden master :
+ * purchasing/domain/model/PurchaseOrderLineTest, verifie identique avant/apres).
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Entity
-@Table(name = "purchase_order_line")
 public class PurchaseOrderLine extends AbstractEntity {
 
-  @ManyToOne
-  @JoinColumn(name = "purchase_order_id", nullable = false)
   private PurchaseOrder purchaseOrder;
 
-  @ManyToOne
-  @JoinColumn(name = "article_id", nullable = false)
   private Article article;
 
-  @Column(name = "quantite_commandee", nullable = false)
   private BigDecimal quantiteCommandee;
 
-  @Column(name = "quantite_recue", nullable = false)
   private BigDecimal quantiteRecue = BigDecimal.ZERO;
 
-  @Column(name = "prix_unitaire", nullable = false)
   private BigDecimal prixUnitaire;
 
   public BigDecimal getQuantiteRestanteARecevoir() {

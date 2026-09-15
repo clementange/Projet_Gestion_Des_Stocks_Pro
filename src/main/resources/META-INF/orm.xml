@@ -39,6 +39,21 @@
   (inventory/domain/model/StockTest, ecrit et verifie AVANT ce mapping) le garantit
   independamment des tests d'integration.
 
+  purchasing.domain.model (Supplier/PurchaseOrder/PurchaseOrderLine) : aucun consommateur externe
+  direct sur les trois (le seul import externe, services.impl.CommandeFournisseurServiceImpl, ne
+  reference que l'enum PurchaseOrderStatus au travers de la couche application/DTO, pas les
+  entites elles-memes) - orm.xml applique par coherence, comme inventory. PurchaseOrder et
+  PurchaseOrderLine portent de vrais invariants (validate/cancel/requireReceivable/
+  markFullyReceived ; getQuantiteRestanteARecevoir/isFullyReceived/receive), aucun annote JPA -
+  golden master ecrit et verifie AVANT ce mapping dans
+  purchasing/domain/model/{PurchaseOrderTest,PurchaseOrderLineTest} (voir
+  docs/phase-3c-purchasing-report.md). Supplier.numTel est le premier champ dont le nom
+  litteral de colonne (@Column(name = "numTel")) differe de la colonne physique reelle
+  (num_tel, V5__customer_supplier_and_organization_contact_fields.sql) : transformation geree
+  par SpringPhysicalNamingStrategy (camelCase -> snake_case), independamment de l'annotation ou du
+  XML - le XML reprend donc le meme nom litteral "numTel", pas le nom physique, par coherence avec
+  la source qu'il remplace ; confirme par ddl-auto=validate au demarrage.
+
   Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange
   pour toutes les entites ci-dessous - non redeclare ici, herite normalement.
 -->
@@ -301,6 +316,74 @@
       <version name="version">
         <column name="version"/>
       </version>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.purchasing.domain.model.Supplier" access="FIELD">
+    <table name="supplier"/>
+    <attributes>
+      <basic name="nom">
+        <column name="nom"/>
+      </basic>
+      <basic name="prenom">
+        <column name="prenom"/>
+      </basic>
+      <embedded name="adresse"/>
+      <basic name="photo">
+        <column name="photo"/>
+      </basic>
+      <basic name="mail">
+        <column name="mail"/>
+      </basic>
+      <basic name="numTel">
+        <column name="numTel"/>
+      </basic>
+      <basic name="organizationId">
+        <column name="organizationId"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.purchasing.domain.model.PurchaseOrder" access="FIELD">
+    <table name="purchase_order"/>
+    <attributes>
+      <basic name="code">
+        <column name="code" nullable="false" unique="true"/>
+      </basic>
+      <basic name="supplierId">
+        <column name="supplier_id" nullable="false"/>
+      </basic>
+      <many-to-one name="site" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Site">
+        <join-column name="site_id" nullable="false"/>
+      </many-to-one>
+      <basic name="orderDate">
+        <column name="order_date" nullable="false"/>
+      </basic>
+      <basic name="status">
+        <enumerated>STRING</enumerated>
+        <column name="status" nullable="false"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.purchasing.domain.model.PurchaseOrderLine" access="FIELD">
+    <table name="purchase_order_line"/>
+    <attributes>
+      <many-to-one name="purchaseOrder" target-entity="com.kfokam48.gestiondestock.purchasing.domain.model.PurchaseOrder">
+        <join-column name="purchase_order_id" nullable="false"/>
+      </many-to-one>
+      <many-to-one name="article" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Article">
+        <join-column name="article_id" nullable="false"/>
+      </many-to-one>
+      <basic name="quantiteCommandee">
+        <column name="quantite_commandee" nullable="false"/>
+      </basic>
+      <basic name="quantiteRecue">
+        <column name="quantite_recue" nullable="false"/>
+      </basic>
+      <basic name="prixUnitaire">
+        <column name="prix_unitaire" nullable="false"/>
+      </basic>
     </attributes>
   </entity>
 

@@ -13,17 +13,22 @@ Violations rendues visibles par `ArchitectureRulesTest` (voir
 du code de production hors legacy plat (donc potentiellement en scope
 Phase 3, sauf le point 2 qui est pour partie legacy).
 
-### 1. A corriger en Phase 3 (majeur) : les 21 entites de domaine des 8 modules sont directement annotees JPA
+### 1. EN COURS (Phase 3c, module par module) : les 21 entites de domaine des 8 modules sont directement annotees JPA
 
-**100% des entites de domaine des modules "neufs"** (21 sur 21, une dans
-chaque agregat) portent des annotations `jakarta.persistence` directement
-sur la classe de domaine — `@Entity`, `@Table`, et au niveau des champs
-`@Column`, `@ManyToOne`/`@OneToOne`/`@OneToMany`/`@ManyToMany`,
-`@JoinColumn`, `@Enumerated`, `@Embedded`, `@Version` (272 occurrences au
-total, repartition complete dans `docs/phase-2-report.md` §2). C'est
-directement contraire a CLAUDE.md ("domain/ n'importe jamais Spring ni
-jakarta.persistence") et **c'est vrai pour la totalite des agregats**, pas
-un cas isole :
+**4 des 21 entites resolues en Phase 3c/organization**
+(`Organization`/`City`/`Site`/`Warehouse`, mapping deplace vers
+`META-INF/orm.xml`, voir `docs/phase-3c-organization-report.md`) — **17
+restent a traiter**, module par module, phases futures.
+
+Constat d'origine (Phase 2) : **100% des entites de domaine des modules
+"neufs"** (21 sur 21, une dans chaque agregat) portaient des annotations
+`jakarta.persistence` directement sur la classe de domaine — `@Entity`,
+`@Table`, et au niveau des champs `@Column`, `@ManyToOne`/`@OneToOne`/
+`@OneToMany`/`@ManyToMany`, `@JoinColumn`, `@Enumerated`, `@Embedded`,
+`@Version` (272 occurrences au total, repartition complete dans
+`docs/phase-2-report.md` §2). C'etait directement contraire a CLAUDE.md
+("domain/ n'importe jamais Spring ni jakarta.persistence") et vrai pour la
+totalite des agregats, pas un cas isole :
 
 `catalog.Article`, `catalog.Category`, `identity.Permission`,
 `identity.Role`, `identity.UserRoleAssignment`, `inventory.Stock`,
@@ -33,14 +38,27 @@ un cas isole :
 `sales.CustomerOrder`, `sales.CustomerOrderLine`, `sales.Sale`,
 `sales.SaleLine`, `transfers.StockTransfer`, `transfers.StockTransferLine`.
 
-**Ampleur de la correction** (a evaluer en Phase 3, ne rien faire
-maintenant) : separer le mapping JPA du modele de domaine pur exige soit
-(a) des classes JPA distinctes par agregat (ex.
-`infrastructure.persistence.ArticleEntity`) avec un mapper vers/depuis le
-domaine pur, soit (b) un mapping XML (`orm.xml`) qui deplace les
-annotations hors du code source. Option (a) est plus idiomatique Spring/
-Hibernate moderne mais double le nombre de classes par agregat (21 -> 42+) ;
-a arbitrer specifiquement, ce n'est pas un simple "deplacer un fichier".
+**Ce que Phase 3c/organization a appris** (voir
+`docs/phase-3c-organization-report.md` pour le detail complet) : le choix
+entre (a) classes JPA distinctes + mapper et (b) mapping XML `orm.xml`
+n'est PAS purement stylistique — il depend d'un fait structurel a verifier
+module par module : `Organization` et `Site` sont referencees via
+`@ManyToOne` en direct (pas seulement via DTO) depuis 5 AUTRES modules
+(`catalog.Article/Category` -> `Organization` ; `sales.Sale/CustomerOrder`,
+`inventory.Stock/StockMovement`, `purchasing.PurchaseOrder`,
+`transfers.StockTransfer` -> `Site`). Hibernate exige que le type
+litteralement reference par un `@ManyToOne` externe reste lui-meme mappe
+comme entite — l'option (a) (nouvelle classe JPA a un autre FQCN) aurait
+donc oblige a modifier ces 9 fichiers externes, chose interdite pour cet
+increment. Seule (b) `orm.xml` permet de conserver EXACTEMENT le meme
+FQCN/package pour la classe tout en retirant ses annotations, donc zero
+impact sur les modules consommateurs. `City`/`Warehouse` n'avaient pas
+cette contrainte mais ont recu le meme traitement, par coherence.
+**A verifier a nouveau pour chaque module restant** : `catalog.Article` a
+le meme profil que `Site`/`Organization` (referencee en `@ManyToOne` par 4
+autres modules) — s'attendre a devoir refaire ce meme raisonnement, pas a
+supposer que (a) convient par defaut.
+
 Les invariants metier deja presents sur ces classes (`Stock.issue()`,
 `PurchaseOrder.requireReceivable()`, etc., deja testes au niveau domaine
 pur selon CLAUDE.md) devront survivre intacts a la separation.

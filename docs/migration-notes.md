@@ -15,14 +15,15 @@ Phase 3, sauf le point 2 qui est pour partie legacy).
 
 ### 1. EN COURS (Phase 3c, module par module) : les 21 entites de domaine des 8 modules sont directement annotees JPA
 
-**9 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
+**11 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
 (Phase 3c/organization, `docs/phase-3c-organization-report.md`),
 `Article`/`Category` (Phase 3c/catalog, `docs/phase-3c-catalog-report.md`),
-puis `Permission`/`Role`/`UserRoleAssignment` (Phase 3c/identity,
-`docs/phase-3c-identity-report.md`) — mapping deplace vers
-`META-INF/orm.xml` (fichier unique partage entre modules, pas un fichier
-par module — Spring Boot n'auto-decouvre que ce nom exact). **12 restent a
-traiter**, module par module, phases futures.
+`Permission`/`Role`/`UserRoleAssignment` (Phase 3c/identity,
+`docs/phase-3c-identity-report.md`), puis `Stock`/`StockMovement`
+(Phase 3c/inventory, `docs/phase-3c-inventory-report.md`) — mapping
+deplace vers `META-INF/orm.xml` (fichier unique partage entre modules, pas
+un fichier par module — Spring Boot n'auto-decouvre que ce nom exact).
+**10 restent a traiter**, module par module, phases futures.
 
 Constat d'origine (Phase 2) : **100% des entites de domaine des modules
 "neufs"** (21 sur 21, une dans chaque agregat) portaient des annotations
@@ -82,12 +83,27 @@ convient par defaut : le critere determinant reste "cette entite est-elle
 referencee en `@ManyToOne`/`@OneToOne` direct par un autre module ?", pas
 une propriete du module lui-meme.
 
-Les invariants metier deja presents sur ces classes (`Stock.issue()`,
-`PurchaseOrder.requireReceivable()`, etc., deja testes au niveau domaine
-pur selon CLAUDE.md) devront survivre intacts a la separation — question
-non encore eclairee par organization/catalog/identity, qui n'avaient aucun
-invariant sur leurs entites. `inventory` sera le premier module a vraiment
-tester ce point.
+**Phase 3c/inventory** : quatrieme module traite, premier avec de vrais
+invariants metier (`Stock.issue/receive/reserve/releaseReservation/
+correct`) et premier `@Version` de tout le schema (confirme unique via le
+commentaire SQL de `V2__drop_stray_optimistic_lock_columns.sql`). Ni
+`Stock` ni `StockMovement` n'ont de consommateur externe (contrairement a
+`Site`/`Article`) : `orm.xml` n'etait donc pas une necessite technique ici,
+mais applique par choix explicite de coherence. Nouveaute methodologique :
+une etape 0 obligatoire a precede tout changement de mapping — un test
+JUnit pur (`inventory/domain/model/StockTest`, 22 methodes, zero contexte
+Spring) ecrit et verifie vert AVANT le retrait des annotations, puis
+reverifie identique (0 assertion modifiee) apres — golden master direct
+des invariants, independant des tests d'integration existants. A repeter
+pour tout module restant portant une methode de domaine non triviale
+(`purchasing.PurchaseOrder`, `sales.CustomerOrder`,
+`transfers.StockTransfer`, etc.). Deux constructions XML inedites
+validees : `<version>` (verrouillage optimiste) et `<unique-constraint>`
+composite multi-colonnes au niveau `<table>` (`article_id`+`site_id`). La
+garantie cross-module "jamais de survente" (`CrossModuleConcurrencyIntegrationTest`)
+a ete reverifiee individuellement (3 executions separees, 3/3 vertes) sous
+le nouveau mapping `<version>` XML — voir `docs/phase-3c-inventory-report.md`
+§3 pour le detail du raisonnement.
 
 ### 2. ~~A corriger en Phase 3/5~~ RESOLU en Phase 3b : 16 injections par champ
 

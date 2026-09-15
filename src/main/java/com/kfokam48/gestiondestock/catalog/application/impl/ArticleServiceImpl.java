@@ -41,6 +41,26 @@ import org.springframework.util.StringUtils;
 // La contrainte FK (article_id) deja presente sur sale_line/customer_order_line/purchase_order_line
 // (V1__initial_schema.sql) protege deja la suppression au niveau base ; on se contente de traduire
 // l'exception SQL en InvalidOperationException au lieu de pre-verifier via un appel cross-module.
+//
+// Finition post-Phase-3c (docs/phase-3-finition-a-report.md) : revue explicite du perimetre exact
+// de ce catch. 10 contraintes FK referencent article(id) au total (V1__initial_schema.sql) : les 3
+// verifiees explicitement ci-dessous (lignecommandeclient, lignecommandefournisseur, lignevente)
+// plus 7 couvertes UNIQUEMENT par le catch DataIntegrityViolationException — stock,
+// stock_movement, stock_transfer_line, purchase_order_line, customer_order_line, sale_line, et
+// mvtstk (la 4e table plate historique : contrairement a lignevente/lignecommandeclient/
+// lignecommandefournisseur, elle n'a jamais recu de verification explicite ici). Ces 7 ne peuvent
+// pas etre pre-verifiees explicitement comme les 3 premieres, pour deux raisons distinctes :
+//   - stock/stock_movement/purchase_order_line/customer_order_line/sale_line/stock_transfer_line :
+//     une pre-verification appellerait catalog vers inventory/purchasing/sales/transfers, qui
+//     dependent tous deja de catalog (Article) — recreerait exactement le cycle evite en Phase 3a.
+//   - mvtstk : n'a pas de repository Spring Data (aucun MvtStkRepository n'existe) ; en creer un
+//     serait de la nouvelle fonctionnalite dans le legacy plat (repository/ a la racine du
+//     package), interdit par CLAUDE.md. La table est de toute facon gelee depuis la Phase 22
+//     (MvtStkServiceImpl est entierement re-backe par inventory.Stock/StockMovement, plus aucune
+//     ecriture n'y arrive) : son FK ne protege plus que des lignes historiques, pas de croissance.
+// Le catch n'est donc pas une approximation : aucune autre contrainte (CHECK, trigger) n'existe
+// sur article, donc un DELETE par id ne peut echouer en DataIntegrityViolationException que par
+// l'une de ces 10 FK — le perimetre est entierement caracterise, pas devine.
 @Service
 @Slf4j
 public class ArticleServiceImpl implements ArticleService {

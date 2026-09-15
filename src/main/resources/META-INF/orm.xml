@@ -67,6 +67,19 @@
   besoin). Customer.numTel repete le cas numTel/num_tel deja rencontre sur Supplier (Phase
   3c/purchasing) : meme resolution, meme nom litteral repris tel quel dans le XML.
 
+  transfers.domain.model (StockTransfer/StockTransferLine) : dernier module de la Phase 3c. Aucun
+  consommateur externe direct sur les deux entites (recherche exhaustive, 0 resultat). Seule
+  StockTransfer porte de vrais invariants (machine a etats complete : submit/approve/
+  requirePreparable/markInPreparation/requireShippable/markShipped/requireReceivable/
+  markReceived/cancel) - StockTransferLine est un @Data pur, confirme par lecture directe avant
+  d'ecrire ce mapping (meme profil que CustomerOrderLine/SaleLine). Golden master ecrit et
+  verifie AVANT ce mapping dans transfers/domain/model/StockTransferTest (20 methodes, voir
+  docs/phase-3c-transfers-report.md). Toutes les colonnes physiques (origin_site_id,
+  destination_site_id, requested_by_user_id, approved_by_user_id, request_date) correspondent
+  deja exactement au nom de champ transforme par SpringPhysicalNamingStrategy - pas de troisieme
+  cas numTel/num_tel ici. Aucun @Version ni contrainte composite. Module 21/21 : derniere entite
+  de domaine des 8 modules "neufs" directement annotee JPA (constat d'origine, Phase 2) resolue.
+
   Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange
   pour toutes les entites ci-dessous - non redeclare ici, herite normalement.
 -->
@@ -497,6 +510,49 @@
       </basic>
       <basic name="prixUnitaire">
         <column name="prix_unitaire" nullable="false"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.transfers.domain.model.StockTransfer" access="FIELD">
+    <table name="stock_transfer"/>
+    <attributes>
+      <basic name="code">
+        <column name="code" nullable="false" unique="true"/>
+      </basic>
+      <many-to-one name="originSite" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Site">
+        <join-column name="origin_site_id" nullable="false"/>
+      </many-to-one>
+      <many-to-one name="destinationSite" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Site">
+        <join-column name="destination_site_id" nullable="false"/>
+      </many-to-one>
+      <basic name="status">
+        <enumerated>STRING</enumerated>
+        <column name="status" nullable="false"/>
+      </basic>
+      <basic name="requestedByUserId">
+        <column name="requested_by_user_id" nullable="false"/>
+      </basic>
+      <basic name="approvedByUserId">
+        <column name="approved_by_user_id"/>
+      </basic>
+      <basic name="requestDate">
+        <column name="request_date" nullable="false"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.transfers.domain.model.StockTransferLine" access="FIELD">
+    <table name="stock_transfer_line"/>
+    <attributes>
+      <many-to-one name="stockTransfer" target-entity="com.kfokam48.gestiondestock.transfers.domain.model.StockTransfer">
+        <join-column name="stock_transfer_id" nullable="false"/>
+      </many-to-one>
+      <many-to-one name="article" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Article">
+        <join-column name="article_id" nullable="false"/>
+      </many-to-one>
+      <basic name="quantite">
+        <column name="quantite" nullable="false"/>
       </basic>
     </attributes>
   </entity>

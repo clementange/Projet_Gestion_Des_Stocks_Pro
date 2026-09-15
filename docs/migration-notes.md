@@ -410,3 +410,64 @@ precis dans son propre commentaire.
   `MvtStkServiceImpl.toTypeMvtStk` retourne `null` pour ces types. De meme,
   `CustomerOrderStatus.RESERVEE/PREPAREE/EXPEDIEE` collapsent tous vers
   `EtatCommande.EN_PREPARATION` en lecture legacy.
+
+## Phase 4a (migration model.Utilisateur -> identity.User) : trouve pendant l'increment
+
+Voir `docs/phase-4a-report.md` pour le detail complet. Resume des points a
+traiter, PAS corriges dans 4a (migration = reproduire le comportement
+actuel a l'identique) :
+
+### Deux decouvertes de securite hors perimetre de 4a, zero-tolerance CLAUDE.md
+
+- **`EntrepriseServiceImpl.generateRandomPassword()` retourne une
+  constante en dur** (`"som3R@nd0mP@$$word"`) au lieu d'utiliser
+  `SecureRandom` — exactement le pattern interdit par CLAUDE.md
+  ("Securite — zero tolerance"). Tout utilisateur admin bootstrap a la
+  creation d'une Entreprise recoit ce mot de passe, identique pour tous
+  les tenants, en clair dans le code source. **12 fichiers de test**
+  dependent de cette valeur litterale (`adminToken()` un peu partout).
+  Correctif reporte : suppose de redessiner le flux de bootstrap admin
+  (comment communiquer un mot de passe reellement aleatoire ?) et de
+  reecrire les 12 fichiers de test — hors perimetre d'un increment de
+  migration, candidat pour un increment dedie.
+- **`SecurityConfiguration.corsFilter()`** combine `allowCredentials(true)`
+  avec `allowedOriginPatterns("*")` — combinaison interdite par
+  CLAUDE.md, deja commentee dans le code (`// Don't do this in
+  production`). Non touche (hors fichier-scope de 4a).
+
+### Bugs herites sur le flux d'authentification, reproduits tels quels
+
+- `changerMotDePasse` (`/utilisateurs/update/password` et
+  `/users/{id}/password`) : aucune verification que l'appelant est la
+  cible ou un administrateur (IDOR) — reproduit et teste tel quel dans
+  `UtilisateurAuthenticationCharacterizationTest`.
+- `create`/`delete`/`find*` sur `/utilisateurs/*` **et** `/users/*` :
+  aucune verification de permission au-dela de `authenticated()` — meme
+  situation sur la surface neuve, par choix explicite de ne pas durcir un
+  endpoint neuf au-dela de ce que l'existant offrait deja pendant une
+  migration.
+- **Asymetrie decouverte pendant cet increment** : `POST
+  /auth/authenticate` avec un mauvais mot de passe -> 400
+  `BAD_CREDENTIALS` (gere explicitement par `RestExceptionHandler`), mais
+  avec un email inconnu -> **500**, `code: null` (l'`EntityNotFoundException`
+  levee par `UserService.findByEmail` a l'interieur de
+  `ApplicationUserDetailsService.loadUserByUsername` n'est pas une
+  `UsernameNotFoundException`, donc `DaoAuthenticationProvider` ne
+  l'attrape pas — elle remonte au handler generique). Comportement
+  pre-existant (deja present avant la migration), reproduit a l'identique
+  apres, non corrige.
+
+### RolesDto/model.Roles orphelins
+
+`Utilisateur.roles` (legacy, `@OneToMany` vers `model.Roles`) n'a jamais
+pu etre persiste : aucun `RolesRepository` n'existe dans le code. Retire
+de `identity.User` et de `dto.UtilisateurDto` (silencieusement, aucun
+test n'y touchait). `model.Roles`/`dto.RolesDto` deviennent totalement
+orphelins, candidats a suppression en finition ulterieure (pas fait ici).
+
+### model.Utilisateur/UtilisateurRepository orphelins
+
+Meme etat que `model.CommandeFournisseur`/`CommandeFournisseurRepository`
+depuis la Phase 21 : toujours annotes JPA sur la table `utilisateur`,
+mais plus aucun code ne les reference que leur propre declaration.
+Laisses en place (pas de suppression dans cet increment).

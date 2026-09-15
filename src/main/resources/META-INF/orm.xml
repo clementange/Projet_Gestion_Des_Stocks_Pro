@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Phase 3c : mapping JPA de Organization/City/Site/Warehouse (module organization) declare ici,
+  hors annotations sur les classes elles-memes. Organization et Site sont referencees via
+  @ManyToOne depuis d'autres modules (catalog.Article/Category pour Organization ;
+  sales.Sale/CustomerOrder, inventory.Stock/StockMovement, purchasing.PurchaseOrder,
+  transfers.StockTransfer pour Site - voir docs/phase-3c-organization-report.md) : conserver
+  EXACTEMENT le meme FQCN/package qu'aujourd'hui pour ces deux classes est donc obligatoire, pour
+  ne toucher aucun des fichiers externes qui les referencent. City et Warehouse n'ont aucun
+  consommateur externe mais sont mappees de la meme facon ici, pour la coherence d'une seule
+  strategie de mapping au sein du module (pas de raison fonctionnelle de les traiter differemment).
+  Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange -
+  non redeclare ici, herite normalement par chaque entite.
+-->
+<entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence/orm https://jakarta.ee/xml/ns/persistence/orm/orm_3_1.xsd"
+                  version="3.1">
+
+  <package>com.kfokam48.gestiondestock.organization.domain.model</package>
+
+  <entity class="Organization" access="FIELD">
+    <table name="organization"/>
+    <attributes>
+      <basic name="name">
+        <column name="name" nullable="false"/>
+      </basic>
+      <basic name="description">
+        <column name="description"/>
+      </basic>
+      <basic name="active">
+        <column name="active" nullable="false"/>
+      </basic>
+      <basic name="email">
+        <column name="email"/>
+      </basic>
+      <basic name="phone">
+        <column name="phone"/>
+      </basic>
+      <basic name="website">
+        <column name="website"/>
+      </basic>
+      <basic name="taxCode">
+        <column name="tax_code"/>
+      </basic>
+      <basic name="photo">
+        <column name="photo"/>
+      </basic>
+      <embedded name="adresse"/>
+    </attributes>
+  </entity>
+
+  <entity class="City" access="FIELD">
+    <table name="city"/>
+    <attributes>
+      <basic name="name">
+        <column name="name" nullable="false"/>
+      </basic>
+      <basic name="country">
+        <column name="country"/>
+      </basic>
+      <many-to-one name="organization">
+        <join-column name="organization_id" nullable="false"/>
+      </many-to-one>
+    </attributes>
+  </entity>
+
+  <entity class="Site" access="FIELD">
+    <table name="site"/>
+    <attributes>
+      <basic name="code">
+        <column name="code" nullable="false" unique="true"/>
+      </basic>
+      <basic name="name">
+        <column name="name" nullable="false"/>
+      </basic>
+      <basic name="type">
+        <enumerated>STRING</enumerated>
+        <column name="type" nullable="false"/>
+      </basic>
+      <embedded name="adresse"/>
+      <basic name="active">
+        <column name="active" nullable="false"/>
+      </basic>
+      <many-to-one name="city">
+        <join-column name="city_id" nullable="false"/>
+      </many-to-one>
+    </attributes>
+  </entity>
+
+  <entity class="Warehouse" access="FIELD">
+    <table name="warehouse"/>
+    <attributes>
+      <basic name="code">
+        <column name="code" nullable="false" unique="true"/>
+      </basic>
+      <basic name="name">
+        <column name="name" nullable="false"/>
+      </basic>
+      <basic name="description">
+        <column name="description"/>
+      </basic>
+      <basic name="active">
+        <column name="active" nullable="false"/>
+      </basic>
+      <one-to-one name="site">
+        <join-column name="site_id" nullable="false" unique="true"/>
+      </one-to-one>
+    </attributes>
+  </entity>
+
+</entity-mappings>

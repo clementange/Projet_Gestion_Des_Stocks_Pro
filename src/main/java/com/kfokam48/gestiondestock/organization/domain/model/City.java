@@ -1,32 +1,23 @@
 package com.kfokam48.gestiondestock.organization.domain.model;
 
 import com.kfokam48.gestiondestock.model.AbstractEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+// Phase 3c : mapping JPA declare dans META-INF/orm.xml, pas en annotations - voir le commentaire
+// en tete de ce fichier XML.
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Entity
-@Table(name = "city")
 public class City extends AbstractEntity {
 
-  @Column(name = "name", nullable = false)
   private String name;
 
-  @Column(name = "country")
   private String country;
 
-  @ManyToOne
-  @JoinColumn(name = "organization_id", nullable = false)
   private Organization organization;
 
 }

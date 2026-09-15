@@ -15,17 +15,20 @@ Phase 3, sauf le point 2 qui est pour partie legacy).
 
 ### 1. EN COURS (Phase 3c, module par module) : les 21 entites de domaine des 8 modules sont directement annotees JPA
 
-**14 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
+**19 des 21 entites resolues** : `Organization`/`City`/`Site`/`Warehouse`
 (Phase 3c/organization, `docs/phase-3c-organization-report.md`),
 `Article`/`Category` (Phase 3c/catalog, `docs/phase-3c-catalog-report.md`),
 `Permission`/`Role`/`UserRoleAssignment` (Phase 3c/identity,
 `docs/phase-3c-identity-report.md`), `Stock`/`StockMovement` (Phase
-3c/inventory, `docs/phase-3c-inventory-report.md`), puis
+3c/inventory, `docs/phase-3c-inventory-report.md`),
 `Supplier`/`PurchaseOrder`/`PurchaseOrderLine` (Phase 3c/purchasing,
-`docs/phase-3c-purchasing-report.md`) — mapping deplace vers
+`docs/phase-3c-purchasing-report.md`), puis
+`Customer`/`CustomerOrder`/`CustomerOrderLine`/`Sale`/`SaleLine` (Phase
+3c/sales, `docs/phase-3c-sales-report.md`) — mapping deplace vers
 `META-INF/orm.xml` (fichier unique partage entre modules, pas un fichier
-par module — Spring Boot n'auto-decouvre que ce nom exact). **7 restent a
-traiter**, module par module, phases futures.
+par module — Spring Boot n'auto-decouvre que ce nom exact). **2 restent a
+traiter** (`transfers.StockTransfer`/`StockTransferLine`), dernier module
+de la phase.
 
 Constat d'origine (Phase 2) : **100% des entites de domaine des modules
 "neufs"** (21 sur 21, une dans chaque agregat) portaient des annotations
@@ -124,6 +127,23 @@ camelCase en snake_case, y compris les noms explicites), deja actif avant
 ce changement. Regle retenue : l'XML doit reprendre le meme nom litteral
 que l'annotation qu'il remplace, jamais le nom physique post-transformation
 — `ddl-auto=validate` est le filet qui detecterait une erreur ici.
+
+**Phase 3c/sales** : sixieme module traite, le plus gros en nombre
+d'entites (5) mais le plus simple techniquement — une seule sur les cinq
+porte des invariants non triviaux. Ecart trouve vs l'hypothese de depart
+("CustomerOrder et Sale, a priori") : **`Sale` n'a aucune methode de
+domaine** (simple `@Data`), seule `CustomerOrder` a une vraie machine a
+etats (`validate/requireReservable/markReserved/requirePreparable/
+markPrepared/requireShippable/markShipped/requireDeliverable/
+markDelivered/cancel`) — etape 0 golden-master
+(`sales/domain/model/CustomerOrderTest`, 21 tests) appliquee uniquement
+a cette entite, verifiee identique avant/apres, 0 iteration de
+correction. Aucun consommateur externe direct sur les 5 entites (meme
+profil que purchasing : seul `CustomerOrderStatus` est importe
+ailleurs, via la couche application/DTO). Deuxieme occurrence du cas
+numTel/num_tel, cette fois sur `Customer` (ajoutee dans la meme migration
+V5 que Supplier) : meme resolution, rien de nouveau. Aucun `@Version` ni
+contrainte composite dans ce module.
 
 ### 2. ~~A corriger en Phase 3/5~~ RESOLU en Phase 3b : 16 injections par champ
 

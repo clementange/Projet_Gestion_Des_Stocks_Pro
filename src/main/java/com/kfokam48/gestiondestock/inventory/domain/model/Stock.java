@@ -5,13 +5,6 @@ import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.model.AbstractEntity;
 import com.kfokam48.gestiondestock.organization.domain.model.Site;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,34 +21,28 @@ import lombok.NoArgsConstructor;
  * <p>Toute mutation passe par une methode de ce domaine (receive/issue/reserve/
  * releaseReservation) qui protege les invariants : le stock physique ne peut jamais devenir
  * negatif, une reservation ne peut jamais depasser le disponible.
+ *
+ * <p>Phase 3c : mapping JPA declare dans META-INF/orm.xml, pas en annotations - voir le
+ * commentaire en tete de ce fichier XML. Aucune des methodes d'invariant ci-dessous ne porte
+ * d'annotation JPA : ce deplacement ne les touche pas (golden master :
+ * inventory/domain/model/StockTest, verifie identique avant/apres).
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Entity
-@Table(name = "stock", uniqueConstraints = @UniqueConstraint(columnNames = {"article_id", "site_id"}))
 public class Stock extends AbstractEntity {
 
-  @ManyToOne
-  @JoinColumn(name = "article_id", nullable = false)
   private Article article;
 
-  @ManyToOne
-  @JoinColumn(name = "site_id", nullable = false)
   private Site site;
 
-  @Column(name = "quantite_physique", nullable = false)
   private BigDecimal quantitePhysique = BigDecimal.ZERO;
 
-  @Column(name = "quantite_reservee", nullable = false)
   private BigDecimal quantiteReservee = BigDecimal.ZERO;
 
-  @Column(name = "seuil_alerte")
   private BigDecimal seuilAlerte;
 
-  @Version
-  @Column(name = "version")
   private Long version;
 
   public BigDecimal getQuantiteDisponible() {

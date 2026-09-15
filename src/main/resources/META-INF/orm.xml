@@ -27,6 +27,18 @@
   jointure role_permission, colonnes role_id/permission_id) - premiere relation de ce type dans ce
   fichier, voir docs/phase-3c-identity-report.md.
 
+  inventory.domain.model (Stock/StockMovement) : contrairement a Organization/Site/Article,
+  AUCUN consommateur externe direct sur ces deux classes (verifie) - orm.xml n'est donc pas ici
+  une necessite technique mais un choix explicite de coherence avec les 3 modules precedents (voir
+  docs/phase-3c-inventory-report.md). Stock porte deux nouveautes jamais rencontrees dans ce
+  fichier : un @Version (seule entite de tout le schema a en porter un legitimement, voir
+  V2__drop_stray_optimistic_lock_columns.sql) et une contrainte d'unicite composite sur
+  (article_id, site_id). Stock porte aussi de vrais invariants metier (issue/receive/reserve/
+  releaseReservation/correct) - aucune de ces methodes n'est annotee JPA, le deplacement des
+  annotations de champ ne les touche pas ; un test unitaire pur golden-master
+  (inventory/domain/model/StockTest, ecrit et verifie AVANT ce mapping) le garantit
+  independamment des tests d'integration.
+
   Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange
   pour toutes les entites ci-dessous - non redeclare ici, herite normalement.
 -->
@@ -228,6 +240,67 @@
       <basic name="scopeId">
         <column name="scope_id"/>
       </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.inventory.domain.model.StockMovement" access="FIELD">
+    <table name="stock_movement"/>
+    <attributes>
+      <many-to-one name="article" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Article">
+        <join-column name="article_id" nullable="false"/>
+      </many-to-one>
+      <many-to-one name="site" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Site">
+        <join-column name="site_id" nullable="false"/>
+      </many-to-one>
+      <basic name="dateMvt">
+        <column name="date_mvt" nullable="false"/>
+      </basic>
+      <basic name="quantite">
+        <column name="quantite" nullable="false"/>
+      </basic>
+      <basic name="type">
+        <enumerated>STRING</enumerated>
+        <column name="type" nullable="false"/>
+      </basic>
+      <basic name="source">
+        <enumerated>STRING</enumerated>
+        <column name="source" nullable="false"/>
+      </basic>
+      <basic name="reference">
+        <column name="reference"/>
+      </basic>
+      <basic name="userId">
+        <column name="user_id"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.inventory.domain.model.Stock" access="FIELD">
+    <table name="stock">
+      <unique-constraint>
+        <column-name>article_id</column-name>
+        <column-name>site_id</column-name>
+      </unique-constraint>
+    </table>
+    <attributes>
+      <many-to-one name="article" target-entity="com.kfokam48.gestiondestock.catalog.domain.model.Article">
+        <join-column name="article_id" nullable="false"/>
+      </many-to-one>
+      <many-to-one name="site" target-entity="com.kfokam48.gestiondestock.organization.domain.model.Site">
+        <join-column name="site_id" nullable="false"/>
+      </many-to-one>
+      <basic name="quantitePhysique">
+        <column name="quantite_physique" nullable="false"/>
+      </basic>
+      <basic name="quantiteReservee">
+        <column name="quantite_reservee" nullable="false"/>
+      </basic>
+      <basic name="seuilAlerte">
+        <column name="seuil_alerte"/>
+      </basic>
+      <version name="version">
+        <column name="version"/>
+      </version>
     </attributes>
   </entity>
 

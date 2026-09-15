@@ -17,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Regression Phase 15 : UserRoleAssignmentController/RoleController/PermissionController
@@ -29,7 +30,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
-public class RbacAdminEndpointsHttpIntegrationTest {
+public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private MockMvc mockMvc;

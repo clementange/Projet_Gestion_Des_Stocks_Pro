@@ -47,6 +47,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Phase 12 : la Phase 6 a deja prouve que deux ventes concurrentes sur le meme Stock ne peuvent
@@ -58,7 +59,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
-public class CrossModuleConcurrencyIntegrationTest {
+public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private InventoryFacade inventoryFacade;

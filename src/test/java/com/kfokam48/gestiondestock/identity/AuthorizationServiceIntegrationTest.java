@@ -18,6 +18,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Reproduit les tests 4 et 5 de la section 43 du prompt maitre : un responsable d'entrepot a
@@ -25,7 +26,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
-public class AuthorizationServiceIntegrationTest {
+public class AuthorizationServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private PermissionService permissionService;

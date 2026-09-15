@@ -39,6 +39,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Reproduit le cas metier central de la section 48 du prompt maitre : une vente affecte le
@@ -48,7 +49,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
-public class SaleServiceIntegrationTest {
+public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private SaleService saleService;

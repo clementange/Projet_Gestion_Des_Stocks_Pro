@@ -39,6 +39,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Verifie le workflow cible de la section 14 : la creation et la validation d'une commande
@@ -47,7 +48,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
-public class PurchaseOrderServiceIntegrationTest {
+public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private PurchaseOrderService purchaseOrderService;

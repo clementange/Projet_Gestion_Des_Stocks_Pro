@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Couverture HTTP reelle (MockMvc, vrai filtre de securite + vraie resolution du principal) des
@@ -34,7 +35,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
-public class BusinessModulesHttpIntegrationTest {
+public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private MockMvc mockMvc;

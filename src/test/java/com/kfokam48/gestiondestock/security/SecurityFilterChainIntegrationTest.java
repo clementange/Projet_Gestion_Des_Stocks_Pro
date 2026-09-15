@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Ces tests passent par le vrai filtre de securite (MockMvc + DispatcherServlet reel), pas par
@@ -39,7 +40,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
-public class SecurityFilterChainIntegrationTest {
+public class SecurityFilterChainIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private MockMvc mockMvc;

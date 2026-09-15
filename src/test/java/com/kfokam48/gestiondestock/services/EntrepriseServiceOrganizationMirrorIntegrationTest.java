@@ -16,6 +16,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Phase 16 : EntrepriseServiceImpl.save() doit creer une Organization miroir + un Site par
@@ -23,7 +24,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
-public class EntrepriseServiceOrganizationMirrorIntegrationTest {
+public class EntrepriseServiceOrganizationMirrorIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private EntrepriseService entrepriseService;

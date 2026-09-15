@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Couverture HTTP reelle (MockMvc) du module organization, jusqu'ici seulement teste au niveau
@@ -33,7 +34,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
-public class OrganizationControllersHttpIntegrationTest {
+public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrationTest {
 
   @Autowired
   private MockMvc mockMvc;

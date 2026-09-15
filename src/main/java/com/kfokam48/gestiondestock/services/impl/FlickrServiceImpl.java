@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.util.concurrent.ExecutionException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,19 +20,26 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class FlickrServiceImpl implements FlickrService {
 
-  @Value("${flickr.apiKey}")
-  private String apiKey;
+  private final String apiKey;
 
-  @Value("${flickr.apiSecret}")
-  private String apiSecret;
+  private final String apiSecret;
 
-  @Value("${flickr.appKey}")
-  private String appKey;
+  private final String appKey;
 
-  @Value("${flickr.appSecret}")
-  private String appSecret;
+  private final String appSecret;
 
   private Flickr flickr;
+
+  public FlickrServiceImpl(
+      @Value("${flickr.apiKey}") String apiKey,
+      @Value("${flickr.apiSecret}") String apiSecret,
+      @Value("${flickr.appKey}") String appKey,
+      @Value("${flickr.appSecret}") String appSecret) {
+    this.apiKey = apiKey;
+    this.apiSecret = apiSecret;
+    this.appKey = appKey;
+    this.appSecret = appSecret;
+  }
 
   @Override
   @SneakyThrows

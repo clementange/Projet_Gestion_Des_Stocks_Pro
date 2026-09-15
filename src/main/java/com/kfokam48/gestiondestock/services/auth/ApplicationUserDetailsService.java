@@ -16,11 +16,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class ApplicationUserDetailsService implements UserDetailsService {
 
-  @Autowired
-  private UtilisateurService service;
+  private final UtilisateurService service;
+
+  private final UserRoleAssignmentService userRoleAssignmentService;
 
   @Autowired
-  private UserRoleAssignmentService userRoleAssignmentService;
+  public ApplicationUserDetailsService(UtilisateurService service, UserRoleAssignmentService userRoleAssignmentService) {
+    this.service = service;
+    this.userRoleAssignmentService = userRoleAssignmentService;
+  }
 
   @Override
   public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {

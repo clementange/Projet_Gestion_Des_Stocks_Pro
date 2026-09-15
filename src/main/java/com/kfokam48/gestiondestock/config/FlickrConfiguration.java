@@ -22,17 +22,24 @@ import org.springframework.context.annotation.Configuration;
 // @Configuration
 public class FlickrConfiguration {
 
-  @Value("${flickr.apiKey}")
-  private String apiKey;
+  private final String apiKey;
 
-  @Value("${flickr.apiSecret}")
-  private String apiSecret;
+  private final String apiSecret;
 
-  @Value("${flickr.appKey}")
-  private String appKey;
+  private final String appKey;
 
-  @Value("${flickr.appSecret}")
-  private String appSecret;
+  private final String appSecret;
+
+  public FlickrConfiguration(
+      @Value("${flickr.apiKey}") String apiKey,
+      @Value("${flickr.apiSecret}") String apiSecret,
+      @Value("${flickr.appKey}") String appKey,
+      @Value("${flickr.appSecret}") String appSecret) {
+    this.apiKey = apiKey;
+    this.apiSecret = apiSecret;
+    this.appKey = appKey;
+    this.appSecret = appSecret;
+  }
 
 
   //@Bean

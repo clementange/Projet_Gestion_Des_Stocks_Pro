@@ -23,11 +23,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Slf4j
 public class ApplicationRequestFilter extends OncePerRequestFilter {
 
-  @Autowired
-  private JwtUtil jwtUtil;
+  private final JwtUtil jwtUtil;
+
+  private final ApplicationUserDetailsService userDetailsService;
 
   @Autowired
-  private ApplicationUserDetailsService userDetailsService;
+  public ApplicationRequestFilter(JwtUtil jwtUtil, ApplicationUserDetailsService userDetailsService) {
+    this.jwtUtil = jwtUtil;
+    this.userDetailsService = userDetailsService;
+  }
 
   @Override
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)

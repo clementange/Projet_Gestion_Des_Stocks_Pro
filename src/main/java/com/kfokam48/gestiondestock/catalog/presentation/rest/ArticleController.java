@@ -4,9 +4,6 @@ import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
 import com.kfokam48.gestiondestock.catalog.application.ArticleService;
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
-import com.kfokam48.gestiondestock.dto.LigneCommandeClientDto;
-import com.kfokam48.gestiondestock.dto.LigneCommandeFournisseurDto;
-import com.kfokam48.gestiondestock.dto.LigneVenteDto;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +15,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+// Phase 3a : les endpoints /articles/historique/{vente,commandeclient,commandefournisseur}/{id}
+// ont ete deplaces vers sales.presentation.rest.legacy.ArticleHistoryLegacyController et
+// purchasing.presentation.rest.legacy.ArticleHistoryLegacyController (URL HTTP inchangees) pour
+// eliminer un cycle catalog <-> sales/purchasing (voir docs/phase-3a-report.md).
 @Tag(name = "articles")
 @RestController
 public class ArticleController {
@@ -47,21 +48,6 @@ public class ArticleController {
   @GetMapping(value = APP_ROOT + "/articles/all", produces = MediaType.APPLICATION_JSON_VALUE)
   public List<ArticleDto> findAll() {
     return articleService.findAll();
-  }
-
-  @GetMapping(value = APP_ROOT + "/articles/historique/vente/{idArticle}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<LigneVenteDto> findHistoriqueVentes(@PathVariable("idArticle") Long idArticle) {
-    return articleService.findHistoriqueVentes(idArticle);
-  }
-
-  @GetMapping(value = APP_ROOT + "/articles/historique/commandeclient/{idArticle}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<LigneCommandeClientDto> findHistoriaueCommandeClient(@PathVariable("idArticle") Long idArticle) {
-    return articleService.findHistoriaueCommandeClient(idArticle);
-  }
-
-  @GetMapping(value = APP_ROOT + "/articles/historique/commandefournisseur/{idArticle}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<LigneCommandeFournisseurDto> findHistoriqueCommandeFournisseur(@PathVariable("idArticle") Long idArticle) {
-    return articleService.findHistoriqueCommandeFournisseur(idArticle);
   }
 
   @GetMapping(value = APP_ROOT + "/articles/filter/category/{idCategory}", produces = MediaType.APPLICATION_JSON_VALUE)

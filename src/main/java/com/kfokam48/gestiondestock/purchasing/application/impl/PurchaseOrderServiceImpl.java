@@ -107,6 +107,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
   }
 
   @Override
+  public List<PurchaseOrderLineDto> findLinesByArticleId(Long articleId) {
+    return purchaseOrderLineRepository.findAllByArticleId(articleId).stream()
+        .map(PurchaseOrderLineDto::fromEntity)
+        .collect(Collectors.toList());
+  }
+
+  @Override
   public PurchaseOrderDto validate(Long id) {
     PurchaseOrder purchaseOrder = fetchOrder(id);
     purchaseOrder.validate();

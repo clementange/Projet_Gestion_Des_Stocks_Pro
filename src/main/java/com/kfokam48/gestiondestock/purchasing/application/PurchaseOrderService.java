@@ -17,6 +17,14 @@ public interface PurchaseOrderService {
 
   List<PurchaseOrderLineDto> findLines(Long purchaseOrderId);
 
+  /**
+   * Toutes les lignes de commande fournisseur referencant cet article, toutes commandes
+   * confondues. Point d'entree public pour tout module qui a besoin de l'historique des
+   * commandes d'un article (ex. catalog) sans acceder directement a
+   * PurchaseOrderLineRepository/PurchaseOrderLine (internes au module).
+   */
+  List<PurchaseOrderLineDto> findLinesByArticleId(Long articleId);
+
   PurchaseOrderDto validate(Long id);
 
   PurchaseOrderDto cancel(Long id);

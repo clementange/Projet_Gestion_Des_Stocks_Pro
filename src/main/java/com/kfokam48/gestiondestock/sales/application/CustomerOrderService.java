@@ -16,6 +16,14 @@ public interface CustomerOrderService {
 
   List<CustomerOrderLineDto> findLines(Long customerOrderId);
 
+  /**
+   * Toutes les lignes de commande client referencant cet article, toutes commandes confondues.
+   * Point d'entree public pour tout module qui a besoin de l'historique des commandes d'un
+   * article (ex. catalog) sans acceder directement a CustomerOrderLineRepository/
+   * CustomerOrderLine (internes au module).
+   */
+  List<CustomerOrderLineDto> findLinesByArticleId(Long articleId);
+
   CustomerOrderDto validate(Long id);
 
   /**

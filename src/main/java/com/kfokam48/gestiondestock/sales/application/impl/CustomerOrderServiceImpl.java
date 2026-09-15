@@ -119,6 +119,13 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
+  public List<CustomerOrderLineDto> findLinesByArticleId(Long articleId) {
+    return customerOrderLineRepository.findAllByArticleId(articleId).stream()
+        .map(CustomerOrderLineDto::fromEntity)
+        .collect(Collectors.toList());
+  }
+
+  @Override
   public CustomerOrderDto validate(Long id) {
     CustomerOrder order = fetchOrder(id);
     order.validate();

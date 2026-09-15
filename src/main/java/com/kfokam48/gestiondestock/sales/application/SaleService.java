@@ -22,6 +22,13 @@ public interface SaleService {
 
   List<SaleLineDto> findLines(Long saleId);
 
+  /**
+   * Toutes les lignes de vente referencant cet article, tous sites/ventes confondus. Point
+   * d'entree public pour tout module qui a besoin de l'historique des ventes d'un article
+   * (ex. catalog) sans acceder directement a SaleLineRepository/SaleLine (internes au module).
+   */
+  List<SaleLineDto> findLinesByArticleId(Long articleId);
+
   List<SaleDto> findAllBySiteAndPeriod(Long siteId, Instant from, Instant to);
 
 }

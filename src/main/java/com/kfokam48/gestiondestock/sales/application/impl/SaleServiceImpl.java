@@ -124,6 +124,13 @@ public class SaleServiceImpl implements SaleService {
   }
 
   @Override
+  public List<SaleLineDto> findLinesByArticleId(Long articleId) {
+    return saleLineRepository.findAllByArticleId(articleId).stream()
+        .map(SaleLineDto::fromEntity)
+        .collect(Collectors.toList());
+  }
+
+  @Override
   @Transactional(readOnly = true)
   public List<SaleDto> findAllBySiteAndPeriod(Long siteId, Instant from, Instant to) {
     return saleRepository.findAllBySiteIdAndSaleDateBetween(siteId, from, to).stream()

@@ -4,9 +4,6 @@ import com.kfokam48.gestiondestock.catalog.application.ArticleService;
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 import com.kfokam48.gestiondestock.catalog.application.validator.ArticleValidator;
 import com.kfokam48.gestiondestock.catalog.infrastructure.persistence.ArticleRepository;
-import com.kfokam48.gestiondestock.dto.LigneCommandeClientDto;
-import com.kfokam48.gestiondestock.dto.LigneCommandeFournisseurDto;
-import com.kfokam48.gestiondestock.dto.LigneVenteDto;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
@@ -14,28 +11,36 @@ import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.model.LigneCommandeClient;
 import com.kfokam48.gestiondestock.model.LigneCommandeFournisseur;
 import com.kfokam48.gestiondestock.model.LigneVente;
-import com.kfokam48.gestiondestock.purchasing.domain.model.PurchaseOrderLine;
-import com.kfokam48.gestiondestock.purchasing.infrastructure.persistence.PurchaseOrderLineRepository;
 import com.kfokam48.gestiondestock.repository.LigneCommandeClientRepository;
 import com.kfokam48.gestiondestock.repository.LigneCommandeFournisseurRepository;
 import com.kfokam48.gestiondestock.repository.LigneVenteRepository;
-import com.kfokam48.gestiondestock.sales.domain.model.CustomerOrderLine;
-import com.kfokam48.gestiondestock.sales.domain.model.SaleLine;
-import com.kfokam48.gestiondestock.sales.infrastructure.persistence.CustomerOrderLineRepository;
-import com.kfokam48.gestiondestock.sales.infrastructure.persistence.SaleLineRepository;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-// Phase 23 : Article (Phase 5) lisait l'historique et le garde-fou de suppression uniquement
-// depuis les tables legacy lignevente/lignecommandeclient/lignecommandefournisseur. Depuis les
-// Phases 19-21, les nouvelles ventes/commandes sont ecrites dans sale_line/customer_order_line/
-// purchase_order_line (modules neufs) : les deux sources sont desormais fusionnees pour ne pas
-// perdre l'historique post-migration ni laisser supprimer un article encore reellement utilise.
+// Phase 23 : le garde-fou de suppression lisait l'usage d'un article uniquement depuis les tables
+// legacy lignevente/lignecommandeclient/lignecommandefournisseur. Depuis les Phases 19-21, les
+// nouvelles ventes/commandes sont ecrites dans sale_line/customer_order_line/purchase_order_line
+// (modules neufs) : pour ne pas laisser supprimer un article encore reellement utilise, l'usage
+// cote modules neufs est desormais detecte via la contrainte FK de la base (voir delete()
+// ci-dessous), plutot que par un appel direct aux facades sales/purchasing.
+//
+// Phase 3a : ArticleServiceImpl ne depend plus des modules sales/purchasing du tout. Les methodes
+// findHistoriqueVentes/findHistoriqueCommandeClient/findHistoriqueCommandeFournisseur (qui
+// fusionnaient legacy + modules neufs pour restituer l'historique d'un article) ont ete deplacees
+// vers sales.presentation.rest.legacy.ArticleHistoryLegacyController et
+// purchasing.presentation.rest.legacy.ArticleHistoryLegacyController (URL HTTP inchangees). Le
+// garde-fou de suppression, lui, ne pouvait pas se contenter d'un deplacement : catalog doit
+// pouvoir refuser la suppression d'un article utilise, mais sales/purchasing dependent deja
+// legitimement de catalog (ArticleDto) — tout appel de catalog vers sales/purchasing, ou que se
+// trouve ce code, aurait recree un cycle catalog <-> sales/purchasing (voir docs/phase-3a-report.md).
+// La contrainte FK (article_id) deja presente sur sale_line/customer_order_line/purchase_order_line
+// (V1__initial_schema.sql) protege deja la suppression au niveau base ; on se contente de traduire
+// l'exception SQL en InvalidOperationException au lieu de pre-verifier via un appel cross-module.
 @Service
 @Slf4j
 public class ArticleServiceImpl implements ArticleService {
@@ -44,23 +49,16 @@ public class ArticleServiceImpl implements ArticleService {
   private LigneVenteRepository venteRepository;
   private LigneCommandeFournisseurRepository commandeFournisseurRepository;
   private LigneCommandeClientRepository commandeClientRepository;
-  private SaleLineRepository saleLineRepository;
-  private CustomerOrderLineRepository customerOrderLineRepository;
-  private PurchaseOrderLineRepository purchaseOrderLineRepository;
 
   @Autowired
   public ArticleServiceImpl(
       ArticleRepository articleRepository,
       LigneVenteRepository venteRepository, LigneCommandeFournisseurRepository commandeFournisseurRepository,
-      LigneCommandeClientRepository commandeClientRepository, SaleLineRepository saleLineRepository,
-      CustomerOrderLineRepository customerOrderLineRepository, PurchaseOrderLineRepository purchaseOrderLineRepository) {
+      LigneCommandeClientRepository commandeClientRepository) {
     this.articleRepository = articleRepository;
     this.venteRepository = venteRepository;
     this.commandeFournisseurRepository = commandeFournisseurRepository;
     this.commandeClientRepository = commandeClientRepository;
-    this.saleLineRepository = saleLineRepository;
-    this.customerOrderLineRepository = customerOrderLineRepository;
-    this.purchaseOrderLineRepository = purchaseOrderLineRepository;
   }
 
   @Override
@@ -116,60 +114,6 @@ public class ArticleServiceImpl implements ArticleService {
   }
 
   @Override
-  public List<LigneVenteDto> findHistoriqueVentes(Long idArticle) {
-    Stream<LigneVenteDto> legacy = venteRepository.findAllByArticleId(idArticle).stream()
-        .map(LigneVenteDto::fromEntity);
-    Stream<LigneVenteDto> fromSales = saleLineRepository.findAllByArticleId(idArticle).stream()
-        .map(this::toLigneVenteDto);
-    return Stream.concat(legacy, fromSales).collect(Collectors.toList());
-  }
-
-  @Override
-  public List<LigneCommandeClientDto> findHistoriaueCommandeClient(Long idArticle) {
-    Stream<LigneCommandeClientDto> legacy = commandeClientRepository.findAllByArticleId(idArticle).stream()
-        .map(LigneCommandeClientDto::fromEntity);
-    Stream<LigneCommandeClientDto> fromCustomerOrders = customerOrderLineRepository.findAllByArticleId(idArticle).stream()
-        .map(this::toLigneCommandeClientDto);
-    return Stream.concat(legacy, fromCustomerOrders).collect(Collectors.toList());
-  }
-
-  @Override
-  public List<LigneCommandeFournisseurDto> findHistoriqueCommandeFournisseur(Long idArticle) {
-    Stream<LigneCommandeFournisseurDto> legacy = commandeFournisseurRepository.findAllByArticleId(idArticle).stream()
-        .map(LigneCommandeFournisseurDto::fromEntity);
-    Stream<LigneCommandeFournisseurDto> fromPurchaseOrders = purchaseOrderLineRepository.findAllByArticleId(idArticle).stream()
-        .map(this::toLigneCommandeFournisseurDto);
-    return Stream.concat(legacy, fromPurchaseOrders).collect(Collectors.toList());
-  }
-
-  private LigneVenteDto toLigneVenteDto(SaleLine line) {
-    return LigneVenteDto.builder()
-        .id(line.getId())
-        .article(ArticleDto.fromEntity(line.getArticle()))
-        .quantite(line.getQuantite())
-        .prixUnitaire(line.getPrixUnitaire())
-        .build();
-  }
-
-  private LigneCommandeClientDto toLigneCommandeClientDto(CustomerOrderLine line) {
-    return LigneCommandeClientDto.builder()
-        .id(line.getId())
-        .article(ArticleDto.fromEntity(line.getArticle()))
-        .quantite(line.getQuantite())
-        .prixUnitaire(line.getPrixUnitaire())
-        .build();
-  }
-
-  private LigneCommandeFournisseurDto toLigneCommandeFournisseurDto(PurchaseOrderLine line) {
-    return LigneCommandeFournisseurDto.builder()
-        .id(line.getId())
-        .article(ArticleDto.fromEntity(line.getArticle()))
-        .quantite(line.getQuantiteCommandee())
-        .prixUnitaire(line.getPrixUnitaire())
-        .build();
-  }
-
-  @Override
   public List<ArticleDto> findAllArticleByIdCategory(Long idCategory) {
     return articleRepository.findAllByCategoryId(idCategory).stream()
         .map(ArticleDto::fromEntity)
@@ -183,22 +127,25 @@ public class ArticleServiceImpl implements ArticleService {
       return;
     }
     List<LigneCommandeClient> ligneCommandeClients = commandeClientRepository.findAllByArticleId(id);
-    List<CustomerOrderLine> customerOrderLines = customerOrderLineRepository.findAllByArticleId(id);
-    if (!ligneCommandeClients.isEmpty() || !customerOrderLines.isEmpty()) {
+    if (!ligneCommandeClients.isEmpty()) {
       throw new InvalidOperationException("Impossible de supprimer un article deja utilise dans des commandes client", ErrorCodes.ARTICLE_ALREADY_IN_USE);
     }
     List<LigneCommandeFournisseur> ligneCommandeFournisseurs = commandeFournisseurRepository.findAllByArticleId(id);
-    List<PurchaseOrderLine> purchaseOrderLines = purchaseOrderLineRepository.findAllByArticleId(id);
-    if (!ligneCommandeFournisseurs.isEmpty() || !purchaseOrderLines.isEmpty()) {
+    if (!ligneCommandeFournisseurs.isEmpty()) {
       throw new InvalidOperationException("Impossible de supprimer un article deja utilise dans des commandes fournisseur",
           ErrorCodes.ARTICLE_ALREADY_IN_USE);
     }
     List<LigneVente> ligneVentes = venteRepository.findAllByArticleId(id);
-    List<SaleLine> saleLines = saleLineRepository.findAllByArticleId(id);
-    if (!ligneVentes.isEmpty() || !saleLines.isEmpty()) {
+    if (!ligneVentes.isEmpty()) {
       throw new InvalidOperationException("Impossible de supprimer un article deja utilise dans des ventes",
           ErrorCodes.ARTICLE_ALREADY_IN_USE);
     }
-    articleRepository.deleteById(id);
+    try {
+      articleRepository.deleteById(id);
+    } catch (DataIntegrityViolationException ex) {
+      throw new InvalidOperationException(
+          "Impossible de supprimer un article deja utilise (vente, commande ou mouvement de stock associe)",
+          ErrorCodes.ARTICLE_ALREADY_IN_USE);
+    }
   }
 }

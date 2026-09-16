@@ -79,4 +79,13 @@ public class SupplierServiceImpl implements SupplierService {
     }
     supplierRepository.deleteById(id);
   }
+
+  // Phase 4c : remplace SaveFournisseurPhoto (supprime, voir docs/phase-4c-report.md). save() est
+  // deja un upsert plat, aucun risque de bug de mise a jour ici.
+  @Override
+  public SupplierDto updatePhoto(Long id, String url) {
+    SupplierDto supplier = findById(id);
+    supplier.setPhoto(url);
+    return save(supplier);
+  }
 }

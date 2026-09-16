@@ -4,6 +4,7 @@ import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
 import com.kfokam48.gestiondestock.catalog.application.ArticleService;
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
+import com.kfokam48.gestiondestock.media.application.dto.PhotoUrlRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,5 +59,12 @@ public class ArticleController {
   @DeleteMapping(value = APP_ROOT + "/articles/delete/{idArticle}")
   public void delete(@PathVariable("idArticle") Long id) {
     articleService.delete(id);
+  }
+
+  // Phase 4c : remplace /save/{id}/{title}/article (StrategyPhotoContext, supprime). L'appelant
+  // uploade d'abord via POST /media/upload puis attache l'URL ici.
+  @PostMapping(value = APP_ROOT + "/articles/{idArticle}/photo", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  public ArticleDto updatePhoto(@PathVariable("idArticle") Long id, @RequestBody PhotoUrlRequest request) {
+    return articleService.updatePhoto(id, request.url());
   }
 }

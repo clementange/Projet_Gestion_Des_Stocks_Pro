@@ -17,4 +17,6 @@ public interface ArticleService {
 
   void delete(Long id);
 
+  ArticleDto updatePhoto(Long id, String url);
+
 }

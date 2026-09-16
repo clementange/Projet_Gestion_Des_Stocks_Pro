@@ -20,4 +20,6 @@ public interface TenantService {
 
   void delete(Long id);
 
+  TenantDto updatePhoto(Long id, String url);
+
 }

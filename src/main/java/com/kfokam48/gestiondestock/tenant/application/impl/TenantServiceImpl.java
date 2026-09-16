@@ -65,4 +65,14 @@ public class TenantServiceImpl implements TenantService {
     }
     tenantRepository.deleteById(id);
   }
+
+  // Phase 4c : remplace SaveEntreprisePhoto (supprime, voir docs/phase-4c-report.md). save()
+  // etant deja un upsert plat sans orchestration (voir javadoc de l'interface), aucun risque de
+  // redeclencher le bootstrap ici, contrairement a l'ancien EntrepriseServiceImpl.save().
+  @Override
+  public TenantDto updatePhoto(Long id, String url) {
+    TenantDto tenant = findById(id);
+    tenant.setPhoto(url);
+    return save(tenant);
+  }
 }

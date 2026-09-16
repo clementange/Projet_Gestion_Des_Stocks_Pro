@@ -108,4 +108,23 @@ public class UserServiceImpl implements UserService {
 
     return UserDto.fromEntity(userRepository.save(user));
   }
+
+  // Phase 4c : remplace SaveUtilisateurPhoto (supprime, voir docs/phase-4c-report.md). Meme motif
+  // que changePassword() ci-dessus : mise a jour ciblee sur l'entite chargee, PAS un appel a
+  // save(UserDto) - celui-ci re-hacherait un mot de passe deja hache (le DTO renvoye par
+  // findById() porte le hash stocke, pas un mot de passe en clair) et rejetterait
+  // systematiquement en doublon puisque userAlreadyExists() ne s'exclut jamais elle-meme. Bug
+  // pre-existant (herite tel quel de l'ancien UtilisateurServiceImpl, jamais corrige avant),
+  // elimine ici comme consequence de ne plus jamais reutiliser save() pour une mise a jour.
+  @Override
+  public UserDto updatePhoto(Long id, String url) {
+    User user = userRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun utilisateur avec l'ID = " + id + " n' ete trouve dans la BDD",
+            ErrorCodes.USER_NOT_FOUND));
+
+    user.setPhoto(url);
+
+    return UserDto.fromEntity(userRepository.save(user));
+  }
 }

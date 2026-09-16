@@ -6,6 +6,7 @@ import com.kfokam48.gestiondestock.tenant.application.TenantRegistrationService;
 import com.kfokam48.gestiondestock.tenant.application.TenantService;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantDto;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
+import com.kfokam48.gestiondestock.media.application.dto.PhotoUrlRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -57,5 +58,11 @@ public class TenantController {
   @DeleteMapping(value = APP_ROOT + "/tenants/delete/{id}")
   public void delete(@PathVariable("id") Long id) {
     tenantService.delete(id);
+  }
+
+  // Phase 4c : remplace /save/{id}/{title}/entreprise (StrategyPhotoContext, supprime).
+  @PostMapping(value = APP_ROOT + "/tenants/{id}/photo", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  public TenantDto updatePhoto(@PathVariable("id") Long id, @RequestBody PhotoUrlRequest request) {
+    return tenantService.updatePhoto(id, request.url());
   }
 }

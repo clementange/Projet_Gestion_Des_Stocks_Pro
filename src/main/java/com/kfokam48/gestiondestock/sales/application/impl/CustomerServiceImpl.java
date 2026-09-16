@@ -79,4 +79,13 @@ public class CustomerServiceImpl implements CustomerService {
     }
     customerRepository.deleteById(id);
   }
+
+  // Phase 4c : remplace SaveClientPhoto (supprime, voir docs/phase-4c-report.md). save() est deja
+  // un upsert plat, aucun risque de bug de mise a jour ici.
+  @Override
+  public CustomerDto updatePhoto(Long id, String url) {
+    CustomerDto customer = findById(id);
+    customer.setPhoto(url);
+    return save(customer);
+  }
 }

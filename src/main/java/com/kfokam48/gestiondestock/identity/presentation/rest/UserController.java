@@ -5,6 +5,7 @@ import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.identity.application.dto.ChangePasswordRequest;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
+import com.kfokam48.gestiondestock.media.application.dto.PhotoUrlRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -65,5 +66,11 @@ public class UserController {
   @DeleteMapping(value = APP_ROOT + "/users/delete/{id}")
   public void delete(@PathVariable("id") Long id) {
     userService.delete(id);
+  }
+
+  // Phase 4c : remplace /save/{id}/{title}/utilisateur (StrategyPhotoContext, supprime).
+  @PostMapping(value = APP_ROOT + "/users/{id}/photo", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  public UserDto updatePhoto(@PathVariable("id") Long id, @RequestBody PhotoUrlRequest request) {
+    return userService.updatePhoto(id, request.url());
   }
 }

@@ -13,4 +13,6 @@ public interface SupplierService {
 
   void delete(Long id);
 
+  SupplierDto updatePhoto(Long id, String url);
+
 }

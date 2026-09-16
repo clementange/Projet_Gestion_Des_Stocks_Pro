@@ -168,4 +168,13 @@ public class ArticleServiceImpl implements ArticleService {
           ErrorCodes.ARTICLE_ALREADY_IN_USE);
     }
   }
+
+  // Phase 4c : remplace SaveArticlePhoto (supprime, voir docs/phase-4c-report.md). Mise a jour
+  // ciblee, ne relance aucune validation/orchestration au-dela du champ photo.
+  @Override
+  public ArticleDto updatePhoto(Long id, String url) {
+    ArticleDto article = findById(id);
+    article.setPhoto(url);
+    return save(article);
+  }
 }

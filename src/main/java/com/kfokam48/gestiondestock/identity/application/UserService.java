@@ -17,4 +17,6 @@ public interface UserService {
 
   UserDto changePassword(Long id, String rawPassword);
 
+  UserDto updatePhoto(Long id, String url);
+
 }

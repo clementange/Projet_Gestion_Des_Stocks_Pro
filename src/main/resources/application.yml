@@ -37,8 +37,13 @@ jwt:
   # de dev (384 bits) ; a externaliser via variable d'environnement avant toute mise en prod.
   secret: ${JWT_SECRET:5ihIh2R5xJnVjcFapkSQIM8kbuBpyJXLV23DwyuJTzKh5vTZxnN0iLRgEGIMDsbX}
 
-flickr:
-  apiKey: e6017aef7bebeffc113de04efec554b4
-  apiSecret: a2e10f69ece5c67c
-  appKey: 72157718699655397-a36ae267891db7e7
-  appSecret: 04e870e57e18c55b
+minio:
+  # Phase 4c : remplace flickr (dont les 4 cles etaient en clair ici, sans ${VAR_ENV:...}, absentes
+  # de .env.example - violation zero-tolerance CLAUDE.md trouvee en investiguant, resolue par la
+  # suppression complete de l'integration Flickr - voir docs/phase-4c-report.md). Identifiants
+  # ci-dessous : ceux par defaut de l'image Docker MinIO officielle, valables uniquement pour un
+  # MinIO local de dev ; a changer avant toute mise en prod, comme JWT_SECRET ci-dessus.
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: ${MINIO_BUCKET:gestiondestock-media}

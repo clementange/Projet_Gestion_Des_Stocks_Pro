@@ -54,10 +54,13 @@
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
 
+    <!-- Phase 4c : remplace flickr4java (compte Flickr partage entre tous les tenants, cles en
+         clair trouvees dans application.yml avant cet increment - voir docs/phase-4c-report.md)
+         par un stockage objet compatible S3 auto-heberge. -->
     <dependency>
-      <groupId>com.flickr4java</groupId>
-      <artifactId>flickr4java</artifactId>
-      <version>3.0.4</version>
+      <groupId>io.minio</groupId>
+      <artifactId>minio</artifactId>
+      <version>8.5.17</version>
     </dependency>
 
     <dependency>
@@ -141,6 +144,13 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Phase 4c : meme pattern que le conteneur PostgreSQL singleton ci-dessus, applique au
+         nouveau module media (MinIO). -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>minio</artifactId>
       <scope>test</scope>
     </dependency>
 

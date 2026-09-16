@@ -13,4 +13,6 @@ public interface CustomerService {
 
   void delete(Long id);
 
+  CustomerDto updatePhoto(Long id, String url);
+
 }

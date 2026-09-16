@@ -6,7 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfokam48.gestiondestock.dto.AdresseDto;
-import com.kfokam48.gestiondestock.dto.EntrepriseDto;
+import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,19 +44,17 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
   }
 
   private String tokenFor(String email) throws Exception {
-    EntrepriseDto entreprise = EntrepriseDto.builder()
-        .nom("Societe RBAC HTTP")
-        .description("x")
-        .codeFiscal(uniqueCode("CF"))
-        .email(email)
-        .numTel("+237600000050")
-        .adresse(AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun").codePostale("00000").build())
-        .build();
-    mockMvc.perform(post("/gestiondestock/v1/entreprises/create")
+    TenantRegistrationRequest registration = new TenantRegistrationRequest(
+        "Societe RBAC HTTP", "x",
+        AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun").codePostale("00000").build(),
+        uniqueCode("CF"), null, email, "+237600000050", null,
+        "Admin", "Test", email, Instant.parse("1990-01-01T00:00:00Z"),
+        "Test-Passw0rd!", "Test-Passw0rd!");
+    mockMvc.perform(post("/gestiondestock/v1/tenants/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(entreprise)))
+            .content(objectMapper.writeValueAsString(registration)))
         .andExpect(status().isOk());
-    String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"som3R@nd0mP@$$word\"}";
+    String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"Test-Passw0rd!\"}";
     MvcResult result = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
             .contentType(MediaType.APPLICATION_JSON)
             .content(loginPayload))

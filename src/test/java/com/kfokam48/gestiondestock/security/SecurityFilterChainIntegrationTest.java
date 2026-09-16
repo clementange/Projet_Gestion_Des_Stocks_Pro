@@ -9,7 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfokam48.gestiondestock.dto.AdresseDto;
-import com.kfokam48.gestiondestock.dto.EntrepriseDto;
+import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -75,24 +76,22 @@ public class SecurityFilterChainIntegrationTest extends AbstractIntegrationTest 
   public void fullLoginFlowThroughRealFilterChainIssuesAWorkingJwt() throws Exception {
     String email = uniqueEmail();
 
-    EntrepriseDto entreprise = EntrepriseDto.builder()
-        .nom("Societe Security Test")
-        .description("Test filtre de securite")
-        .codeFiscal("CF-SEC-" + UUID.randomUUID().toString().substring(0, 8))
-        .email(email)
-        .numTel("+237600000010")
-        .adresse(AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun").codePostale("00000").build())
-        .build();
+    TenantRegistrationRequest registration = new TenantRegistrationRequest(
+        "Societe Security Test", "Test filtre de securite",
+        AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun").codePostale("00000").build(),
+        "CF-SEC-" + UUID.randomUUID().toString().substring(0, 8), null, email, "+237600000010", null,
+        "Admin", "Test", email, Instant.parse("1990-01-01T00:00:00Z"),
+        "Test-Passw0rd!", "Test-Passw0rd!");
 
-    // "/entreprises/create" est justement l'un des deux chemins qui levaient
-    // PatternParseException avant le fix : l'appeler ici via MockMvc (permitAll, sans token)
-    // est en soi une garantie de non-regression.
-    mockMvc.perform(post("/gestiondestock/v1/entreprises/create")
+    // Phase 4b : "/entreprises/create" a disparu, successeur "/tenants/register" (meme motif de
+    // chemin exact, pas de wildcard "**") - appeler ici via MockMvc (permitAll, sans token) reste
+    // la garantie de non-regression pour ce chemin public.
+    mockMvc.perform(post("/gestiondestock/v1/tenants/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(entreprise)))
+            .content(objectMapper.writeValueAsString(registration)))
         .andExpect(status().isOk());
 
-    String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"som3R@nd0mP@$$word\"}";
+    String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"Test-Passw0rd!\"}";
 
     // "/auth/authenticate" est l'autre chemin qui levait PatternParseException, et c'est aussi
     // le point d'entree qui appelle JwtUtil.generateToken -> la cle de signature faible aurait
@@ -148,20 +147,18 @@ public class SecurityFilterChainIntegrationTest extends AbstractIntegrationTest 
    */
   private String bootstrapAdminToken() throws Exception {
     String email = uniqueEmail();
-    EntrepriseDto entreprise = EntrepriseDto.builder()
-        .nom("Societe Bootstrap Token")
-        .description("x")
-        .codeFiscal("CF-BT-" + UUID.randomUUID().toString().substring(0, 8))
-        .email(email)
-        .numTel("+237600000011")
-        .adresse(AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun").codePostale("00000").build())
-        .build();
-    mockMvc.perform(post("/gestiondestock/v1/entreprises/create")
+    TenantRegistrationRequest registration = new TenantRegistrationRequest(
+        "Societe Bootstrap Token", "x",
+        AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun").codePostale("00000").build(),
+        "CF-BT-" + UUID.randomUUID().toString().substring(0, 8), null, email, "+237600000011", null,
+        "Admin", "Test", email, Instant.parse("1990-01-01T00:00:00Z"),
+        "Test-Passw0rd!", "Test-Passw0rd!");
+    mockMvc.perform(post("/gestiondestock/v1/tenants/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(entreprise)))
+            .content(objectMapper.writeValueAsString(registration)))
         .andExpect(status().isOk());
 
-    String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"som3R@nd0mP@$$word\"}";
+    String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"Test-Passw0rd!\"}";
     MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
             .contentType(MediaType.APPLICATION_JSON)
             .content(loginPayload))

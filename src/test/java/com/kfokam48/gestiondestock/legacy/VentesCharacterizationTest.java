@@ -9,7 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfokam48.gestiondestock.dto.AdresseDto;
-import com.kfokam48.gestiondestock.dto.EntrepriseDto;
+import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
+import java.time.Instant;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 import java.util.UUID;
 import org.junit.Test;
@@ -61,22 +62,20 @@ public class VentesCharacterizationTest extends AbstractIntegrationTest {
 
   private Tenant adminTenant() throws Exception {
     String email = uniqueCode("ventes-char-admin") + "@test.local";
-    EntrepriseDto entreprise = EntrepriseDto.builder()
-        .nom("Societe Ventes Char Test")
-        .description("x")
-        .codeFiscal(uniqueCode("CF"))
-        .email(email)
-        .numTel("+237600000042")
-        .adresse(AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun").codePostale("00000").build())
-        .build();
-    MvcResult createResult = mockMvc.perform(post("/gestiondestock/v1/entreprises/create")
+    TenantRegistrationRequest registration = new TenantRegistrationRequest(
+        "Societe Ventes Char Test", "x",
+        AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun").codePostale("00000").build(),
+        uniqueCode("CF"), null, email, "+237600000042", null,
+        "Admin", "Test", email, Instant.parse("1990-01-01T00:00:00Z"),
+        "Test-Passw0rd!", "Test-Passw0rd!");
+    MvcResult createResult = mockMvc.perform(post("/gestiondestock/v1/tenants/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(entreprise)))
+            .content(objectMapper.writeValueAsString(registration)))
         .andExpect(status().isOk())
         .andReturn();
     Long entrepriseId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asLong();
 
-    String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"som3R@nd0mP@$$word\"}";
+    String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"Test-Passw0rd!\"}";
     MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
             .contentType(MediaType.APPLICATION_JSON)
             .content(loginPayload))

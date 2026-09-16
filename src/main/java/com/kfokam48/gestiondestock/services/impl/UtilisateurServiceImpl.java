@@ -1,7 +1,6 @@
 package com.kfokam48.gestiondestock.services.impl;
 
 import com.kfokam48.gestiondestock.dto.ChangerMotDePasseUtilisateurDto;
-import com.kfokam48.gestiondestock.dto.EntrepriseDto;
 import com.kfokam48.gestiondestock.dto.UtilisateurDto;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
@@ -9,8 +8,9 @@ import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
-import com.kfokam48.gestiondestock.repository.EntrepriseRepository;
 import com.kfokam48.gestiondestock.services.UtilisateurService;
+import com.kfokam48.gestiondestock.tenant.application.TenantService;
+import com.kfokam48.gestiondestock.tenant.application.dto.TenantDto;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -34,12 +34,12 @@ import org.springframework.util.StringUtils;
 public class UtilisateurServiceImpl implements UtilisateurService {
 
   private UserService userService;
-  private EntrepriseRepository entrepriseRepository;
+  private TenantService tenantService;
 
   @Autowired
-  public UtilisateurServiceImpl(UserService userService, EntrepriseRepository entrepriseRepository) {
+  public UtilisateurServiceImpl(UserService userService, TenantService tenantService) {
     this.userService = userService;
-    this.entrepriseRepository = entrepriseRepository;
+    this.tenantService = tenantService;
   }
 
   @Override
@@ -148,9 +148,14 @@ public class UtilisateurServiceImpl implements UtilisateurService {
     if (user == null) {
       return null;
     }
-    EntrepriseDto entreprise = user.getIdEntreprise() != null
-        ? entrepriseRepository.findById(user.getIdEntreprise()).map(EntrepriseDto::fromEntity).orElse(null)
-        : null;
+    TenantDto entreprise = null;
+    if (user.getIdEntreprise() != null) {
+      try {
+        entreprise = tenantService.findById(user.getIdEntreprise());
+      } catch (EntityNotFoundException ex) {
+        entreprise = null;
+      }
+    }
     return UtilisateurDto.builder()
         .id(user.getId())
         .nom(user.getNom())

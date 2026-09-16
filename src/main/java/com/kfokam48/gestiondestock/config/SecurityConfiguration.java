@@ -1,7 +1,7 @@
 package com.kfokam48.gestiondestock.config;
 
+import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 import static com.kfokam48.gestiondestock.utils.Constants.AUTHENTICATION_ENDPOINT;
-import static com.kfokam48.gestiondestock.utils.Constants.ENTREPRISE_ENDPOINT;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,7 +37,9 @@ public class SecurityConfiguration {
                 // jamais detecte par les tests @SpringBootTest sans appel HTTP reel) : chemins
                 // exacts a la place.
                 "/" + AUTHENTICATION_ENDPOINT + "/authenticate",
-                "/" + ENTREPRISE_ENDPOINT + "/create",
+                // Phase 4b : /entreprises/create a disparu (successeur : /tenants/register,
+                // voir docs/phase-4b-report.md) - inscription self-service, toujours publique.
+                "/" + APP_ROOT + "/tenants/register",
                 "/v3/api-docs/**",
                 "/swagger-ui/**",
                 "/swagger-ui.html").permitAll()

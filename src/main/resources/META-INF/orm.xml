@@ -90,6 +90,21 @@
   CommandeFournisseurRepository depuis la Phase 21. Aucun invariant metier sur User (email unique
   et hachage de mot de passe sont des preoccupations applicatives, pas domaine).
 
+  tenant.domain.model.Tenant (Phase 4b, docs/phase-4b-report.md) : successeur de model.Entreprise,
+  meme table physique reutilisee telle quelle (entreprise, aucune nouvelle migration Flyway).
+  organizationId reste un champ scalaire (deja le cas sur model.Entreprise avant cet increment,
+  pas une decision nouvelle). organizationId a un nom de colonne litteral different du nom
+  physique reel (organizationId -> organization_id, ajoutee par ALTER dans V5) : meme mecanisme
+  numTel/num_tel deja rencontre en Phase 3c/purchasing et Phase 3c/sales, resolu par
+  SpringPhysicalNamingStrategy, le XML reprend le meme nom litteral que l'ancienne annotation.
+  Contrairement a model.Utilisateur en Phase 4a, model.Entreprise N'A PAS perdu ses annotations
+  JPA : il reste intentionnellement mappe (deux entites JPA independantes sur la meme table),
+  parce que 6 autres adaptateurs legacy (Client/Fournisseur/Ventes/MvtStk/CommandeFournisseur/
+  CommandeClient ServiceImpl) dependent directement d'EntrepriseRepository pour la traduction
+  idEntreprise<->organizationId - les laisser inchanges evite de les toucher tous. Aucun invariant
+  metier sur Tenant seul (l'orchestration d'inscription est multi-agregats, voir
+  tenant.application.TenantRegistrationService).
+
   Le mapped-superclass AbstractEntity (id/creationDate/lastModifiedDate) reste annote et inchange
   pour toutes les entites ci-dessous - non redeclare ici, herite normalement.
 -->
@@ -318,6 +333,37 @@
       </basic>
       <basic name="idEntreprise">
         <column name="identreprise"/>
+      </basic>
+    </attributes>
+  </entity>
+
+  <entity class="com.kfokam48.gestiondestock.tenant.domain.model.Tenant" access="FIELD">
+    <table name="entreprise"/>
+    <attributes>
+      <basic name="nom">
+        <column name="nom"/>
+      </basic>
+      <basic name="description">
+        <column name="description"/>
+      </basic>
+      <embedded name="adresse"/>
+      <basic name="codeFiscal">
+        <column name="codefiscal"/>
+      </basic>
+      <basic name="photo">
+        <column name="photo"/>
+      </basic>
+      <basic name="email">
+        <column name="email"/>
+      </basic>
+      <basic name="numTel">
+        <column name="numtel"/>
+      </basic>
+      <basic name="steWeb">
+        <column name="siteweb"/>
+      </basic>
+      <basic name="organizationId">
+        <column name="organizationId"/>
       </basic>
     </attributes>
   </entity>

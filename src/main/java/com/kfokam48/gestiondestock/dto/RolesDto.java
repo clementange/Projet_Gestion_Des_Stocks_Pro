@@ -26,6 +26,10 @@ public class RolesDto {
         .build();
   }
 
+  // Phase 4b : UtilisateurDto.toEntity() a disparu (voir dto.UtilisateurDto) ; roles.utilisateur
+  // n'est plus alimente ici. Sans consequence : RolesDto/model.Roles sont deja des le Phase 4a
+  // confirmes totalement orphelins (aucun RolesRepository n'a jamais existe, cette methode n'est
+  // jamais appelee) - voir docs/phase-4a-report.md et docs/phase-4b-report.md.
   public static Roles toEntity(RolesDto dto) {
     if (dto == null) {
       return null;
@@ -33,7 +37,6 @@ public class RolesDto {
     Roles roles = new Roles();
     roles.setId(dto.getId());
     roles.setRoleName(dto.getRoleName());
-    roles.setUtilisateur(UtilisateurDto.toEntity(dto.getUtilisateur()));
     return roles;
   }
 

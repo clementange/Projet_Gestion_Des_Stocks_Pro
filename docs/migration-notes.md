@@ -540,3 +540,59 @@ poste desormais vers `/tenants/register` avec un mot de passe fourni par
 le test lui-meme. Consequence directe et necessaire d'un contrat
 volontairement change, documentee comme telle - voir
 docs/phase-4b-report.md §5.
+
+## Phase 4c (rehoming upload de photo, module media/MinIO) : trouve pendant l'increment
+
+Voir `docs/phase-4c-report.md` pour le detail complet.
+
+### Cles Flickr en clair dans application.yml, RESOLU (troisieme trouvaille de securite de la Phase 4)
+
+`application.yml` contenait les 4 cles Flickr (`apiKey`, `apiSecret`,
+`appKey`, `appSecret`) en dur, sans `${VAR_ENV:...}`, absentes de
+`.env.example` - violation directe du zero-tolerance CLAUDE.md sur les
+secrets. Resolu de fait par la suppression complete de l'integration
+Flickr (le module `media`/MinIO la remplace entierement), pas par un
+correctif isole. Ces cles restent visibles dans l'historique git ; une
+purge d'historique n'a pas ete faite (hors perimetre, non demandee).
+
+### config/FlickrConfiguration.java : code mort supprime
+
+`@Configuration` etait commente sur la classe elle-meme (ligne 22) :
+jamais un bean Spring enregistre, meme avant cet increment. Trouve en
+compilant apres suppression de la dependance Maven `flickr4java`, pas
+lors de l'investigation initiale. Supprime avec le reste de l'integration
+Flickr.
+
+### Bug latent trouve et elimine structurellement : upload photo utilisateur corrompait le mot de passe
+
+`identity.UserServiceImpl.save()` (herite tel quel de l'ancien
+`UtilisateurServiceImpl`, jamais corrige) re-encode le mot de passe a
+chaque appel et rejette systematiquement en doublon d'email (la
+verification ne s'exclut jamais elle-meme). L'ancien
+`SaveUtilisateurPhoto` appelait ce `save()` pour persister une simple URL
+de photo : chaque upload de photo utilisateur corrompait donc
+silencieusement le mot de passe. Elimine par `UserService.updatePhoto()`,
+une methode dediee qui mute uniquement le champ `photo` sans repasser par
+`save()` - meme motif que `changePassword()` deja existant. Regression
+testee explicitement (re-authentification avec le mot de passe original
+apres upload photo) - voir docs/phase-4c-report.md §5.
+
+### Registre Docker Hub minio/minio inaccessible sans authentification
+
+MinIO Inc. a restreint l'acces anonyme a ses images Docker Hub (connexion
+desormais requise) suite a un changement de licence en 2024 - confirme
+par un `docker pull minio/minio:latest` manuel en echec. `quay.io/minio/minio`
+est le miroir public gratuit officiel, utilise a la place dans
+`AbstractIntegrationTest`, avec `.asCompatibleSubstituteFor("minio/minio")`
+pour satisfaire la verification de compatibilite du module Testcontainers
+MinIO. A retenir pour tout futur travail Docker dans cet environnement.
+
+### ClientPhotoLegacyController/FournisseurPhotoLegacyController : ecart de forme assume
+
+Les deux nouveaux controleurs legacy (`sales.presentation.rest.legacy`,
+`purchasing.presentation.rest.legacy`) retournent respectivement
+`CustomerDto`/`SupplierDto` (module neuf), pas `ClientDto`/`FournisseurDto`
+(legacy), contrairement aux autres endpoints `/clients/*`/`/fournisseurs/*`.
+Assume : ces routes (`POST /{id}/photo`) sont entierement nouvelles,
+aucun contrat existant a preserver byte-for-byte (l'ancien mecanisme
+utilisait une URL differente, `/save/{id}/{title}/{context}`, supprimee).

@@ -471,3 +471,72 @@ Meme etat que `model.CommandeFournisseur`/`CommandeFournisseurRepository`
 depuis la Phase 21 : toujours annotes JPA sur la table `utilisateur`,
 mais plus aucun code ne les reference que leur propre declaration.
 Laisses en place (pas de suppression dans cet increment).
+
+## Phase 4b (migration model.Entreprise -> tenant, mot de passe admin en dur) : trouve pendant l'increment
+
+Voir `docs/phase-4b-report.md` pour le detail complet.
+
+### Mot de passe admin en dur CORRIGE (pas seulement signale)
+
+`EntrepriseServiceImpl.generateRandomPassword()` (constante en dur,
+signalee comme decouverte de securite hors perimetre en Phase 4a) est
+supprimee : le mot de passe admin vient desormais de l'appelant
+(`TenantRegistrationRequest.motDePasse`/`confirmMotDePasse`), encode via
+le `PasswordEncoder` deja branche dans `identity.UserServiceImpl.save()`.
+Politique nouvelle : 8 caracteres minimum + correspondance des deux
+champs, pas d'exigence de complexite.
+
+### model.Entreprise/EntrepriseRepository orphelins (meme traitement que model.Utilisateur en Phase 4a)
+
+**6 adaptateurs legacy** (`ClientServiceImpl`, `FournisseurServiceImpl`,
+`VentesServiceImpl`, `MvtStkServiceImpl`, `CommandeFournisseurServiceImpl`,
+`CommandeClientServiceImpl`) dependent directement d'`EntrepriseRepository`
+pour traduire `idEntreprise <-> organizationId` (methodes
+`resolveOrganizationId`/`resolveIdEntreprise` dupliquees a l'identique
+dans les 6 fichiers). Decision : `model.Entreprise`/`EntrepriseRepository`
+restent intacts, toujours `@Entity`, non touches par cet increment - les
+6 fichiers n'ont eu aucune modification a subir. Migration future
+possible mais non necessaire.
+
+### EntrepriseService/Controller/Api/Dto/Validator supprimes (pas gardes en adaptateur)
+
+Contrairement au pattern etabli en Phase 3c/4a (garder un adaptateur fin
+sur l'ancien contrat), la couche `EntrepriseService`/`EntrepriseController`/
+`EntrepriseApi`/`EntrepriseDto`/`EntrepriseValidator` a ete entierement
+supprimee : `/entreprises/create` sans l'orchestration RBAC/Organization
+n'aurait plus eu aucune utilite fonctionnelle. Ses 2 vrais consommateurs
+(`SaveEntreprisePhoto`, `UtilisateurServiceImpl`/`UtilisateurDto.entreprise`)
+sont rebranches directement sur `tenant.application.TenantService`/
+`TenantDto`.
+
+### Bug latent trouve et elimine structurellement (pas corrige comme un correctif cible)
+
+`EntrepriseServiceImpl.save()` ne distinguait jamais creation/mise a jour
+: un appel avec un `id` deja existant (le cas de
+`SaveEntreprisePhoto.savePhoto()`, upload photo) redeclenchait toute
+l'orchestration (nouvelle Organization miroir, nouveau Site, nouvel
+admin, nouvelle attribution RBAC) a chaque changement de photo. Elimine
+par la separation `TenantService.save()` (upsert plat, sans
+orchestration) / `TenantRegistrationService.register()` (orchestration
+complete) - consequence du refactor demande, pas un correctif ajoute.
+
+### Gap Spring Modulith pre-existant, corrige
+
+`identity.application.dto` (contenant `UserDto`/`UserRoleAssignmentDto`/
+`RoleDto`) n'avait jamais eu de `package-info.java`/`@NamedInterface`,
+contrairement a `organization.application.dto`. Le gap existait avant cet
+increment mais n'avait jamais ete exerce (seul du code legacy plat, hors
+perimetre ArchUnit/Modulith, appelait ces types) ; `tenant` est le premier
+module reellement enregistre a le faire, ce qui a revele le gap.
+Corrige : `identity/application/dto/package-info.java` ajoute,
+`@NamedInterface("dto")`, meme modele qu'`organization.application.dto`.
+
+### 14 fichiers de test adaptes (contrat /entreprises/create -> /tenants/register)
+
+Un de plus que les "12" recenses au depart :
+`UtilisateurAuthenticationCharacterizationTest` (cree pendant la Phase 4a)
+en dependait aussi. Chaque `adminToken()`/`adminTenant()`/`tokenFor()`
+poste desormais vers `/tenants/register` avec un mot de passe fourni par
+le test lui-meme. Consequence directe et necessaire d'un contrat
+volontairement change, documentee comme telle - voir
+docs/phase-4b-report.md §5.

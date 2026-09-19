@@ -654,3 +654,67 @@ tests preexistants non touches par cet increment
 `PhotoAttachmentCharacterizationTest` (Phase 4c) ont eu leurs helpers de seed
 HTTP adaptes aux nouvelles routes, le sujet teste par ces deux fichiers n'a pas
 change.
+
+## Phase 5a (backlog securite, correctifs isoles) : trouve pendant l'increment
+
+Voir `docs/phase-5a-report.md` pour le detail complet. Premier increment du
+backlog securite accumule depuis Phase 0 (voir sections "Trouve pendant Phase
+0" et "Phase 4a" plus haut) - 5 correctifs a faible risque, CORS/AdresseValidator/
+IDOR mot de passe/asymetrie auth/unicite code+mail, tous CORRIGES (pas juste
+signales).
+
+### Le backlog securite est plus large que documente a l'origine : leak cross-tenant systemique
+
+Avant d'implementer 5a, verification independante de `interceptor/Interceptor.java`
+(zone gelee CLAUDE.md) : son allowlist ne couvre que 10 prefixes de table
+legacy (`article`, `category`, `mvtstk`, `commandeclient`,
+`commandefournisseur`, `lignecommandeclient`, `lignecommandefournisseur`,
+`lignevente`, `ventes`, `utilisateur`). **Aucune table module-neuf n'y figure**
+(`customer`, `supplier`, `sale`, `customer_order`, `purchase_order`, `tenant`,
+`organization`, `site`, `warehouse`, `stock`, `user`) - confirme en lisant
+`findAll()` dans `CustomerServiceImpl`, `SupplierServiceImpl`, `SaleServiceImpl`,
+`CustomerOrderServiceImpl`, `PurchaseOrderServiceImpl`, `TenantServiceImpl`,
+`OrganizationServiceImpl`, `SiteServiceImpl`, `WarehouseServiceImpl`,
+`InventoryFacadeImpl`, `UserServiceImpl` : aucun filtrage `organizationId` nulle
+part, ni via l'interceptor ni en code Java. Le constat d'origine ("5 flows
+legacy") sous-estimait tres largement le perimetre reel : c'est essentiellement
+tout endpoint de liste/lecture module-neuf qui est concerne, y compris
+`/tenants/all` (fuite du registre des tenants lui-meme) et les deux
+controleurs crees en Phase 4d (`/customers/all`, `/suppliers/all`). Traite en
+Phase 5b, increment dedie (voir docs/phase-5a-report.md §0 et §8) - pas dans
+5a, deliberement, vu la taille et le fait que toute solution touche soit
+`Interceptor.java` (gele), soit la signature de `findAll()` dans une dizaine
+de services a la fois.
+
+### IDOR mot de passe corrige en self-only, pas d'override admin
+
+`/utilisateurs/update/password` et `/users/{id}/password` ne verifiaient
+l'identite de l'appelant nulle part. Corrige en self-only (l'appelant doit
+etre la cible) plutot qu'en introduisant une nouvelle permission RBAC pour un
+override admin - choix explicite pour ne pas ouvrir une nouvelle surface RBAC
+dans cet increment (deja exclu du perimetre de 5a). "Admin reinitialise le mot
+de passe d'un autre utilisateur" reste un gap non traite, a rattacher a l'item
+RBAC deja identifie plus haut ("Constats RBAC/permissions, a valider en Phase
+5"), pas une regression introduite ici.
+
+### Test verrouillant l'IDOR renomme et inverse (cas ou la regle "ne jamais modifier un test" autorise la modification)
+
+`UtilisateurAuthenticationCharacterizationTest.changerMotDePasseHasNoOwnershipCheckIdorReproducedAsIs`
+(Phase 4a) verrouillait explicitement le comportement bugue. Renomme en
+`changerMotDePasseRejectsWhenCallerIsNotTargetUser`, assertion inversee (400
+au lieu de 200, mot de passe de la victime inchange). Meme traitement pour
+`loginFailsForUnknownEmailWith500NotBadCredentials` -> `...With400BadCredentialsSameAsWrongPassword`.
+Les deux sont le cas exact ou la regle "ne jamais modifier un test existant
+sans comprendre pourquoi il echouait" autorise la modification : le
+comportement verrouille a ete volontairement change dans ce meme increment,
+pas contourne a l'aveugle.
+
+### Asymetrie 500/400 sur email inconnu : aussi un oracle d'enumeration de comptes
+
+Au-dela de l'incoherence de statut HTTP deja documentee en Phase 4a, cette
+asymetrie permettait de deviner si un email existait dans le systeme sans
+jamais se connecter (500 = email connu, 400 = email inconnu ou mot de passe
+faux, indistinctement). Corrige comme effet de bord du meme correctif
+(`ApplicationUserDetailsService` traduit desormais l'exception en
+`UsernameNotFoundException`, que Spring Security masque deja par defaut en
+`BadCredentialsException`).

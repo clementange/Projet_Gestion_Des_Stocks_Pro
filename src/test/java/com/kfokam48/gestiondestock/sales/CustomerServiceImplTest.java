@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
+import com.kfokam48.gestiondestock.organization.application.OrganizationService;
+import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.sales.application.CustomerService;
 import com.kfokam48.gestiondestock.sales.application.dto.CustomerDto;
 import java.util.UUID;
@@ -23,6 +25,9 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
 
   @Autowired
   private CustomerService service;
+
+  @Autowired
+  private OrganizationService organizationService;
 
   @Test
   public void shouldSaveCustomerWithSuccess() {
@@ -85,6 +90,20 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
     CustomerDto updated = service.save(CustomerDto.builder().id(saved.getId()).nom("Client Renomme").mail(mail).build());
 
     assertEquals("Client Renomme", updated.getNom());
+  }
+
+  // Phase 5b-2a : voir docs/phase-5b2a-report.md.
+  @Test
+  public void crossOrganizationReadsAreScoped() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe B").active(true).build());
+    CustomerDto customerA = service.save(CustomerDto.builder().nom("Client A").organizationId(orgA.getId()).build());
+
+    assertEquals(customerA.getId(), service.findById(customerA.getId(), orgA.getId()).getId());
+    assertEquals(1, service.findAll(orgA.getId()).size());
+
+    assertThrows(EntityNotFoundException.class, () -> service.findById(customerA.getId(), orgB.getId()));
+    assertEquals(0, service.findAll(orgB.getId()).size());
   }
 
 }

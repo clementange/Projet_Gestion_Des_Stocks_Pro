@@ -3,6 +3,7 @@ package com.kfokam48.gestiondestock.catalog.application.impl;
 import com.kfokam48.gestiondestock.catalog.application.ArticleService;
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 import com.kfokam48.gestiondestock.catalog.application.validator.ArticleValidator;
+import com.kfokam48.gestiondestock.catalog.domain.model.Article;
 import com.kfokam48.gestiondestock.catalog.infrastructure.persistence.ArticleRepository;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
@@ -11,6 +12,7 @@ import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.model.LigneCommandeClient;
 import com.kfokam48.gestiondestock.model.LigneCommandeFournisseur;
 import com.kfokam48.gestiondestock.model.LigneVente;
+import com.kfokam48.gestiondestock.organization.domain.model.Organization;
 import com.kfokam48.gestiondestock.repository.LigneCommandeClientRepository;
 import com.kfokam48.gestiondestock.repository.LigneCommandeFournisseurRepository;
 import com.kfokam48.gestiondestock.repository.LigneVenteRepository;
@@ -112,13 +114,30 @@ public class ArticleServiceImpl implements ArticleService {
   }
 
   @Override
-  public ArticleDto findByCodeArticle(String codeArticle) {
+  public ArticleDto findById(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Article ID is null");
+      return null;
+    }
+    return articleRepository.findById(id)
+        .filter(article -> belongsToOrganization(article.getOrganization(), organizationId))
+        .map(ArticleDto::fromEntity)
+        .orElseThrow(() ->
+            new EntityNotFoundException(
+                "Aucun article avec l'ID = " + id + " n' ete trouve dans la BDD",
+                ErrorCodes.ARTICLE_NOT_FOUND)
+        );
+  }
+
+  @Override
+  public ArticleDto findByCodeArticle(String codeArticle, Long organizationId) {
     if (!StringUtils.hasLength(codeArticle)) {
       log.error("Article CODE is null");
       return null;
     }
 
     return articleRepository.findArticleByCodeArticle(codeArticle)
+        .filter(article -> belongsToOrganization(article.getOrganization(), organizationId))
         .map(ArticleDto::fromEntity)
         .orElseThrow(() ->
             new EntityNotFoundException(
@@ -128,17 +147,25 @@ public class ArticleServiceImpl implements ArticleService {
   }
 
   @Override
-  public List<ArticleDto> findAll() {
+  public List<ArticleDto> findAll(Long organizationId) {
     return articleRepository.findAll().stream()
+        .filter(article -> belongsToOrganization(article.getOrganization(), organizationId))
         .map(ArticleDto::fromEntity)
         .collect(Collectors.toList());
   }
 
   @Override
-  public List<ArticleDto> findAllArticleByIdCategory(Long idCategory) {
+  public List<ArticleDto> findAllArticleByIdCategory(Long idCategory, Long organizationId) {
     return articleRepository.findAllByCategoryId(idCategory).stream()
+        .filter(article -> belongsToOrganization(article.getOrganization(), organizationId))
         .map(ArticleDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2a : les deux cotes doivent etre non-null pour matcher - un appelant ou un article
+  // sans organisation ne doit jamais matcher par coincidence de null (voir docs/phase-5b2a-report.md).
+  private boolean belongsToOrganization(Organization organization, Long organizationId) {
+    return organization != null && organization.getId() != null && organization.getId().equals(organizationId);
   }
 
   @Override

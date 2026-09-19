@@ -72,10 +72,32 @@ public class SupplierServiceImpl implements SupplierService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<SupplierDto> findAll() {
+  public SupplierDto findById(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Supplier ID is null");
+      return null;
+    }
+    return supplierRepository.findById(id)
+        .filter(supplier -> belongsToOrganization(supplier.getOrganizationId(), organizationId))
+        .map(SupplierDto::fromEntity)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun fournisseur avec l'ID = " + id + " n'a ete trouve dans la BDD",
+            ErrorCodes.SUPPLIER_NOT_FOUND)
+        );
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<SupplierDto> findAll(Long organizationId) {
     return supplierRepository.findAll().stream()
+        .filter(supplier -> belongsToOrganization(supplier.getOrganizationId(), organizationId))
         .map(SupplierDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2a : les deux cotes doivent etre non-null pour matcher - voir docs/phase-5b2a-report.md.
+  private boolean belongsToOrganization(Long entityOrganizationId, Long callerOrganizationId) {
+    return entityOrganizationId != null && entityOrganizationId.equals(callerOrganizationId);
   }
 
   @Override

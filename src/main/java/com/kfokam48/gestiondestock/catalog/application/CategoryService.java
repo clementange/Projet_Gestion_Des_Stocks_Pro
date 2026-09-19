@@ -7,11 +7,13 @@ public interface CategoryService {
 
   CategoryDto save(CategoryDto dto);
 
-  CategoryDto findById(Long id);
+  // Phase 5b-2a : organizationId verifie contre celui de la categorie (meme 404 qu'un id
+  // inexistant en cas de mismatch) - voir docs/phase-5b2a-report.md.
+  CategoryDto findById(Long id, Long organizationId);
 
-  CategoryDto findByCode(String code);
+  CategoryDto findByCode(String code, Long organizationId);
 
-  List<CategoryDto> findAll();
+  List<CategoryDto> findAll(Long organizationId);
 
   void delete(Long id);
 

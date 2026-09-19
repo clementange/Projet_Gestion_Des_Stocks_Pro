@@ -72,10 +72,32 @@ public class CustomerServiceImpl implements CustomerService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<CustomerDto> findAll() {
+  public CustomerDto findById(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Customer ID is null");
+      return null;
+    }
+    return customerRepository.findById(id)
+        .filter(customer -> belongsToOrganization(customer.getOrganizationId(), organizationId))
+        .map(CustomerDto::fromEntity)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun client avec l'ID = " + id + " n'a ete trouve dans la BDD",
+            ErrorCodes.CUSTOMER_NOT_FOUND)
+        );
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<CustomerDto> findAll(Long organizationId) {
     return customerRepository.findAll().stream()
+        .filter(customer -> belongsToOrganization(customer.getOrganizationId(), organizationId))
         .map(CustomerDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2a : les deux cotes doivent etre non-null pour matcher - voir docs/phase-5b2a-report.md.
+  private boolean belongsToOrganization(Long entityOrganizationId, Long callerOrganizationId) {
+    return entityOrganizationId != null && entityOrganizationId.equals(callerOrganizationId);
   }
 
   @Override

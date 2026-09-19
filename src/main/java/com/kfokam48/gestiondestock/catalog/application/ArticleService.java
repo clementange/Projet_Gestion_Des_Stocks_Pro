@@ -9,11 +9,18 @@ public interface ArticleService {
 
   ArticleDto findById(Long id);
 
-  ArticleDto findByCodeArticle(String codeArticle);
+  // Phase 5b-2a : variante utilisee par le point d'entree HTTP en lecture, qui verifie que
+  // l'article appartient bien a l'organisation de l'appelant (memes 404 qu'un id inexistant en
+  // cas de mismatch, pas de fuite d'existence) - voir docs/phase-5b2a-report.md.
+  // findById(Long) sans organizationId reste utilise en interne (updatePhoto), pas expose tel
+  // quel par un endpoint de lecture.
+  ArticleDto findById(Long id, Long organizationId);
 
-  List<ArticleDto> findAll();
+  ArticleDto findByCodeArticle(String codeArticle, Long organizationId);
 
-  List<ArticleDto> findAllArticleByIdCategory(Long idCategory);
+  List<ArticleDto> findAll(Long organizationId);
+
+  List<ArticleDto> findAllArticleByIdCategory(Long idCategory, Long organizationId);
 
   void delete(Long id);
 

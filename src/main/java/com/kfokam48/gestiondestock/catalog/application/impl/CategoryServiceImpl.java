@@ -10,6 +10,7 @@ import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
+import com.kfokam48.gestiondestock.organization.domain.model.Organization;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -43,12 +44,13 @@ public class CategoryServiceImpl implements CategoryService {
   }
 
   @Override
-  public CategoryDto findById(Long id) {
+  public CategoryDto findById(Long id, Long organizationId) {
     if (id == null) {
       log.error("Category ID is null");
       return null;
     }
     return categoryRepository.findById(id)
+        .filter(category -> belongsToOrganization(category.getOrganization(), organizationId))
         .map(CategoryDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucune category avec l'ID = " + id + " n' ete trouve dans la BDD",
@@ -57,12 +59,13 @@ public class CategoryServiceImpl implements CategoryService {
   }
 
   @Override
-  public CategoryDto findByCode(String code) {
+  public CategoryDto findByCode(String code, Long organizationId) {
     if (!StringUtils.hasLength(code)) {
       log.error("Category CODE is null");
       return null;
     }
     return categoryRepository.findCategoryByCode(code)
+        .filter(category -> belongsToOrganization(category.getOrganization(), organizationId))
         .map(CategoryDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucune category avec le CODE = " + code + " n' ete trouve dans la BDD",
@@ -71,10 +74,16 @@ public class CategoryServiceImpl implements CategoryService {
   }
 
   @Override
-  public List<CategoryDto> findAll() {
+  public List<CategoryDto> findAll(Long organizationId) {
     return categoryRepository.findAll().stream()
+        .filter(category -> belongsToOrganization(category.getOrganization(), organizationId))
         .map(CategoryDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2a : voir docs/phase-5b2a-report.md.
+  private boolean belongsToOrganization(Organization organization, Long organizationId) {
+    return organization != null && organization.getId() != null && organization.getId().equals(organizationId);
   }
 
   @Override

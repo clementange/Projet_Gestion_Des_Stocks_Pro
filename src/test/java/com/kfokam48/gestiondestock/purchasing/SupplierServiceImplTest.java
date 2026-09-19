@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
+import com.kfokam48.gestiondestock.organization.application.OrganizationService;
+import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.purchasing.application.SupplierService;
 import com.kfokam48.gestiondestock.purchasing.application.dto.SupplierDto;
 import java.util.UUID;
@@ -23,6 +25,9 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
 
   @Autowired
   private SupplierService service;
+
+  @Autowired
+  private OrganizationService organizationService;
 
   @Test
   public void shouldSaveSupplierWithSuccess() {
@@ -84,6 +89,20 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
     SupplierDto updated = service.save(SupplierDto.builder().id(saved.getId()).nom("Fournisseur Renomme").mail(mail).build());
 
     assertEquals("Fournisseur Renomme", updated.getNom());
+  }
+
+  // Phase 5b-2a : voir docs/phase-5b2a-report.md.
+  @Test
+  public void crossOrganizationReadsAreScoped() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe B").active(true).build());
+    SupplierDto supplierA = service.save(SupplierDto.builder().nom("Fournisseur A").organizationId(orgA.getId()).build());
+
+    assertEquals(supplierA.getId(), service.findById(supplierA.getId(), orgA.getId()).getId());
+    assertEquals(1, service.findAll(orgA.getId()).size());
+
+    assertThrows(EntityNotFoundException.class, () -> service.findById(supplierA.getId(), orgB.getId()));
+    assertEquals(0, service.findAll(orgB.getId()).size());
   }
 
 }

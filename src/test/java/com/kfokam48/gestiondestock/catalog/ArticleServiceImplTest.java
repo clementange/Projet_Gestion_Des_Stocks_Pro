@@ -69,7 +69,7 @@ public class ArticleServiceImplTest extends AbstractIntegrationTest {
     assertEquals(article.getCodeArticle(), found.getCodeArticle());
     assertEquals(organization.getId(), found.getOrganization().getId());
 
-    assertEquals(1, articleService.findAllArticleByIdCategory(category.getId()).size());
+    assertEquals(1, articleService.findAllArticleByIdCategory(category.getId(), organization.getId()).size());
   }
 
   @Test
@@ -89,5 +89,32 @@ public class ArticleServiceImplTest extends AbstractIntegrationTest {
   @Test(expected = EntityNotFoundException.class)
   public void shouldThrowWhenArticleNotFound() {
     articleService.findById(0L);
+  }
+
+  // Phase 5b-2a : voir docs/phase-5b2a-report.md.
+  @Test
+  public void crossOrganizationReadsAreScoped() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe B").active(true).build());
+    CategoryDto categoryA = categoryService.save(
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat A").organization(orgA).build());
+    ArticleDto articleA = articleService.save(
+        ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article A")
+            .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
+            .category(categoryA).organization(orgA).build());
+
+    // Meme organisation : lecture normale.
+    assertEquals(articleA.getId(), articleService.findById(articleA.getId(), orgA.getId()).getId());
+    assertEquals(articleA.getCodeArticle(),
+        articleService.findByCodeArticle(articleA.getCodeArticle(), orgA.getId()).getCodeArticle());
+    assertEquals(1, articleService.findAll(orgA.getId()).size());
+    assertEquals(1, articleService.findAllArticleByIdCategory(categoryA.getId(), orgA.getId()).size());
+
+    // Organisation B : meme 404 qu'un id inexistant, pas de fuite d'existence.
+    assertThrows(EntityNotFoundException.class, () -> articleService.findById(articleA.getId(), orgB.getId()));
+    assertThrows(EntityNotFoundException.class,
+        () -> articleService.findByCodeArticle(articleA.getCodeArticle(), orgB.getId()));
+    assertEquals(0, articleService.findAll(orgB.getId()).size());
+    assertEquals(0, articleService.findAllArticleByIdCategory(categoryA.getId(), orgB.getId()).size());
   }
 }

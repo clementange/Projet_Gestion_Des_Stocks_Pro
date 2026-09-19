@@ -53,11 +53,12 @@ import org.springframework.util.StringUtils;
 //   - stock/stock_movement/purchase_order_line/customer_order_line/sale_line/stock_transfer_line :
 //     une pre-verification appellerait catalog vers inventory/purchasing/sales/transfers, qui
 //     dependent tous deja de catalog (Article) — recreerait exactement le cycle evite en Phase 3a.
-//   - mvtstk : n'a pas de repository Spring Data (aucun MvtStkRepository n'existe) ; en creer un
-//     serait de la nouvelle fonctionnalite dans le legacy plat (repository/ a la racine du
-//     package), interdit par CLAUDE.md. La table est de toute facon gelee depuis la Phase 22
-//     (MvtStkServiceImpl est entierement re-backe par inventory.Stock/StockMovement, plus aucune
-//     ecriture n'y arrive) : son FK ne protege plus que des lignes historiques, pas de croissance.
+//   - mvtstk : n'avait pas de repository Spring Data ; Phase 4d a supprime model.MvtStk et toute
+//     sa chaine (plus aucun code n'ecrit dans cette table depuis la Phase 22, voir
+//     docs/phase-4d-report.md), donc plus aucune entite JPA n'y correspond du tout desormais. Sa
+//     contrainte FK sur article(id) reste active au niveau base (la table elle-meme n'est pas
+//     supprimee) et continue de proteger les lignes historiques via le catch ci-dessous, sans
+//     qu'aucun code Java n'ait plus besoin de la connaitre.
 // Le catch n'est donc pas une approximation : aucune autre contrainte (CHECK, trigger) n'existe
 // sur article, donc un DELETE par id ne peut echouer en DataIntegrityViolationException que par
 // l'une de ces 10 FK — le perimetre est entierement caracterise, pas devine.

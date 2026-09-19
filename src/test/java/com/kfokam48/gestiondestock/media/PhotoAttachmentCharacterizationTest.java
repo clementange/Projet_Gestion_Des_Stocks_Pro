@@ -137,7 +137,7 @@ public class PhotoAttachmentCharacterizationTest extends AbstractIntegrationTest
   @Test
   public void attachingPhotoToClientUpdatesItsPhotoField() throws Exception {
     String token = adminToken(uniqueCode("client-photo") + "@test.local", "Test-Passw0rd!");
-    MvcResult created = mockMvc.perform(post("/gestiondestock/v1/clients/create")
+    MvcResult created = mockMvc.perform(post("/gestiondestock/v1/customers/create")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Client Photo\",\"prenom\":\"Test\",\"mail\":\"" + uniqueCode("cli") + "@test.local\",\"numTel\":\"6\","
@@ -159,7 +159,7 @@ public class PhotoAttachmentCharacterizationTest extends AbstractIntegrationTest
   @Test
   public void attachingPhotoToFournisseurUpdatesItsPhotoField() throws Exception {
     String token = adminToken(uniqueCode("fourn-photo") + "@test.local", "Test-Passw0rd!");
-    MvcResult created = mockMvc.perform(post("/gestiondestock/v1/fournisseurs/create")
+    MvcResult created = mockMvc.perform(post("/gestiondestock/v1/suppliers/create")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Fournisseur Photo\",\"prenom\":\"Test\",\"mail\":\"" + uniqueCode("fourn") + "@test.local\","

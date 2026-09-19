@@ -762,3 +762,40 @@ vraies organisations via `OrganizationService` avant d'y attacher des
 affectations RBAC. Les 7 autres fichiers de test utilisaient deja des
 organisations reelles (creees via `organizationService.save(...)`), donc
 seul le threading du parametre a ete necessaire.
+
+## Phase 5b-2a (lecture scopee par organisation, entites a reference directe) : trouve pendant l'increment
+
+Voir `docs/phase-5b2a-report.md` pour le detail complet. Premier des trois
+increments de 5b-2 (Article/Category/Customer/Supplier - reference directe
+a Organization) - 5b-2b (derivation via Site) et 5b-2c (cas speciaux
+Organization/Tenant/User/Role/Permission) restent ouverts.
+
+### La creation ne fixait jamais l'organisation cote serveur - trouve en implementant le filtrage en lecture
+
+`ArticleController.save()`/`CategoryController.save()`/
+`CustomerController.create()`/`SupplierController.create()` faisaient
+confiance au client pour fournir l'organisation dans le corps de la
+requete (ou ne la fournissaient jamais). Une fois la lecture filtree par
+organisation, toute entite creee sans organisation explicite devenait
+invisible a son propre createur - confirme concretement par l'echec de 4
+suites de tests d'integration existantes (`ArticleHistoryLegacyEndpointsTest`,
+`BusinessModulesHttpIntegrationTest`, `CustomerSupplierControllerCharacterizationTest`,
+`PhotoAttachmentCharacterizationTest`) qui creent puis relisent
+immediatement sans jamais fournir d'organisation dans le JSON. Corrige en
+forcant l'organisation depuis `principal.getOrganizationId()` cote
+controleur, TOUJOURS en ecrasant ce que le client aurait fourni (pas
+seulement en cas d'absence) - sinon un appelant pourrait injecter des
+donnees dans une autre organisation en fournissant un id arbitraire.
+Correctif juge necessaire et borne (consequence directe du filtrage en
+lecture), pas une extension vers la securisation generale des ecritures -
+l'absence de verification de permission sur create/update/delete de ces 4
+entites reste le gap RBAC deja catalogue en Phase 5b-1 §8, non traite ici.
+
+### findById(Long) sans organisation conserve pour updatePhoto
+
+`ArticleServiceImpl`/`CustomerServiceImpl`/`SupplierServiceImpl.updatePhoto`
+appelaient deja `findById(id)` en interne (Phase 4c) - cette variante est
+restee inchangee plutot que de forcer un filtrage sur un chemin d'ecriture
+hors perimetre de cet increment. `CategoryServiceImpl` n'avait aucun appel
+interne de ce type, ses trois methodes de lecture ont ete changees
+directement.

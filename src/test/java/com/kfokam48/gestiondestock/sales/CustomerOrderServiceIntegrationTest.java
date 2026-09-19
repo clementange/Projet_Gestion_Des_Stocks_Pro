@@ -93,7 +93,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
    * Phase 14 : reserve/deliver/cancel verifient desormais une permission dediee. Cree un
    * utilisateur de test avec exactement les permissions demandees, accordees sur ce site.
    */
-  private Long grantOrderPermissions(SiteDto site, String... codes) {
+  private Long grantOrderPermissions(SiteDto site, Long organizationId, String... codes) {
     Set<PermissionDto> permissions = Arrays.stream(codes).map(code -> {
       try {
         return permissionService.findByCode(code);
@@ -104,12 +104,14 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     RoleDto role = roleService.save(RoleDto.builder().code(uniqueCode("ROLE")).name("Role commande client test").permissions(permissions).build());
     Long userId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(role)
-        .scopeType(ScopeType.SITE).scopeId(site.getId()).build());
+        .scopeType(ScopeType.SITE).scopeId(site.getId()).organizationId(organizationId).build());
     return userId;
   }
 
+  private OrganizationDto organization;
+
   private SiteDto createSite() {
-    OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Sales").active(true).build());
+    organization = organizationService.save(OrganizationDto.builder().name("Societe Sales").active(true).build());
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
     return siteService.save(SiteDto.builder().code(uniqueCode("BTQ")).name("Boutique test")
         .type(SiteType.BOUTIQUE).active(true).city(city).build());
@@ -154,8 +156,8 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
     customerOrderService.validate(order.getId());
-    Long userId = grantOrderPermissions(site, "CUSTOMER_ORDER_RESERVE");
-    customerOrderService.reserve(order.getId(), userId);
+    Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE");
+    customerOrderService.reserve(order.getId(), userId, organization.getId());
 
     StockDto stock = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, stock.getQuantitePhysique().compareTo(BigDecimal.TEN));
@@ -171,9 +173,9 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.TEN, new Long[1]);
     customerOrderService.validate(order.getId());
-    Long userId = grantOrderPermissions(site, "CUSTOMER_ORDER_RESERVE");
+    Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE");
 
-    assertThrows(InvalidOperationException.class, () -> customerOrderService.reserve(order.getId(), userId));
+    assertThrows(InvalidOperationException.class, () -> customerOrderService.reserve(order.getId(), userId, organization.getId()));
   }
 
   @Test
@@ -184,15 +186,15 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
     customerOrderService.validate(order.getId());
-    Long userId = grantOrderPermissions(site, "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_DELIVER");
-    customerOrderService.reserve(order.getId(), userId);
+    Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_DELIVER");
+    customerOrderService.reserve(order.getId(), userId, organization.getId());
     customerOrderService.prepare(order.getId());
     customerOrderService.ship(order.getId());
 
     StockDto beforeDelivery = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, beforeDelivery.getQuantitePhysique().compareTo(BigDecimal.TEN));
 
-    customerOrderService.deliver(order.getId(), userId);
+    customerOrderService.deliver(order.getId(), userId, organization.getId());
 
     StockDto afterDelivery = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, afterDelivery.getQuantitePhysique().compareTo(BigDecimal.valueOf(4)));
@@ -208,10 +210,10 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
     customerOrderService.validate(order.getId());
-    Long userId = grantOrderPermissions(site, "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_CANCEL");
-    customerOrderService.reserve(order.getId(), userId);
+    Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_CANCEL");
+    customerOrderService.reserve(order.getId(), userId, organization.getId());
 
-    customerOrderService.cancel(order.getId(), userId);
+    customerOrderService.cancel(order.getId(), userId, organization.getId());
 
     StockDto stock = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, stock.getQuantiteReservee().compareTo(BigDecimal.ZERO));
@@ -227,9 +229,9 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
     customerOrderService.validate(order.getId());
-    Long userId = grantOrderPermissions(site, "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_DELIVER");
-    customerOrderService.reserve(order.getId(), userId);
+    Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_DELIVER");
+    customerOrderService.reserve(order.getId(), userId, organization.getId());
 
-    assertThrows(InvalidOperationException.class, () -> customerOrderService.deliver(order.getId(), userId));
+    assertThrows(InvalidOperationException.class, () -> customerOrderService.deliver(order.getId(), userId, organization.getId()));
   }
 }

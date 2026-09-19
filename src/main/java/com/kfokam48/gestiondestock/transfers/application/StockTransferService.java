@@ -26,14 +26,14 @@ public interface StockTransferService {
    * EN_PREPARATION -> EXPEDIE : sort physiquement le stock du site d'origine, ligne par ligne
    * (StockMovementType.TRANSFERT_SORTIE).
    */
-  StockTransferDto ship(Long id, Long userId);
+  StockTransferDto ship(Long id, Long userId, Long organizationId);
 
   /**
    * EXPEDIE -> RECU : entre physiquement le stock au site de destination, ligne par ligne
    * (StockMovementType.TRANSFERT_ENTREE). C'est le moment ou A-30/B+30 devient reel (Test 3,
    * section 43).
    */
-  StockTransferDto receive(Long id, Long userId);
+  StockTransferDto receive(Long id, Long userId, Long organizationId);
 
   StockTransferDto cancel(Long id);
 

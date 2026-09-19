@@ -14,11 +14,16 @@ import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
  * sites de cette ville) n'est PAS geree ici : aucun cas d'usage concret ne l'exige encore. Elle
  * sera ajoutee, via une dependance explicite vers le module organization, quand un module
  * consommateur (reporting, inventory...) en aura reellement besoin.
+ *
+ * <p>Phase 5b-1 : {@code organizationId} (l'organisation de l'appelant, resolue depuis son JWT)
+ * est desormais obligatoire sur les deux methodes - corrige un contournement cross-tenant ou
+ * {@code ScopeType.GLOBAL} etait traite comme global a toute l'application plutot qu'a la seule
+ * organisation de l'affectation RBAC. Voir docs/phase-5b1-report.md.
  */
 public interface AuthorizationService {
 
-  boolean hasPermission(Long userId, String permissionCode, ScopeType scopeType, Long scopeId);
+  boolean hasPermission(Long userId, String permissionCode, ScopeType scopeType, Long scopeId, Long organizationId);
 
-  boolean hasGlobalAccess(Long userId);
+  boolean hasGlobalAccess(Long userId, Long organizationId);
 
 }

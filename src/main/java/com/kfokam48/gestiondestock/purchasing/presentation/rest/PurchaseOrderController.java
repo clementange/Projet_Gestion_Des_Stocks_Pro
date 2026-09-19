@@ -69,6 +69,6 @@ public class PurchaseOrderController {
   @PostMapping(value = APP_ROOT + "/purchase-orders/{idCommande}/lignes/{idLigne}/receptionner", produces = MediaType.APPLICATION_JSON_VALUE)
   public PurchaseOrderLineDto receiveLine(@PathVariable("idCommande") Long idCommande, @PathVariable("idLigne") Long idLigne,
       @RequestParam BigDecimal quantite, @AuthenticationPrincipal ExtendedUser principal) {
-    return purchaseOrderService.receiveLine(idCommande, idLigne, quantite, principal.getIdUtilisateur());
+    return purchaseOrderService.receiveLine(idCommande, idLigne, quantite, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

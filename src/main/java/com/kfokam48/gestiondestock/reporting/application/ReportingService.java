@@ -13,17 +13,17 @@ import java.util.List;
  */
 public interface ReportingService {
 
-  List<StockDto> getStockForSite(Long userId, Long siteId);
+  List<StockDto> getStockForSite(Long userId, Long siteId, Long organizationId);
 
   /** Reserve aux detenteurs d'une affectation GLOBAL avec la permission REPORTING_VIEW. */
-  List<StockDto> getGlobalStockSummary(Long userId);
+  List<StockDto> getGlobalStockSummary(Long userId, Long organizationId);
 
   /**
    * Articles sous leur seuil d'alerte, filtre aux sites accessibles par l'appelant (tous les
    * sites pour un perimetre GLOBAL, uniquement les sites explicitement autorises sinon).
    */
-  List<StockDto> getLowStockReport(Long userId);
+  List<StockDto> getLowStockReport(Long userId, Long organizationId);
 
-  SalesSummaryDto getSalesSummary(Long userId, Long siteId, Instant from, Instant to);
+  SalesSummaryDto getSalesSummary(Long userId, Long siteId, Instant from, Instant to, Long organizationId);
 
 }

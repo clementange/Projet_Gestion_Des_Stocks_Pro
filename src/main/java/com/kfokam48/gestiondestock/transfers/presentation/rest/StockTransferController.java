@@ -71,12 +71,12 @@ public class StockTransferController {
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/expedier", produces = MediaType.APPLICATION_JSON_VALUE)
   public StockTransferDto ship(@PathVariable("idTransfert") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return stockTransferService.ship(id, principal.getIdUtilisateur());
+    return stockTransferService.ship(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/receptionner", produces = MediaType.APPLICATION_JSON_VALUE)
   public StockTransferDto receive(@PathVariable("idTransfert") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return stockTransferService.receive(id, principal.getIdUtilisateur());
+    return stockTransferService.receive(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/annuler", produces = MediaType.APPLICATION_JSON_VALUE)

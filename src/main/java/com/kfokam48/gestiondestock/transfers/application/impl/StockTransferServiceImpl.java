@@ -128,9 +128,9 @@ public class StockTransferServiceImpl implements StockTransferService {
   }
 
   @Override
-  public StockTransferDto ship(Long id, Long userId) {
+  public StockTransferDto ship(Long id, Long userId, Long organizationId) {
     StockTransfer transfer = fetchTransfer(id);
-    if (!authorizationService.hasPermission(userId, STOCK_TRANSFER_SHIP, ScopeType.SITE, transfer.getOriginSite().getId())) {
+    if (!authorizationService.hasPermission(userId, STOCK_TRANSFER_SHIP, ScopeType.SITE, transfer.getOriginSite().getId(), organizationId)) {
       log.warn("User {} tried to ship transfer {} from site {} without permission",
           userId, id, transfer.getOriginSite().getId());
       throw new InvalidOperationException(
@@ -150,9 +150,9 @@ public class StockTransferServiceImpl implements StockTransferService {
   }
 
   @Override
-  public StockTransferDto receive(Long id, Long userId) {
+  public StockTransferDto receive(Long id, Long userId, Long organizationId) {
     StockTransfer transfer = fetchTransfer(id);
-    if (!authorizationService.hasPermission(userId, STOCK_TRANSFER_RECEIVE, ScopeType.SITE, transfer.getDestinationSite().getId())) {
+    if (!authorizationService.hasPermission(userId, STOCK_TRANSFER_RECEIVE, ScopeType.SITE, transfer.getDestinationSite().getId(), organizationId)) {
       log.warn("User {} tried to receive transfer {} at site {} without permission",
           userId, id, transfer.getDestinationSite().getId());
       throw new InvalidOperationException(

@@ -90,7 +90,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
    * Phase 14 : receiveLine verifie desormais PURCHASE_ORDER_RECEIVE. Cree un utilisateur de test
    * avec cette permission accordee sur le site receveur et retourne son ID.
    */
-  private Long grantPurchaseOrderReceive(SiteDto site) {
+  private Long grantPurchaseOrderReceive(SiteDto site, Long organizationId) {
     PermissionDto permission;
     try {
       permission = permissionService.findByCode("PURCHASE_ORDER_RECEIVE");
@@ -100,12 +100,14 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     RoleDto role = roleService.save(RoleDto.builder().code(uniqueCode("ROLE")).name("Magasinier test").permissions(Set.of(permission)).build());
     Long userId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(role)
-        .scopeType(ScopeType.SITE).scopeId(site.getId()).build());
+        .scopeType(ScopeType.SITE).scopeId(site.getId()).organizationId(organizationId).build());
     return userId;
   }
 
+  private OrganizationDto organization;
+
   private SiteDto createReceivingSite() {
-    OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Purchasing").active(true).build());
+    organization = organizationService.save(OrganizationDto.builder().name("Societe Purchasing").active(true).build());
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
     return siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Entrepot reception")
         .type(SiteType.ENTREPOT).active(true).city(city).build());
@@ -159,10 +161,10 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     ArticleDto article = createArticle();
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
-    Long userId = grantPurchaseOrderReceive(site);
+    Long userId = grantPurchaseOrderReceive(site, organization.getId());
 
     assertThrows(InvalidOperationException.class,
-        () -> purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.TEN, userId));
+        () -> purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.TEN, userId, organization.getId()));
   }
 
   @Test
@@ -173,8 +175,8 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
 
     purchaseOrderService.validate(order.getId());
-    Long userId = grantPurchaseOrderReceive(site);
-    purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.TEN, userId);
+    Long userId = grantPurchaseOrderReceive(site, organization.getId());
+    purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.TEN, userId, organization.getId());
 
     StockDto stock = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, stock.getQuantitePhysique().compareTo(BigDecimal.TEN));
@@ -188,12 +190,12 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
     purchaseOrderService.validate(order.getId());
-    Long userId = grantPurchaseOrderReceive(site);
+    Long userId = grantPurchaseOrderReceive(site, organization.getId());
 
-    purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(4), userId);
+    purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(4), userId, organization.getId());
     assertEquals(PurchaseOrderStatus.VALIDEE, purchaseOrderService.findById(order.getId()).getStatus());
 
-    purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(6), userId);
+    purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(6), userId, organization.getId());
     assertEquals(PurchaseOrderStatus.RECUE, purchaseOrderService.findById(order.getId()).getStatus());
 
     StockDto stock = inventoryFacade.getStock(article.getId(), site.getId());
@@ -207,9 +209,9 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
     purchaseOrderService.validate(order.getId());
-    Long userId = grantPurchaseOrderReceive(site);
+    Long userId = grantPurchaseOrderReceive(site, organization.getId());
 
     assertThrows(InvalidOperationException.class,
-        () -> purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(15), userId));
+        () -> purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(15), userId, organization.getId()));
   }
 }

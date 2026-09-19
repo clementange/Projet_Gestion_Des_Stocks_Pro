@@ -104,10 +104,14 @@ public class TenantRegistrationServiceImpl implements TenantRegistrationService 
     // en dur : ADMINISTRATEUR et ses permissions sont des donnees seedees par
     // V3__seed_baseline_rbac_permissions.sql, pas une branche "if roleName.equals(ADMIN)" dans le
     // code applicatif).
+    // Phase 5b-1 : organizationId sur l'affectation elle-meme, pas seulement sur l'admin - c'est
+    // ce qui borne desormais le GLOBAL de cet administrateur a SA SEULE organisation. Voir
+    // docs/phase-5b1-report.md.
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder()
         .userId(admin.getId())
         .role(roleService.findByCode("ADMINISTRATEUR"))
         .scopeType(ScopeType.GLOBAL)
+        .organizationId(organization.getId())
         .build());
 
     return tenant;

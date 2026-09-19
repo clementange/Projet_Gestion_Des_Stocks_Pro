@@ -41,7 +41,8 @@ public class UserRoleAssignmentController {
 
   private void requireRbacManage(ExtendedUser principal) {
     Long userId = principal == null ? null : principal.getIdUtilisateur();
-    if (!authorizationService.hasPermission(userId, RBAC_MANAGE, ScopeType.GLOBAL, null)) {
+    Long organizationId = principal == null ? null : principal.getOrganizationId();
+    if (!authorizationService.hasPermission(userId, RBAC_MANAGE, ScopeType.GLOBAL, null, organizationId)) {
       log.warn("User {} tried to manage RBAC without RBAC_MANAGE on GLOBAL scope", userId);
       throw new InvalidOperationException(
           "Vous n'avez pas la permission d'administrer les affectations de roles",

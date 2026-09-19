@@ -47,7 +47,7 @@ public class SaleServiceImpl implements SaleService {
   }
 
   @Override
-  public SaleDto create(SaleDto dto, List<SaleLineDto> lines, Long userId) {
+  public SaleDto create(SaleDto dto, List<SaleLineDto> lines, Long userId, Long organizationId) {
     List<String> errors = SaleValidator.validate(dto, lines);
     if (!errors.isEmpty()) {
       log.error("Sale is not valid {}", dto);
@@ -59,7 +59,7 @@ public class SaleServiceImpl implements SaleService {
       log.error("Sale code {} already exists", dto.getCode());
       throw new InvalidEntityException("Une vente avec ce code existe deja", ErrorCodes.SALE_ALREADY_EXISTS);
     }
-    if (!authorizationService.hasPermission(userId, SALE_CREATE, ScopeType.SITE, dto.getSite().getId())) {
+    if (!authorizationService.hasPermission(userId, SALE_CREATE, ScopeType.SITE, dto.getSite().getId(), organizationId)) {
       log.warn("User {} tried to create a sale on site {} without SALE_CREATE on that scope", userId, dto.getSite().getId());
       throw new InvalidOperationException(
           "Vous n'avez pas la permission d'enregistrer une vente sur ce site",

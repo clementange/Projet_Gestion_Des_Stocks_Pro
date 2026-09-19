@@ -113,13 +113,16 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     }
     RoleDto role = roleService.save(RoleDto.builder().code(uniqueCode("ROLE")).name("Role e2e test").permissions(Set.of(permission)).build());
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(role)
-        .scopeType(ScopeType.SITE).scopeId(site.getId()).build());
+        .scopeType(ScopeType.SITE).scopeId(site.getId()).organizationId(organizationId).build());
   }
+
+  private Long organizationId;
 
   @Test
   public void fullSupplyChainFlowAcrossAllModules() {
     // 1. Organisation : Societe X a Douala, avec un entrepot central et deux boutiques.
     OrganizationDto societeX = organizationService.save(OrganizationDto.builder().name("Societe X").active(true).build());
+    organizationId = societeX.getId();
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(societeX).build());
 
     SiteDto entrepotCentral = siteService.save(SiteDto.builder().code(uniqueCode("ENT-DLA")).name("Entrepot Central Douala")
@@ -146,7 +149,7 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     purchaseOrderService.validate(commandeFournisseur.getId());
     Long ligneCommande = purchaseOrderService.findLines(commandeFournisseur.getId()).get(0).getId();
     grantPermission("PURCHASE_ORDER_RECEIVE", entrepotCentral, 10L);
-    purchaseOrderService.receiveLine(commandeFournisseur.getId(), ligneCommande, BigDecimal.valueOf(500), 10L);
+    purchaseOrderService.receiveLine(commandeFournisseur.getId(), ligneCommande, BigDecimal.valueOf(500), 10L, organizationId);
 
     assertEquals(0, stockOf(ord001.getId(), entrepotCentral.getId()).getQuantitePhysique().compareTo(BigDecimal.valueOf(500)));
 
@@ -158,9 +161,9 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     stockTransferService.approve(transfert.getId(), 11L);
     stockTransferService.startPreparation(transfert.getId());
     grantPermission("STOCK_TRANSFER_SHIP", entrepotCentral, 12L);
-    stockTransferService.ship(transfert.getId(), 12L);
+    stockTransferService.ship(transfert.getId(), 12L, organizationId);
     grantPermission("STOCK_TRANSFER_RECEIVE", boutiqueAkwa, 13L);
-    stockTransferService.receive(transfert.getId(), 13L);
+    stockTransferService.receive(transfert.getId(), 13L, organizationId);
 
     assertEquals(0, stockOf(ord001.getId(), entrepotCentral.getId()).getQuantitePhysique().compareTo(BigDecimal.valueOf(450)));
     assertEquals(0, stockOf(ord001.getId(), boutiqueAkwa.getId()).getQuantitePhysique().compareTo(BigDecimal.valueOf(50)));
@@ -170,7 +173,7 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     saleService.create(
         SaleDto.builder().code(uniqueCode("VEN")).site(boutiqueAkwa).build(),
         List.of(SaleLineDto.builder().article(ord001).quantite(BigDecimal.valueOf(10)).prixUnitaire(BigDecimal.valueOf(477)).build()),
-        14L);
+        14L, organizationId);
     assertEquals(0, stockOf(ord001.getId(), boutiqueAkwa.getId()).getQuantitePhysique().compareTo(BigDecimal.valueOf(40)));
 
     // 6. La boutique Bonamoussadi n'a jamais ete approvisionnee : toute vente y est refusee,
@@ -181,10 +184,10 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     assertThrows(InvalidOperationException.class, () -> saleService.create(
         SaleDto.builder().code(uniqueCode("VEN")).site(boutiqueBonamoussadi).build(),
         List.of(SaleLineDto.builder().article(ord001).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.valueOf(477)).build()),
-        15L));
+        15L, organizationId));
 
     // 7. Reporting : un Directeur General (scope GLOBAL) voit l'etat final complet.
-    List<StockDto> global = reportingService.getGlobalStockSummary(globalUserId());
+    List<StockDto> global = reportingService.getGlobalStockSummary(globalUserId(), organizationId);
     BigDecimal totalToutesSites = global.stream()
         .filter(s -> ord001.getId().equals(s.getArticle().getId()))
         .map(StockDto::getQuantitePhysique)
@@ -197,16 +200,16 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     PermissionDto reportingView = reportingViewPermission();
     RoleDto akwaRole = roleService.save(RoleDto.builder().code(uniqueCode("AKWA_MGR")).name("Responsable Akwa").permissions(Set.of(reportingView)).build());
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(akwaManagerId).role(akwaRole)
-        .scopeType(ScopeType.SITE).scopeId(boutiqueAkwa.getId()).build());
+        .scopeType(ScopeType.SITE).scopeId(boutiqueAkwa.getId()).organizationId(organizationId).build());
 
-    List<StockDto> vueAkwa = reportingService.getStockForSite(akwaManagerId, boutiqueAkwa.getId());
+    List<StockDto> vueAkwa = reportingService.getStockForSite(akwaManagerId, boutiqueAkwa.getId(), organizationId);
     assertEquals(1, vueAkwa.size());
     assertEquals(0, vueAkwa.get(0).getQuantitePhysique().compareTo(BigDecimal.valueOf(40)));
-    assertThrows(InvalidOperationException.class, () -> reportingService.getStockForSite(akwaManagerId, entrepotCentral.getId()));
+    assertThrows(InvalidOperationException.class, () -> reportingService.getStockForSite(akwaManagerId, entrepotCentral.getId(), organizationId));
   }
 
   private StockDto stockOf(Long articleId, Long siteId) {
-    List<StockDto> stock = reportingService.getStockForSite(globalUserId(), siteId).stream()
+    List<StockDto> stock = reportingService.getStockForSite(globalUserId(), siteId, organizationId).stream()
         .filter(s -> articleId.equals(s.getArticle().getId()))
         .toList();
     return stock.isEmpty() ? StockDto.builder().quantitePhysique(BigDecimal.ZERO).build() : stock.get(0);
@@ -221,7 +224,7 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     Long userId = 9999L;
     PermissionDto reportingView = reportingViewPermission();
     RoleDto dgRole = roleService.save(RoleDto.builder().code(uniqueCode("DG")).name("Directeur General").permissions(Set.of(reportingView)).build());
-    userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(dgRole).scopeType(ScopeType.GLOBAL).build());
+    userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(dgRole).scopeType(ScopeType.GLOBAL).organizationId(organizationId).build());
     globalUserIdCache = userId;
     return userId;
   }

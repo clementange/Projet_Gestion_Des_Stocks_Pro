@@ -94,7 +94,7 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
    * site et retourne son ID, pour que la course mesure bien un conflit de verrouillage optimiste
    * sur Stock, pas un refus d'acces.
    */
-  private Long grantPermission(String code, SiteDto site) {
+  private Long grantPermission(String code, SiteDto site, Long organizationId) {
     PermissionDto permission;
     try {
       permission = permissionService.findByCode(code);
@@ -104,7 +104,7 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
     RoleDto role = roleService.save(RoleDto.builder().code(uniqueCode("ROLE")).name("Role concurrence test").permissions(Set.of(permission)).build());
     Long userId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(role)
-        .scopeType(ScopeType.SITE).scopeId(site.getId()).build());
+        .scopeType(ScopeType.SITE).scopeId(site.getId()).organizationId(organizationId).build());
     return userId;
   }
 
@@ -129,8 +129,8 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
         List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.valueOf(7)).prixUnitaire(BigDecimal.TEN).build()));
     customerOrderService.validate(order.getId());
 
-    Long saleUserId = grantPermission("SALE_CREATE", site);
-    Long reserveUserId = grantPermission("CUSTOMER_ORDER_RESERVE", site);
+    Long saleUserId = grantPermission("SALE_CREATE", site, organization.getId());
+    Long reserveUserId = grantPermission("CUSTOMER_ORDER_RESERVE", site, organization.getId());
 
     ExecutorService executor = Executors.newFixedThreadPool(2);
     CountDownLatch readyLatch = new CountDownLatch(2);
@@ -142,9 +142,9 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
         executor.submit(() -> race(() -> saleService.create(
                 SaleDto.builder().code(uniqueCode("VEN")).site(site).build(),
                 List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.valueOf(8)).prixUnitaire(BigDecimal.TEN).build()),
-                saleUserId),
+                saleUserId, organization.getId()),
             readyLatch, goLatch, successCount, failureCount)),
-        executor.submit(() -> race(() -> customerOrderService.reserve(order.getId(), reserveUserId),
+        executor.submit(() -> race(() -> customerOrderService.reserve(order.getId(), reserveUserId, organization.getId()),
             readyLatch, goLatch, successCount, failureCount))
     );
 

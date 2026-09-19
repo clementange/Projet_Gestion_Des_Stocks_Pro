@@ -33,6 +33,6 @@ public interface PurchaseOrderService {
    * Reception explicite d'une ligne : c'est le SEUL point d'entree qui fait entrer du stock
    * (via InventoryFacade), jamais la creation ni la validation de la commande (section 14).
    */
-  PurchaseOrderLineDto receiveLine(Long purchaseOrderId, Long purchaseOrderLineId, BigDecimal quantity, Long userId);
+  PurchaseOrderLineDto receiveLine(Long purchaseOrderId, Long purchaseOrderLineId, BigDecimal quantity, Long userId, Long organizationId);
 
 }

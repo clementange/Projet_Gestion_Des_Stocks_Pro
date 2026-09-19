@@ -30,7 +30,7 @@ public interface CustomerOrderService {
    * VALIDEE -> RESERVEE : reserve le stock disponible de chaque ligne (StockMovement
    * RESERVATION). Refuse si le stock disponible d'une seule ligne est insuffisant.
    */
-  CustomerOrderDto reserve(Long id, Long userId);
+  CustomerOrderDto reserve(Long id, Long userId, Long organizationId);
 
   CustomerOrderDto prepare(Long id);
 
@@ -39,8 +39,8 @@ public interface CustomerOrderService {
   /**
    * EXPEDIEE -> LIVREE : sortie physique + liberation de la reservation de chaque ligne.
    */
-  CustomerOrderDto deliver(Long id, Long userId);
+  CustomerOrderDto deliver(Long id, Long userId, Long organizationId);
 
-  CustomerOrderDto cancel(Long id, Long userId);
+  CustomerOrderDto cancel(Long id, Long userId, Long organizationId);
 
 }

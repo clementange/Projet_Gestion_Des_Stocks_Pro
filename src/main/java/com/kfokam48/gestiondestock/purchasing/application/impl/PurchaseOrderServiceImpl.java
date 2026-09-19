@@ -134,9 +134,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
   }
 
   @Override
-  public PurchaseOrderLineDto receiveLine(Long purchaseOrderId, Long purchaseOrderLineId, BigDecimal quantity, Long userId) {
+  public PurchaseOrderLineDto receiveLine(Long purchaseOrderId, Long purchaseOrderLineId, BigDecimal quantity, Long userId, Long organizationId) {
     PurchaseOrder purchaseOrder = fetchOrder(purchaseOrderId);
-    if (!authorizationService.hasPermission(userId, PURCHASE_ORDER_RECEIVE, ScopeType.SITE, purchaseOrder.getSite().getId())) {
+    if (!authorizationService.hasPermission(userId, PURCHASE_ORDER_RECEIVE, ScopeType.SITE, purchaseOrder.getSite().getId(), organizationId)) {
       log.warn("User {} tried to receive purchase order {} on site {} without permission",
           userId, purchaseOrderId, purchaseOrder.getSite().getId());
       throw new InvalidOperationException(

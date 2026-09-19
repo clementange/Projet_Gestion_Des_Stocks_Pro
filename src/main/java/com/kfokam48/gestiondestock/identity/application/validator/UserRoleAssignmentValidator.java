@@ -27,6 +27,13 @@ public class UserRoleAssignmentValidator {
     } else if (dto.getScopeType() != ScopeType.GLOBAL && dto.getScopeId() == null) {
       errors.add("Veuillez renseigner l'identifiant de la ressource pour ce type de perimetre");
     }
+    // Phase 5b-1 : impose au niveau applicatif (organization_id est nullable en base, comme
+    // customer.organization_id/supplier.organization_id) - une affectation sans organisation ne
+    // pourrait jamais etre prise en compte par AuthorizationServiceImpl.hasPermission, qui filtre
+    // desormais par organisation avant toute autre verification. Voir docs/phase-5b1-report.md.
+    if (dto.getOrganizationId() == null) {
+      errors.add("Veuillez renseigner l'organisation de cette affectation");
+    }
     return errors;
   }
 

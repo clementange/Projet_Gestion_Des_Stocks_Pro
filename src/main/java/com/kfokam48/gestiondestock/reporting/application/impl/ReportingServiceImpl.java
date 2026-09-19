@@ -42,14 +42,14 @@ public class ReportingServiceImpl implements ReportingService {
   }
 
   @Override
-  public List<StockDto> getStockForSite(Long userId, Long siteId) {
-    requireSiteAccess(userId, siteId);
+  public List<StockDto> getStockForSite(Long userId, Long siteId, Long organizationId) {
+    requireSiteAccess(userId, siteId, organizationId);
     return inventoryFacade.findStockBySite(siteId);
   }
 
   @Override
-  public List<StockDto> getGlobalStockSummary(Long userId) {
-    if (!authorizationService.hasPermission(userId, REPORTING_VIEW, ScopeType.GLOBAL, null)) {
+  public List<StockDto> getGlobalStockSummary(Long userId, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, REPORTING_VIEW, ScopeType.GLOBAL, null, organizationId)) {
       log.warn("User {} tried to access the global stock summary without GLOBAL REPORTING_VIEW", userId);
       throw new InvalidOperationException(
           "Seul un perimetre GLOBAL avec la permission REPORTING_VIEW peut consulter les statistiques globales",
@@ -59,15 +59,15 @@ public class ReportingServiceImpl implements ReportingService {
   }
 
   @Override
-  public List<StockDto> getLowStockReport(Long userId) {
+  public List<StockDto> getLowStockReport(Long userId, Long organizationId) {
     return inventoryFacade.findLowStock().stream()
-        .filter(stock -> canAccessSite(userId, stock.getSite().getId()))
+        .filter(stock -> canAccessSite(userId, stock.getSite().getId(), organizationId))
         .collect(Collectors.toList());
   }
 
   @Override
-  public SalesSummaryDto getSalesSummary(Long userId, Long siteId, Instant from, Instant to) {
-    requireSiteAccess(userId, siteId);
+  public SalesSummaryDto getSalesSummary(Long userId, Long siteId, Instant from, Instant to, Long organizationId) {
+    requireSiteAccess(userId, siteId, organizationId);
 
     SiteDto site = siteService.findById(siteId);
     List<SaleDto> sales = saleService.findAllBySiteAndPeriod(siteId, from, to);
@@ -91,8 +91,8 @@ public class ReportingServiceImpl implements ReportingService {
         .build();
   }
 
-  private void requireSiteAccess(Long userId, Long siteId) {
-    if (!canAccessSite(userId, siteId)) {
+  private void requireSiteAccess(Long userId, Long siteId, Long organizationId) {
+    if (!canAccessSite(userId, siteId, organizationId)) {
       log.warn("User {} tried to access reports for site {} without REPORTING_VIEW on that scope", userId, siteId);
       throw new InvalidOperationException(
           "Vous n'avez pas la permission de consulter les statistiques de ce site",
@@ -107,8 +107,8 @@ public class ReportingServiceImpl implements ReportingService {
    * inter-module non justifiee tant qu'aucun autre besoin ne l'exige (meme logique que le
    * deferral documente en Phase 4).
    */
-  private boolean canAccessSite(Long userId, Long siteId) {
-    return authorizationService.hasPermission(userId, REPORTING_VIEW, ScopeType.SITE, siteId)
-        || authorizationService.hasPermission(userId, REPORTING_VIEW, ScopeType.WAREHOUSE, siteId);
+  private boolean canAccessSite(Long userId, Long siteId, Long organizationId) {
+    return authorizationService.hasPermission(userId, REPORTING_VIEW, ScopeType.SITE, siteId, organizationId)
+        || authorizationService.hasPermission(userId, REPORTING_VIEW, ScopeType.WAREHOUSE, siteId, organizationId);
   }
 }

@@ -13,6 +13,11 @@ import lombok.NoArgsConstructor;
  *
  * <p>Phase 3c : mapping JPA declare dans META-INF/orm.xml, pas en annotations - voir le
  * commentaire en tete de ce fichier XML.
+ *
+ * <p>Phase 5b-1 : {@code organizationId} (reference faible, comme {@code identity.User.idEntreprise})
+ * corrige un contournement RBAC cross-tenant - {@code AuthorizationServiceImpl.hasPermission}
+ * traitait {@code ScopeType.GLOBAL} comme global a toute l'application plutot qu'a la seule
+ * organisation de l'affectation. Voir docs/phase-5b1-report.md.
  */
 @Data
 @NoArgsConstructor
@@ -27,5 +32,7 @@ public class UserRoleAssignment extends AbstractEntity {
   private ScopeType scopeType;
 
   private Long scopeId;
+
+  private Long organizationId;
 
 }

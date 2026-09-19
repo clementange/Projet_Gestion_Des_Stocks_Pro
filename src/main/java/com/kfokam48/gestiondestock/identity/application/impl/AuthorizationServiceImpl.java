@@ -6,6 +6,7 @@ import com.kfokam48.gestiondestock.identity.domain.model.UserRoleAssignment;
 import com.kfokam48.gestiondestock.identity.infrastructure.persistence.UserRoleAssignmentRepository;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,12 +25,12 @@ public class AuthorizationServiceImpl implements AuthorizationService {
   }
 
   @Override
-  public boolean hasPermission(Long userId, String permissionCode, ScopeType scopeType, Long scopeId) {
-    if (userId == null || permissionCode == null || scopeType == null) {
+  public boolean hasPermission(Long userId, String permissionCode, ScopeType scopeType, Long scopeId, Long organizationId) {
+    if (userId == null || permissionCode == null || scopeType == null || organizationId == null) {
       return false;
     }
 
-    List<UserRoleAssignment> assignments = userRoleAssignmentRepository.findAllByUserId(userId);
+    List<UserRoleAssignment> assignments = assignmentsForOrganization(userId, organizationId);
 
     return assignments.stream()
         .filter(assignment -> assignmentAppliesToScope(assignment, scopeType, scopeId))
@@ -38,12 +39,22 @@ public class AuthorizationServiceImpl implements AuthorizationService {
   }
 
   @Override
-  public boolean hasGlobalAccess(Long userId) {
-    if (userId == null) {
+  public boolean hasGlobalAccess(Long userId, Long organizationId) {
+    if (userId == null || organizationId == null) {
       return false;
     }
-    return userRoleAssignmentRepository.findAllByUserId(userId).stream()
+    return assignmentsForOrganization(userId, organizationId).stream()
         .anyMatch(assignment -> assignment.getScopeType() == ScopeType.GLOBAL);
+  }
+
+  // Phase 5b-1 : une affectation ScopeType.GLOBAL n'accorde plus la permission partout dans toute
+  // l'application, seulement partout DANS SA PROPRE ORGANISATION - corrige le contournement
+  // cross-tenant (n'importe quel administrateur de tenant, bootstrap en GLOBAL, pouvait auparavant
+  // agir sur les ressources de n'importe quel autre tenant). Voir docs/phase-5b1-report.md.
+  private List<UserRoleAssignment> assignmentsForOrganization(Long userId, Long organizationId) {
+    return userRoleAssignmentRepository.findAllByUserId(userId).stream()
+        .filter(assignment -> organizationId.equals(assignment.getOrganizationId()))
+        .collect(Collectors.toList());
   }
 
   private boolean assignmentAppliesToScope(UserRoleAssignment assignment, ScopeType requestedScopeType, Long requestedScopeId) {

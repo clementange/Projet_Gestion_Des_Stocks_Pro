@@ -11,6 +11,8 @@ import com.kfokam48.gestiondestock.identity.application.dto.PermissionDto;
 import com.kfokam48.gestiondestock.identity.application.dto.RoleDto;
 import com.kfokam48.gestiondestock.identity.application.dto.UserRoleAssignmentDto;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import com.kfokam48.gestiondestock.organization.application.OrganizationService;
+import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.Test;
@@ -40,8 +42,15 @@ public class AuthorizationServiceIntegrationTest extends AbstractIntegrationTest
   @Autowired
   private AuthorizationService authorizationService;
 
+  @Autowired
+  private OrganizationService organizationService;
+
   private static String uniqueCode(String prefix) {
     return prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
+  }
+
+  private Long createOrganization(String name) {
+    return organizationService.save(OrganizationDto.builder().name(name).active(true).build()).getId();
   }
 
   @Test
@@ -54,16 +63,17 @@ public class AuthorizationServiceIntegrationTest extends AbstractIntegrationTest
             .permissions(Set.of(stockView)).build());
 
     Long userId = 1001L;
+    Long organizationId = createOrganization("Societe Warehouse Manager");
     Long warehouseAId = 5001L;
     Long warehouseBId = 5002L;
 
     userRoleAssignmentService.save(
         UserRoleAssignmentDto.builder().userId(userId).role(warehouseManager)
-            .scopeType(ScopeType.WAREHOUSE).scopeId(warehouseAId).build());
+            .scopeType(ScopeType.WAREHOUSE).scopeId(warehouseAId).organizationId(organizationId).build());
 
-    assertTrue(authorizationService.hasPermission(userId, stockView.getCode(), ScopeType.WAREHOUSE, warehouseAId));
-    assertFalse(authorizationService.hasPermission(userId, stockView.getCode(), ScopeType.WAREHOUSE, warehouseBId));
-    assertFalse(authorizationService.hasGlobalAccess(userId));
+    assertTrue(authorizationService.hasPermission(userId, stockView.getCode(), ScopeType.WAREHOUSE, warehouseAId, organizationId));
+    assertFalse(authorizationService.hasPermission(userId, stockView.getCode(), ScopeType.WAREHOUSE, warehouseBId, organizationId));
+    assertFalse(authorizationService.hasGlobalAccess(userId, organizationId));
   }
 
   @Test
@@ -76,13 +86,41 @@ public class AuthorizationServiceIntegrationTest extends AbstractIntegrationTest
             .permissions(Set.of(stockAdjust)).build());
 
     Long userId = 2002L;
+    Long organizationId = createOrganization("Societe Directeur General");
 
     userRoleAssignmentService.save(
         UserRoleAssignmentDto.builder().userId(userId).role(directeurGeneral)
-            .scopeType(ScopeType.GLOBAL).build());
+            .scopeType(ScopeType.GLOBAL).organizationId(organizationId).build());
 
-    assertTrue(authorizationService.hasGlobalAccess(userId));
-    assertTrue(authorizationService.hasPermission(userId, stockAdjust.getCode(), ScopeType.WAREHOUSE, 9999L));
-    assertTrue(authorizationService.hasPermission(userId, stockAdjust.getCode(), ScopeType.SITE, 1L));
+    assertTrue(authorizationService.hasGlobalAccess(userId, organizationId));
+    assertTrue(authorizationService.hasPermission(userId, stockAdjust.getCode(), ScopeType.WAREHOUSE, 9999L, organizationId));
+    assertTrue(authorizationService.hasPermission(userId, stockAdjust.getCode(), ScopeType.SITE, 1L, organizationId));
+  }
+
+  // Phase 5b-1 : voir docs/phase-5b1-report.md. C'est le test qui prouve directement la
+  // correction du contournement RBAC cross-tenant : une affectation GLOBAL n'accorde plus la
+  // permission "partout dans l'application", seulement "partout dans SA PROPRE organisation".
+  @Test
+  public void globalAssignmentInOneOrganizationDoesNotGrantAccessInAnother() {
+    PermissionDto stockAdjust = permissionService.save(
+        PermissionDto.builder().code(uniqueCode("STOCK_ADJUST")).description("Ajuster le stock").build());
+
+    RoleDto directeurGeneral = roleService.save(
+        RoleDto.builder().code(uniqueCode("DIRECTEUR_GENERAL")).name("Directeur General")
+            .permissions(Set.of(stockAdjust)).build());
+
+    Long userId = 3003L;
+    Long ownOrganizationId = createOrganization("Societe Propre");
+    Long otherOrganizationId = createOrganization("Societe Autre");
+
+    userRoleAssignmentService.save(
+        UserRoleAssignmentDto.builder().userId(userId).role(directeurGeneral)
+            .scopeType(ScopeType.GLOBAL).organizationId(ownOrganizationId).build());
+
+    assertTrue(authorizationService.hasGlobalAccess(userId, ownOrganizationId));
+    assertTrue(authorizationService.hasPermission(userId, stockAdjust.getCode(), ScopeType.SITE, 1L, ownOrganizationId));
+
+    assertFalse(authorizationService.hasGlobalAccess(userId, otherOrganizationId));
+    assertFalse(authorizationService.hasPermission(userId, stockAdjust.getCode(), ScopeType.SITE, 1L, otherOrganizationId));
   }
 }

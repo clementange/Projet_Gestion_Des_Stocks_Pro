@@ -31,7 +31,7 @@ public class SaleController {
 
   @PostMapping(value = APP_ROOT + "/sales/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public SaleDto create(@RequestBody CreateSaleRequest request, @AuthenticationPrincipal ExtendedUser principal) {
-    return saleService.create(request.getSale(), request.getLines(), principal.getIdUtilisateur());
+    return saleService.create(request.getSale(), request.getLines(), principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/sales/{idVente}", produces = MediaType.APPLICATION_JSON_VALUE)

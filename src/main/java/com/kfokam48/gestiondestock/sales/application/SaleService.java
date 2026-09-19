@@ -12,7 +12,7 @@ public interface SaleService {
    * seule ligne echoue par manque de stock, toute la vente est annulee (rollback transactionnel)
    * : pas de vente partiellement enregistree.
    */
-  SaleDto create(SaleDto dto, List<SaleLineDto> lines, Long userId);
+  SaleDto create(SaleDto dto, List<SaleLineDto> lines, Long userId, Long organizationId);
 
   SaleDto findById(Long id);
 

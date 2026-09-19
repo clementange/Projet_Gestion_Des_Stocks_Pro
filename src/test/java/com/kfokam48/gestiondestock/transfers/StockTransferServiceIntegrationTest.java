@@ -88,7 +88,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
    * Phase 14 : ship/receive verifient desormais une permission dediee sur le site
    * origine/destination. Accorde ce code au userId donne sur ce site.
    */
-  private void grantTransferPermission(String code, SiteDto site, Long userId) {
+  private void grantTransferPermission(String code, SiteDto site, Long userId, Long organizationId) {
     PermissionDto permission;
     try {
       permission = permissionService.findByCode(code);
@@ -97,7 +97,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     }
     RoleDto role = roleService.save(RoleDto.builder().code(uniqueCode("ROLE")).name("Role transfert test").permissions(Set.of(permission)).build());
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(role)
-        .scopeType(ScopeType.SITE).scopeId(site.getId()).build());
+        .scopeType(ScopeType.SITE).scopeId(site.getId()).organizationId(organizationId).build());
   }
 
   private SiteDto createSite(CityDto city, String name) {
@@ -137,10 +137,10 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
 
     StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.valueOf(30));
     runToShippable(transfer);
-    grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, 3L);
-    grantTransferPermission("STOCK_TRANSFER_RECEIVE", entrepotB, 4L);
-    stockTransferService.ship(transfer.getId(), 3L);
-    stockTransferService.receive(transfer.getId(), 4L);
+    grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, 3L, organization.getId());
+    grantTransferPermission("STOCK_TRANSFER_RECEIVE", entrepotB, 4L, organization.getId());
+    stockTransferService.ship(transfer.getId(), 3L, organization.getId());
+    stockTransferService.receive(transfer.getId(), 4L, organization.getId());
 
     StockDto stockA = inventoryFacade.getStock(article.getId(), entrepotA.getId());
     StockDto stockB = inventoryFacade.getStock(article.getId(), entrepotB.getId());
@@ -171,9 +171,9 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
 
     StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN);
     Long userId = 30L;
-    grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId);
+    grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
 
-    assertThrows(InvalidOperationException.class, () -> stockTransferService.ship(transfer.getId(), userId));
+    assertThrows(InvalidOperationException.class, () -> stockTransferService.ship(transfer.getId(), userId, organization.getId()));
   }
 
   @Test
@@ -189,9 +189,9 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN);
     runToShippable(transfer);
     Long userId = 31L;
-    grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId);
+    grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
 
-    assertThrows(InvalidOperationException.class, () -> stockTransferService.ship(transfer.getId(), userId));
+    assertThrows(InvalidOperationException.class, () -> stockTransferService.ship(transfer.getId(), userId, organization.getId()));
 
     StockDto stockA = inventoryFacade.getStock(article.getId(), entrepotA.getId());
     assertEquals(0, stockA.getQuantitePhysique().compareTo(BigDecimal.valueOf(5)));
@@ -210,8 +210,8 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN);
     runToShippable(transfer);
     Long userId = 32L;
-    grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId);
-    stockTransferService.ship(transfer.getId(), userId);
+    grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
+    stockTransferService.ship(transfer.getId(), userId, organization.getId());
 
     assertThrows(InvalidOperationException.class, () -> stockTransferService.cancel(transfer.getId()));
   }

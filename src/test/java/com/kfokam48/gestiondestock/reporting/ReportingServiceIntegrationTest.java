@@ -123,14 +123,14 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
     PermissionDto reportingView = getOrCreateReportingViewPermission();
     RoleDto role = roleService.save(RoleDto.builder().code(uniqueCode("WHM")).name("Warehouse manager").permissions(Set.of(reportingView)).build());
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(role)
-        .scopeType(ScopeType.SITE).scopeId(mySite.getId()).build());
+        .scopeType(ScopeType.SITE).scopeId(mySite.getId()).organizationId(organization.getId()).build());
 
-    List<StockDto> myStock = reportingService.getStockForSite(userId, mySite.getId());
+    List<StockDto> myStock = reportingService.getStockForSite(userId, mySite.getId(), organization.getId());
     assertEquals(1, myStock.size());
     assertEquals(0, myStock.get(0).getQuantitePhysique().compareTo(BigDecimal.valueOf(20)));
 
-    assertThrows(InvalidOperationException.class, () -> reportingService.getStockForSite(userId, otherSite.getId()));
-    assertThrows(InvalidOperationException.class, () -> reportingService.getGlobalStockSummary(userId));
+    assertThrows(InvalidOperationException.class, () -> reportingService.getStockForSite(userId, otherSite.getId(), organization.getId()));
+    assertThrows(InvalidOperationException.class, () -> reportingService.getGlobalStockSummary(userId, organization.getId()));
   }
 
   @Test
@@ -147,9 +147,9 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
     PermissionDto reportingView = getOrCreateReportingViewPermission();
     RoleDto dgRole = roleService.save(RoleDto.builder().code(uniqueCode("DG")).name("Directeur General").permissions(Set.of(reportingView)).build());
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(dgUserId).role(dgRole)
-        .scopeType(ScopeType.GLOBAL).build());
+        .scopeType(ScopeType.GLOBAL).organizationId(organization.getId()).build());
 
-    List<StockDto> global = reportingService.getGlobalStockSummary(dgUserId);
+    List<StockDto> global = reportingService.getGlobalStockSummary(dgUserId, organization.getId());
     long countForOurSites = global.stream()
         .filter(s -> s.getSite().getId().equals(siteA.getId()) || s.getSite().getId().equals(siteB.getId()))
         .count();
@@ -169,9 +169,9 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
     RoleDto role = roleService.save(RoleDto.builder().code(uniqueCode("WH")).name("Role warehouse-scope").permissions(Set.of(reportingView)).build());
     // Par convention documentee dans ReportingServiceImpl : scopeId WAREHOUSE = Site.id.
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(role)
-        .scopeType(ScopeType.WAREHOUSE).scopeId(site.getId()).build());
+        .scopeType(ScopeType.WAREHOUSE).scopeId(site.getId()).organizationId(organization.getId()).build());
 
-    List<StockDto> stock = reportingService.getStockForSite(userId, site.getId());
+    List<StockDto> stock = reportingService.getStockForSite(userId, site.getId(), organization.getId());
     assertEquals(1, stock.size());
   }
 
@@ -183,8 +183,8 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
 
     Long userId = 8001L;
 
-    assertThrows(InvalidOperationException.class, () -> reportingService.getStockForSite(userId, site.getId()));
-    assertThrows(InvalidOperationException.class, () -> reportingService.getGlobalStockSummary(userId));
-    assertTrue(reportingService.getLowStockReport(userId).isEmpty());
+    assertThrows(InvalidOperationException.class, () -> reportingService.getStockForSite(userId, site.getId(), organization.getId()));
+    assertThrows(InvalidOperationException.class, () -> reportingService.getGlobalStockSummary(userId, organization.getId()));
+    assertTrue(reportingService.getLowStockReport(userId, organization.getId()).isEmpty());
   }
 }

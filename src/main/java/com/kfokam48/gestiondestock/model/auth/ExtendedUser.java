@@ -15,6 +15,14 @@ public class ExtendedUser extends User {
   @Setter
   private Long idUtilisateur;
 
+  // Phase 5b-1 : organisation de l'utilisateur (organization.Organization.id, pas Tenant.id comme
+  // idEntreprise) - resolue une fois au login, portee par le JWT au meme titre qu'idEntreprise/
+  // idUtilisateur. Necessaire pour qu'AuthorizationService.hasPermission puisse verifier qu'une
+  // affectation RBAC appartient bien a l'organisation de l'appelant. Voir docs/phase-5b1-report.md.
+  @Getter
+  @Setter
+  private Long organizationId;
+
   public ExtendedUser(String username, String password,
       Collection<? extends GrantedAuthority> authorities) {
     super(username, password, authorities);
@@ -31,5 +39,13 @@ public class ExtendedUser extends User {
     super(username, password, authorities);
     this.idEntreprise = idEntreprise;
     this.idUtilisateur = idUtilisateur;
+  }
+
+  public ExtendedUser(String username, String password, Long idEntreprise, Long idUtilisateur,
+      Long organizationId, Collection<? extends GrantedAuthority> authorities) {
+    super(username, password, authorities);
+    this.idEntreprise = idEntreprise;
+    this.idUtilisateur = idUtilisateur;
+    this.organizationId = organizationId;
   }
 }

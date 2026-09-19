@@ -61,7 +61,7 @@ public class CustomerOrderController {
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/reserver", produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerOrderDto reserve(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return customerOrderService.reserve(id, principal.getIdUtilisateur());
+    return customerOrderService.reserve(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/preparer", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -76,11 +76,11 @@ public class CustomerOrderController {
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/livrer", produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerOrderDto deliver(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return customerOrderService.deliver(id, principal.getIdUtilisateur());
+    return customerOrderService.deliver(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/annuler", produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerOrderDto cancel(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return customerOrderService.cancel(id, principal.getIdUtilisateur());
+    return customerOrderService.cancel(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

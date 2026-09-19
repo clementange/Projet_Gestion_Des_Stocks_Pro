@@ -35,23 +35,23 @@ public class ReportingController {
 
   @GetMapping(value = APP_ROOT + "/reporting/stock/site/{idSite}", produces = MediaType.APPLICATION_JSON_VALUE)
   public List<StockDto> getStockForSite(@PathVariable("idSite") Long siteId, @AuthenticationPrincipal ExtendedUser principal) {
-    return reportingService.getStockForSite(principal.getIdUtilisateur(), siteId);
+    return reportingService.getStockForSite(principal.getIdUtilisateur(), siteId, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/reporting/stock/global", produces = MediaType.APPLICATION_JSON_VALUE)
   public List<StockDto> getGlobalStockSummary(@AuthenticationPrincipal ExtendedUser principal) {
-    return reportingService.getGlobalStockSummary(principal.getIdUtilisateur());
+    return reportingService.getGlobalStockSummary(principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/reporting/stock/low", produces = MediaType.APPLICATION_JSON_VALUE)
   public List<StockDto> getLowStockReport(@AuthenticationPrincipal ExtendedUser principal) {
-    return reportingService.getLowStockReport(principal.getIdUtilisateur());
+    return reportingService.getLowStockReport(principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/reporting/sales/site/{idSite}", produces = MediaType.APPLICATION_JSON_VALUE)
   public SalesSummaryDto getSalesSummary(@PathVariable("idSite") Long siteId, @AuthenticationPrincipal ExtendedUser principal,
       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
-    return reportingService.getSalesSummary(principal.getIdUtilisateur(), siteId, from, to);
+    return reportingService.getSalesSummary(principal.getIdUtilisateur(), siteId, from, to, principal.getOrganizationId());
   }
 }

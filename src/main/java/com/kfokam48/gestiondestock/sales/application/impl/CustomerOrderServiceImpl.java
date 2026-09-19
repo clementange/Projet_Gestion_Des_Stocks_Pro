@@ -50,8 +50,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     this.authorizationService = authorizationService;
   }
 
-  private void requireOrderPermission(String permissionCode, CustomerOrder order, Long userId) {
-    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.SITE, order.getSite().getId())) {
+  private void requireOrderPermission(String permissionCode, CustomerOrder order, Long userId, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.SITE, order.getSite().getId(), organizationId)) {
       log.warn("User {} tried to {} on customer order {} (site {}) without permission",
           userId, permissionCode, order.getId(), order.getSite().getId());
       throw new InvalidOperationException(
@@ -139,9 +139,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto reserve(Long id, Long userId) {
+  public CustomerOrderDto reserve(Long id, Long userId, Long organizationId) {
     CustomerOrder order = fetchOrder(id);
-    requireOrderPermission(CUSTOMER_ORDER_RESERVE, order, userId);
+    requireOrderPermission(CUSTOMER_ORDER_RESERVE, order, userId, organizationId);
     order.requireReservable();
 
     List<CustomerOrderLine> lines = customerOrderLineRepository.findAllByCustomerOrderId(id);
@@ -171,9 +171,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto deliver(Long id, Long userId) {
+  public CustomerOrderDto deliver(Long id, Long userId, Long organizationId) {
     CustomerOrder order = fetchOrder(id);
-    requireOrderPermission(CUSTOMER_ORDER_DELIVER, order, userId);
+    requireOrderPermission(CUSTOMER_ORDER_DELIVER, order, userId, organizationId);
     order.requireDeliverable();
 
     List<CustomerOrderLine> lines = customerOrderLineRepository.findAllByCustomerOrderId(id);
@@ -189,9 +189,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto cancel(Long id, Long userId) {
+  public CustomerOrderDto cancel(Long id, Long userId, Long organizationId) {
     CustomerOrder order = fetchOrder(id);
-    requireOrderPermission(CUSTOMER_ORDER_CANCEL, order, userId);
+    requireOrderPermission(CUSTOMER_ORDER_CANCEL, order, userId, organizationId);
 
     if (order.getStatus() == CustomerOrderStatus.RESERVEE || order.getStatus() == CustomerOrderStatus.PREPAREE) {
       List<CustomerOrderLine> lines = customerOrderLineRepository.findAllByCustomerOrderId(id);

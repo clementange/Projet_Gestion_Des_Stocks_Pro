@@ -91,7 +91,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
    * Phase 14 : SaleServiceImpl.create verifie desormais SALE_CREATE avant d'ecrire. Cree un
    * utilisateur de test avec cette permission accordee sur le site donne et retourne son ID.
    */
-  private Long grantSaleCreate(SiteDto site) {
+  private Long grantSaleCreate(SiteDto site, Long organizationId) {
     PermissionDto permission;
     try {
       permission = permissionService.findByCode("SALE_CREATE");
@@ -101,7 +101,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     RoleDto role = roleService.save(RoleDto.builder().code(uniqueCode("ROLE")).name("Vendeur test").permissions(Set.of(permission)).build());
     Long userId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
     userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(userId).role(role)
-        .scopeType(ScopeType.SITE).scopeId(site.getId()).build());
+        .scopeType(ScopeType.SITE).scopeId(site.getId()).organizationId(organizationId).build());
     return userId;
   }
 
@@ -128,11 +128,11 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     inventoryFacade.receive(article.getId(), akwa.getId(), BigDecimal.valueOf(50), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-AKWA", null);
     inventoryFacade.receive(article.getId(), bonamoussadi.getId(), BigDecimal.valueOf(30), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-BONA", null);
 
-    Long userId = grantSaleCreate(akwa);
+    Long userId = grantSaleCreate(akwa, organization.getId());
     saleService.create(
         SaleDto.builder().code(uniqueCode("VEN")).site(akwa).build(),
         List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.valueOf(10)).prixUnitaire(BigDecimal.TEN).build()),
-        userId);
+        userId, organization.getId());
 
     StockDto stockAkwa = inventoryFacade.getStock(article.getId(), akwa.getId());
     StockDto stockBona = inventoryFacade.getStock(article.getId(), bonamoussadi.getId());
@@ -148,14 +148,14 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     SiteDto akwa = createBoutique(douala, "Boutique Akwa");
     ArticleDto article = createArticle();
     inventoryFacade.receive(article.getId(), akwa.getId(), BigDecimal.valueOf(50), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
-    Long userId = grantSaleCreate(akwa);
+    Long userId = grantSaleCreate(akwa, organization.getId());
     String code = uniqueCode("VEN");
     saleService.create(SaleDto.builder().code(code).site(akwa).build(),
-        List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()), userId);
+        List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()), userId, organization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> saleService.create(
         SaleDto.builder().code(code).site(akwa).build(),
-        List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()), userId));
+        List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()), userId, organization.getId()));
 
     assertEquals(ErrorCodes.SALE_ALREADY_EXISTS, exception.getErrorCode());
   }
@@ -173,11 +173,11 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     inventoryFacade.receive(article.getId(), akwa.getId(), BigDecimal.valueOf(5), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-AKWA", null);
     inventoryFacade.receive(article.getId(), entrepotCentral.getId(), BigDecimal.valueOf(500), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-ENT", null);
 
-    Long userId = grantSaleCreate(akwa);
+    Long userId = grantSaleCreate(akwa, organization.getId());
     assertThrows(InvalidOperationException.class, () -> saleService.create(
         SaleDto.builder().code(uniqueCode("VEN")).site(akwa).build(),
         List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.valueOf(10)).prixUnitaire(BigDecimal.TEN).build()),
-        userId));
+        userId, organization.getId()));
 
     StockDto stockAkwa = inventoryFacade.getStock(article.getId(), akwa.getId());
     StockDto stockEntrepot = inventoryFacade.getStock(article.getId(), entrepotCentral.getId());
@@ -196,14 +196,14 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     inventoryFacade.receive(articleOk.getId(), site.getId(), BigDecimal.valueOf(20), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-1", null);
     inventoryFacade.receive(articleInsuffisant.getId(), site.getId(), BigDecimal.valueOf(2), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-2", null);
 
-    Long userId = grantSaleCreate(site);
+    Long userId = grantSaleCreate(site, organization.getId());
     assertThrows(InvalidOperationException.class, () -> saleService.create(
         SaleDto.builder().code(uniqueCode("VEN")).site(site).build(),
         List.of(
             SaleLineDto.builder().article(articleOk).quantite(BigDecimal.valueOf(5)).prixUnitaire(BigDecimal.TEN).build(),
             SaleLineDto.builder().article(articleInsuffisant).quantite(BigDecimal.valueOf(10)).prixUnitaire(BigDecimal.TEN).build()
         ),
-        userId));
+        userId, organization.getId()));
 
     // La premiere ligne (articleOk) doit avoir ete annulee (rollback) malgre son succes initial.
     StockDto stockOk = inventoryFacade.getStock(articleOk.getId(), site.getId());

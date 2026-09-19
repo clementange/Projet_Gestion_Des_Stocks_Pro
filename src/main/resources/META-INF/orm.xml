@@ -306,6 +306,9 @@
       <basic name="scopeId">
         <column name="scope_id"/>
       </basic>
+      <basic name="organizationId">
+        <column name="organization_id"/>
+      </basic>
     </attributes>
   </entity>
 

@@ -47,6 +47,13 @@ public class JwtUtil {
     return claims.get("idUtilisateur", String.class);
   }
 
+  // Phase 5b-1 : voir docs/phase-5b1-report.md.
+  public String extractOrganizationId(String token) {
+    final Claims claims = extractAllClaims(token);
+
+    return claims.get("organizationId", String.class);
+  }
+
   public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
     final Claims claims = extractAllClaims(token);
     return claimsResolver.apply(claims);
@@ -73,6 +80,7 @@ public class JwtUtil {
         .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
         .claim("idEntreprise", userDetails.getIdEntreprise() != null ? userDetails.getIdEntreprise().toString() : null)
         .claim("idUtilisateur", userDetails.getIdUtilisateur() != null ? userDetails.getIdUtilisateur().toString() : null)
+        .claim("organizationId", userDetails.getOrganizationId() != null ? userDetails.getOrganizationId().toString() : null)
         .signWith(signingKey()).compact();
   }
 

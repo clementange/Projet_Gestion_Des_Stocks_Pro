@@ -5,6 +5,7 @@ import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentServic
 import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
 import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.tenant.application.TenantService;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,12 @@ import org.springframework.stereotype.Service;
 // BAD_CREDENTIALS obtenu pour un mauvais mot de passe. Cette asymetrie constituait aussi un oracle
 // d'enumeration de compte (le code HTTP seul revelait si l'email existait). Corrige en traduisant
 // explicitement l'exception ici - voir docs/phase-5a-report.md.
+//
+// Phase 5b-1 : resout desormais organizationId (organization.Organization.id, via le detour
+// Tenant.id -> Tenant.organizationId deja utilise par le bootstrap RBAC en Phase 4b) et le porte
+// sur l'ExtendedUser construit ici - c'est ce principal, reconstruit a chaque requete par
+// ApplicationRequestFilter, que lisent les controleurs pour verifier une permission. Voir
+// docs/phase-5b1-report.md.
 @Service
 public class ApplicationUserDetailsService implements UserDetailsService {
 
@@ -30,10 +37,14 @@ public class ApplicationUserDetailsService implements UserDetailsService {
 
   private final UserRoleAssignmentService userRoleAssignmentService;
 
+  private final TenantService tenantService;
+
   @Autowired
-  public ApplicationUserDetailsService(UserService userService, UserRoleAssignmentService userRoleAssignmentService) {
+  public ApplicationUserDetailsService(UserService userService, UserRoleAssignmentService userRoleAssignmentService,
+      TenantService tenantService) {
     this.userService = userService;
     this.userRoleAssignmentService = userRoleAssignmentService;
+    this.tenantService = tenantService;
   }
 
   @Override
@@ -53,8 +64,21 @@ public class ApplicationUserDetailsService implements UserDetailsService {
 
     // Un User peut exister sans Entreprise (UserValidator ne l'exige pas, et /utilisateurs/create
     // et /users/create l'autorisent reellement) : un tel utilisateur ne doit pas pour autant etre
-    // incapable de s'authentifier.
+    // incapable de s'authentifier - meme tolerance pour organizationId.
+    Long organizationId = resolveOrganizationId(user.getIdEntreprise());
+
     return new ExtendedUser(user.getEmail(), user.getMotDePasse(),
-        user.getIdEntreprise(), user.getId(), authorities);
+        user.getIdEntreprise(), user.getId(), organizationId, authorities);
+  }
+
+  private Long resolveOrganizationId(Long idEntreprise) {
+    if (idEntreprise == null) {
+      return null;
+    }
+    try {
+      return tenantService.findById(idEntreprise).getOrganizationId();
+    } catch (EntityNotFoundException ex) {
+      return null;
+    }
   }
 }

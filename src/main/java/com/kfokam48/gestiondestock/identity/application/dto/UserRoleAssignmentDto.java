@@ -19,6 +19,8 @@ public class UserRoleAssignmentDto {
 
   private Long scopeId;
 
+  private Long organizationId;
+
   public static UserRoleAssignmentDto fromEntity(UserRoleAssignment assignment) {
     if (assignment == null) {
       return null;
@@ -30,6 +32,7 @@ public class UserRoleAssignmentDto {
         .role(RoleDto.fromEntity(assignment.getRole()))
         .scopeType(assignment.getScopeType())
         .scopeId(assignment.getScopeId())
+        .organizationId(assignment.getOrganizationId())
         .build();
   }
 
@@ -44,6 +47,7 @@ public class UserRoleAssignmentDto {
     assignment.setRole(RoleDto.toEntity(dto.getRole()));
     assignment.setScopeType(dto.getScopeType());
     assignment.setScopeId(dto.getScopeId());
+    assignment.setOrganizationId(dto.getOrganizationId());
 
     return assignment;
   }

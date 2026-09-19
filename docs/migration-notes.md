@@ -718,3 +718,47 @@ faux, indistinctement). Corrige comme effet de bord du meme correctif
 (`ApplicationUserDetailsService` traduit desormais l'exception en
 `UsernameNotFoundException`, que Spring Security masque deja par defaut en
 `BadCredentialsException`).
+
+## Phase 5b-1 (frontiere tenant dans la couche RBAC) : trouve pendant l'increment
+
+Voir `docs/phase-5b1-report.md` pour le detail complet. Root cause du leak
+cross-tenant annonce en Phase 5a (§"Le backlog securite est plus large que
+documente a l'origine") : traite separement de 5b-2 (findAll/findById sans
+verification RBAC du tout), qui reste ouvert.
+
+### Le bypass etait plus severe qu'un leak de lecture : contournement RBAC complet, en ecriture aussi
+
+`AuthorizationServiceImpl.hasPermission` traitait `ScopeType.GLOBAL` comme
+global a TOUTE l'application, pas a la seule organisation de l'affectation.
+Tout admin de tenant (bootstrap avec un role GLOBAL depuis Phase 4b)
+pouvait donc APPELER `POST /purchase-orders/{id}/valider`,
+`/customer-orders/{id}/livrer`, `/stock-transfers/{id}/ship`, `/roles/*`
+etc. sur les ressources de n'importe quel AUTRE tenant - pas seulement lire
+leurs donnees. `UserRoleAssignment`/`Role`/`Permission` ne portaient aucune
+notion d'organisation ; le JWT porte `idEntreprise` (Tenant.id) mais
+`ApplicationRequestFilter` ne l'exploitait que pour le MDC consomme par
+`Interceptor.java` (les 10 tables legacy), jamais pour l'autorisation RBAC.
+
+### organizationId ajoute a UserRoleAssignment, filtre AVANT toute logique GLOBAL/scope
+
+`AuthorizationServiceImpl.hasPermission`/`hasGlobalAccess` filtrent
+desormais les affectations du caller par `organizationId` avant d'appliquer
+la logique GLOBAL preexistante - GLOBAL reste "partout", mais seulement
+parmi les affectations de l'organisation de l'appelant. `organizationId`
+resolu une fois au login (`ApplicationUserDetailsService`, via le detour
+`Tenant.id -> Tenant.organizationId` deja utilise par le bootstrap RBAC en
+Phase 4b) et porte sur `ExtendedUser`/le JWT. 9 points d'appel mis a jour
+(3 controleurs RBAC, Sale/CustomerOrder/PurchaseOrder/StockTransfer/
+Reporting), `TenantRegistrationServiceImpl` fixe organizationId sur
+l'affectation ADMINISTRATEUR/GLOBAL bootstrap.
+
+### 8 fichiers de test adaptes pour fournir un organizationId reel
+
+Nouvelle contrainte FK (`fk_user_role_assignment_organization`) : plusieurs
+tests utilisaient des identifiants d'organisation entierement fabriques
+(litteraux type `9001L`) jamais lies a une vraie ligne `organization` -
+`AuthorizationServiceIntegrationTest` a du etre corrige pour creer de
+vraies organisations via `OrganizationService` avant d'y attacher des
+affectations RBAC. Les 7 autres fichiers de test utilisaient deja des
+organisations reelles (creees via `organizationService.save(...)`), donc
+seul le threading du parametre a ete necessaire.

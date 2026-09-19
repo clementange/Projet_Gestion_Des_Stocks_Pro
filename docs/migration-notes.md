@@ -596,3 +596,61 @@ Les deux nouveaux controleurs legacy (`sales.presentation.rest.legacy`,
 Assume : ces routes (`POST /{id}/photo`) sont entierement nouvelles,
 aucun contrat existant a preserver byte-for-byte (l'ancien mecanisme
 utilisait une URL differente, `/save/{id}/{title}/{context}`, supprimee).
+
+## Phase 4d (suppression des 6 adaptateurs legacy devenus superflus) : trouve pendant l'increment
+
+Voir `docs/phase-4d-report.md` pour le detail complet.
+
+### La premisse "code mort" etait vraie pour une couche, fausse pour une autre
+
+`catalog.ArticleServiceImpl.delete()` (code module-neuf) et
+`SalesArticleHistoryLegacyController`/`PurchaseOrderArticleHistoryLegacyController`
+(Phase 3a) dependent directement de `LigneVenteRepository`/
+`LigneCommandeClientRepository`/`LigneCommandeFournisseurRepository` - ces 3
+entites "ligne" et leurs repositories/DTO restent en place, pas supprimables.
+Chaine de dependance de type Java (@ManyToOne, champs DTO) decouverte en
+lisant le code, pas supposee : `LigneVente.vente : Ventes`,
+`LigneCommandeClient.commandeClient : CommandeClient`,
+`CommandeClient.client : Client`, `LigneVenteDto.vente : VentesDto` (reellement
+serialise), `LigneCommandeClientDto.commandeClient : CommandeClientDto`
+(@JsonIgnore mais le type doit exister), `CommandeClientDto.client : ClientDto`
+(reellement serialise). Consequence : `model.Client`/`Fournisseur`/`Ventes`/
+`CommandeClient`/`CommandeFournisseur` ET `dto.ClientDto`/`VentesDto`/
+`CommandeClientDto` restent tous en place, orphelins au meme titre que
+`model.Utilisateur`/`model.Entreprise` deja documentes plus haut - seule la
+couche adaptateur HTTP (Controller/Api/Service/ServiceImpl/Validator) a ete
+supprimee pour ces 5 chaines. Seule `MvtStk` (rien ne pointe vers elle comme
+type) a ete supprimee entierement, model.MvtStk inclus.
+
+### Asymetrie Client/Fournisseur trouvee, exploitee sans etre corrigee
+
+`LigneCommandeFournisseurDto.commandeFournisseur` est type sur l'entite JPA
+brute `model.CommandeFournisseur` (deja signale comme fragile), alors que son
+equivalent cote Client (`LigneCommandeClientDto.commandeClient`) est type sur
+le DTO `CommandeClientDto`. Consequence concrete : `dto.FournisseurDto` et
+`dto.CommandeFournisseurDto` sont reellement supprimables (verifie par grep
+exhaustif), `dto.ClientDto` et `dto.CommandeClientDto` ne le sont pas. Perimetre
+final asymetrique entre les deux chaines, documente tel quel plutot que lisse.
+
+### sales.Customer/purchasing.Supplier n'avaient aucun controleur module-neuf
+
+`ClientController`/`FournisseurController` (legacy) etaient leur unique
+surface HTTP - `CustomerController`/`SupplierController` (`/customers/*`,
+`/suppliers/*`) crees dans cet increment, purs, sans logique portee (
+`ClientServiceImpl`/`FournisseurServiceImpl` ne faisaient deja que de la
+traduction idEntreprise/organizationId).
+
+### 7 fichiers de test caracterisant un contrat supprime : supprimes, pas reecrits
+
+`ClientCharacterizationTest`, `FournisseurCharacterizationTest`,
+`VentesCharacterizationTest`, `CommandeClientCharacterizationTest`,
+`CommandeFournisseurCharacterizationTest`, `MvtStkCharacterizationTest`,
+`LegacyControllersIntegrationTest` caracterisaient un contrat HTTP qui n'existe
+plus - leur couverture applicative est deja assuree au niveau service par des
+tests preexistants non touches par cet increment
+(`CustomerServiceImplTest`/`SupplierServiceImplTest`/`SaleServiceIntegrationTest`/
+`CustomerOrderServiceIntegrationTest`/`PurchaseOrderServiceIntegrationTest`/
+`InventoryFacadeIntegrationTest`). `ArticleHistoryLegacyEndpointsTest` et
+`PhotoAttachmentCharacterizationTest` (Phase 4c) ont eu leurs helpers de seed
+HTTP adaptes aux nouvelles routes, le sujet teste par ces deux fichiers n'a pas
+change.

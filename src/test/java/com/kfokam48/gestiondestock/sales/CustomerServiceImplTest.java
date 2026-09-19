@@ -9,6 +9,7 @@ import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.sales.application.CustomerService;
 import com.kfokam48.gestiondestock.sales.application.dto.CustomerDto;
+import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +63,28 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
     service.delete(saved.getId());
 
     assertThrows(EntityNotFoundException.class, () -> service.findById(saved.getId()));
+  }
+
+  // Phase 5a : voir docs/phase-5a-report.md.
+  @Test
+  public void shouldRejectDuplicateMailOnCreate() {
+    String mail = "dup-" + UUID.randomUUID() + "@test.local";
+    service.save(CustomerDto.builder().nom("Premier").mail(mail).build());
+
+    InvalidEntityException exception = assertThrows(InvalidEntityException.class,
+        () -> service.save(CustomerDto.builder().nom("Second").mail(mail).build()));
+
+    assertEquals(ErrorCodes.CUSTOMER_ALREADY_EXISTS, exception.getErrorCode());
+  }
+
+  @Test
+  public void shouldAllowUpdatingSameCustomerWithoutMailConflict() {
+    String mail = "self-" + UUID.randomUUID() + "@test.local";
+    CustomerDto saved = service.save(CustomerDto.builder().nom("Client").mail(mail).build());
+
+    CustomerDto updated = service.save(CustomerDto.builder().id(saved.getId()).nom("Client Renomme").mail(mail).build());
+
+    assertEquals("Client Renomme", updated.getNom());
   }
 
 }

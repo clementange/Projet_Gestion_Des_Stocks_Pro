@@ -8,6 +8,8 @@ import com.kfokam48.gestiondestock.catalog.application.CategoryService;
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 import com.kfokam48.gestiondestock.catalog.application.dto.CategoryDto;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.identity.application.PermissionService;
 import com.kfokam48.gestiondestock.identity.application.RoleService;
@@ -136,6 +138,26 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     StockDto stockBona = inventoryFacade.getStock(article.getId(), bonamoussadi.getId());
     assertEquals(0, stockAkwa.getQuantitePhysique().compareTo(BigDecimal.valueOf(40)));
     assertEquals(0, stockBona.getQuantitePhysique().compareTo(BigDecimal.valueOf(30)));
+  }
+
+  // Phase 5a : voir docs/phase-5a-report.md.
+  @Test
+  public void saleShouldRejectDuplicateCodeWithCleanErrorInsteadOfRaw500() {
+    OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Dup").active(true).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    SiteDto akwa = createBoutique(douala, "Boutique Akwa");
+    ArticleDto article = createArticle();
+    inventoryFacade.receive(article.getId(), akwa.getId(), BigDecimal.valueOf(50), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
+    Long userId = grantSaleCreate(akwa);
+    String code = uniqueCode("VEN");
+    saleService.create(SaleDto.builder().code(code).site(akwa).build(),
+        List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()), userId);
+
+    InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> saleService.create(
+        SaleDto.builder().code(code).site(akwa).build(),
+        List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()), userId));
+
+    assertEquals(ErrorCodes.SALE_ALREADY_EXISTS, exception.getErrorCode());
   }
 
   @Test

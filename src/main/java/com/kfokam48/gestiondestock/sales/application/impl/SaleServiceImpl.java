@@ -53,6 +53,12 @@ public class SaleServiceImpl implements SaleService {
       log.error("Sale is not valid {}", dto);
       throw new InvalidEntityException("La vente n'est pas valide", ErrorCodes.SALE_NOT_VALID, errors);
     }
+    // Phase 5a : pre-check applicatif avant l'unique constraint SQL, qui remontait en 500 brut
+    // (DataIntegrityViolationException, aucun code d'erreur) - voir docs/phase-5a-report.md.
+    if (saleRepository.findSaleByCode(dto.getCode()).isPresent()) {
+      log.error("Sale code {} already exists", dto.getCode());
+      throw new InvalidEntityException("Une vente avec ce code existe deja", ErrorCodes.SALE_ALREADY_EXISTS);
+    }
     if (!authorizationService.hasPermission(userId, SALE_CREATE, ScopeType.SITE, dto.getSite().getId())) {
       log.warn("User {} tried to create a sale on site {} without SALE_CREATE on that scope", userId, dto.getSite().getId());
       throw new InvalidOperationException(

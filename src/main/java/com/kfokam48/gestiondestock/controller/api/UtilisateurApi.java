@@ -4,8 +4,10 @@ import static com.kfokam48.gestiondestock.utils.Constants.UTILISATEUR_ENDPOINT;
 
 import com.kfokam48.gestiondestock.dto.ChangerMotDePasseUtilisateurDto;
 import com.kfokam48.gestiondestock.dto.UtilisateurDto;
+import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,8 +20,10 @@ public interface UtilisateurApi {
   @PostMapping(UTILISATEUR_ENDPOINT + "/create")
   UtilisateurDto save(@RequestBody UtilisateurDto dto);
 
+  // Phase 5a : IDOR corrige (self-only) - voir UtilisateurController.changerMotDePasse et
+  // docs/phase-5a-report.md.
   @PostMapping(UTILISATEUR_ENDPOINT + "/update/password")
-  UtilisateurDto changerMotDePasse(@RequestBody ChangerMotDePasseUtilisateurDto dto);
+  UtilisateurDto changerMotDePasse(@RequestBody ChangerMotDePasseUtilisateurDto dto, @AuthenticationPrincipal ExtendedUser principal);
 
   @GetMapping(UTILISATEUR_ENDPOINT + "/{idUtilisateur}")
   UtilisateurDto findById(@PathVariable("idUtilisateur") Long id);

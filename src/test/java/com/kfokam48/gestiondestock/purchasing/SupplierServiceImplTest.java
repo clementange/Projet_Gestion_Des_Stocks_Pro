@@ -9,6 +9,7 @@ import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.purchasing.application.SupplierService;
 import com.kfokam48.gestiondestock.purchasing.application.dto.SupplierDto;
+import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +62,28 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
     service.delete(saved.getId());
 
     assertThrows(EntityNotFoundException.class, () -> service.findById(saved.getId()));
+  }
+
+  // Phase 5a : voir docs/phase-5a-report.md.
+  @Test
+  public void shouldRejectDuplicateMailOnCreate() {
+    String mail = "dup-" + UUID.randomUUID() + "@test.local";
+    service.save(SupplierDto.builder().nom("Premier").mail(mail).build());
+
+    InvalidEntityException exception = assertThrows(InvalidEntityException.class,
+        () -> service.save(SupplierDto.builder().nom("Second").mail(mail).build()));
+
+    assertEquals(ErrorCodes.SUPPLIER_ALREADY_EXISTS, exception.getErrorCode());
+  }
+
+  @Test
+  public void shouldAllowUpdatingSameSupplierWithoutMailConflict() {
+    String mail = "self-" + UUID.randomUUID() + "@test.local";
+    SupplierDto saved = service.save(SupplierDto.builder().nom("Fournisseur").mail(mail).build());
+
+    SupplierDto updated = service.save(SupplierDto.builder().id(saved.getId()).nom("Fournisseur Renomme").mail(mail).build());
+
+    assertEquals("Fournisseur Renomme", updated.getNom());
   }
 
 }

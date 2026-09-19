@@ -1,5 +1,6 @@
 package com.kfokam48.gestiondestock.services.auth;
 
+import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
 import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
@@ -14,13 +15,14 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 // Phase 4a : rebranche sur identity.User/identity.application.UserService (anciennement
-// services.UtilisateurService, model.Utilisateur) - voir docs/phase-4a-report.md. Comportement
-// observable inchange : meme resolution d'authorities via UserRoleAssignmentService, meme
-// tolerance a un utilisateur sans idEntreprise, memes exceptions non traduites (une
-// EntityNotFoundException levee par UserService.findByEmail remonte telle quelle, PAS enveloppee
-// en UsernameNotFoundException - comportement actuel deja caracterise dans
-// UtilisateurAuthenticationCharacterizationTest#loginFailsForUnknownEmailWith500NotBadCredentials,
-// non corrige ici).
+// services.UtilisateurService, model.Utilisateur) - voir docs/phase-4a-report.md.
+//
+// Phase 5a : l'EntityNotFoundException levee par UserService.findByEmail() remontait auparavant
+// telle quelle (pas enveloppee en UsernameNotFoundException), donc non attrapee par
+// DaoAuthenticationProvider.retrieveUser -> 500 brut sur un email inconnu, au lieu du 400
+// BAD_CREDENTIALS obtenu pour un mauvais mot de passe. Cette asymetrie constituait aussi un oracle
+// d'enumeration de compte (le code HTTP seul revelait si l'email existait). Corrige en traduisant
+// explicitement l'exception ici - voir docs/phase-5a-report.md.
 @Service
 public class ApplicationUserDetailsService implements UserDetailsService {
 
@@ -36,7 +38,12 @@ public class ApplicationUserDetailsService implements UserDetailsService {
 
   @Override
   public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-    UserDto user = userService.findByEmail(email);
+    UserDto user;
+    try {
+      user = userService.findByEmail(email);
+    } catch (EntityNotFoundException ex) {
+      throw new UsernameNotFoundException("Aucun utilisateur avec l'email = " + email, ex);
+    }
 
     // Phase 17 : authorities Spring Security decoratives (aucun hasRole/@PreAuthorize dans le
     // code) — sourcees depuis identity.UserRoleAssignment.

@@ -26,7 +26,7 @@ public class AdresseValidator {
     if (!StringUtils.hasLength(adresseDto.getPays())) {
       errors.add("Veuillez renseigner le pays'");
     }
-    if (!StringUtils.hasLength(adresseDto.getAdresse1())) {
+    if (!StringUtils.hasLength(adresseDto.getCodePostale())) {
       errors.add("Veuillez renseigner le code postal'");
     }
     return errors;

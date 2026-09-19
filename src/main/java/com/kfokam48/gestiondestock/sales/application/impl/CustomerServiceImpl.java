@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Transactional
 @Service
@@ -37,6 +38,17 @@ public class CustomerServiceImpl implements CustomerService {
     if (!errors.isEmpty()) {
       log.error("Customer is not valid {}", dto);
       throw new InvalidEntityException("Le client n'est pas valide", ErrorCodes.CUSTOMER_NOT_VALID, errors);
+    }
+    // Phase 5a : pre-check applicatif, exclut son propre id puisque save() est un upsert (mise a
+    // jour d'un client existant y compris son propre mail sinon rejetee a tort) - voir
+    // docs/phase-5a-report.md.
+    if (StringUtils.hasLength(dto.getMail())) {
+      customerRepository.findByMail(dto.getMail())
+          .filter(existing -> !existing.getId().equals(dto.getId()))
+          .ifPresent(existing -> {
+            log.error("Customer mail {} already exists", dto.getMail());
+            throw new InvalidEntityException("Un client avec ce mail existe deja", ErrorCodes.CUSTOMER_ALREADY_EXISTS);
+          });
     }
     return CustomerDto.fromEntity(
         customerRepository.save(CustomerDto.toEntity(dto))

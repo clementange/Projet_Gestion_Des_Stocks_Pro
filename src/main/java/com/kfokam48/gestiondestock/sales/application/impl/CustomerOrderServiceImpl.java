@@ -67,6 +67,12 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
       log.error("CustomerOrder is not valid {}", dto);
       throw new InvalidEntityException("La commande client n'est pas valide", ErrorCodes.CUSTOMER_ORDER_NOT_VALID, errors);
     }
+    // Phase 5a : pre-check applicatif avant l'unique constraint SQL, qui remontait en 500 brut
+    // (DataIntegrityViolationException, aucun code d'erreur) - voir docs/phase-5a-report.md.
+    if (customerOrderRepository.findCustomerOrderByCode(dto.getCode()).isPresent()) {
+      log.error("CustomerOrder code {} already exists", dto.getCode());
+      throw new InvalidEntityException("Une commande client avec ce code existe deja", ErrorCodes.CUSTOMER_ORDER_ALREADY_EXISTS);
+    }
 
     CustomerOrder order = CustomerOrderDto.toEntity(dto);
     order.setOrderDate(Instant.now());

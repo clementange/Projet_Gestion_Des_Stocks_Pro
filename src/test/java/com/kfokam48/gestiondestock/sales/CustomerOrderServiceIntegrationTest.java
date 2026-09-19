@@ -8,6 +8,8 @@ import com.kfokam48.gestiondestock.catalog.application.CategoryService;
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 import com.kfokam48.gestiondestock.catalog.application.dto.CategoryDto;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.identity.application.PermissionService;
 import com.kfokam48.gestiondestock.identity.application.RoleService;
@@ -126,6 +128,22 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
         List.of(CustomerOrderLineDto.builder().article(article).quantite(quantity).prixUnitaire(BigDecimal.TEN).build()));
     lineIdOut[0] = customerOrderService.findLines(order.getId()).get(0).getId();
     return order;
+  }
+
+  // Phase 5a : voir docs/phase-5a-report.md.
+  @Test
+  public void createShouldRejectDuplicateCodeWithCleanErrorInsteadOfRaw500() {
+    SiteDto site = createSite();
+    ArticleDto article = createArticle();
+    String code = uniqueCode("CMD");
+    customerOrderService.create(CustomerOrderDto.builder().code(code).customerId(1L).site(site).build(),
+        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()));
+
+    InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> customerOrderService.create(
+        CustomerOrderDto.builder().code(code).customerId(1L).site(site).build(),
+        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build())));
+
+    assertEquals(ErrorCodes.CUSTOMER_ORDER_ALREADY_EXISTS, exception.getErrorCode());
   }
 
   @Test

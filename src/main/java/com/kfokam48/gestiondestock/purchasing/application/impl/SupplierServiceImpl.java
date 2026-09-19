@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Transactional
 @Service
@@ -37,6 +38,17 @@ public class SupplierServiceImpl implements SupplierService {
     if (!errors.isEmpty()) {
       log.error("Supplier is not valid {}", dto);
       throw new InvalidEntityException("Le fournisseur n'est pas valide", ErrorCodes.SUPPLIER_NOT_VALID, errors);
+    }
+    // Phase 5a : pre-check applicatif, exclut son propre id puisque save() est un upsert (mise a
+    // jour d'un fournisseur existant y compris son propre mail sinon rejetee a tort) - voir
+    // docs/phase-5a-report.md.
+    if (StringUtils.hasLength(dto.getMail())) {
+      supplierRepository.findByMail(dto.getMail())
+          .filter(existing -> !existing.getId().equals(dto.getId()))
+          .ifPresent(existing -> {
+            log.error("Supplier mail {} already exists", dto.getMail());
+            throw new InvalidEntityException("Un fournisseur avec ce mail existe deja", ErrorCodes.SUPPLIER_ALREADY_EXISTS);
+          });
     }
     return SupplierDto.fromEntity(
         supplierRepository.save(SupplierDto.toEntity(dto))

@@ -55,6 +55,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
       log.error("PurchaseOrder is not valid {}", dto);
       throw new InvalidEntityException("La commande fournisseur n'est pas valide", ErrorCodes.PURCHASE_ORDER_NOT_VALID, errors);
     }
+    // Phase 5a : pre-check applicatif avant l'unique constraint SQL, qui remontait en 500 brut
+    // (DataIntegrityViolationException, aucun code d'erreur) - voir docs/phase-5a-report.md.
+    if (purchaseOrderRepository.findPurchaseOrderByCode(dto.getCode()).isPresent()) {
+      log.error("PurchaseOrder code {} already exists", dto.getCode());
+      throw new InvalidEntityException("Une commande fournisseur avec ce code existe deja", ErrorCodes.PURCHASE_ORDER_ALREADY_EXISTS);
+    }
 
     PurchaseOrder purchaseOrder = PurchaseOrderDto.toEntity(dto);
     purchaseOrder.setOrderDate(Instant.now());

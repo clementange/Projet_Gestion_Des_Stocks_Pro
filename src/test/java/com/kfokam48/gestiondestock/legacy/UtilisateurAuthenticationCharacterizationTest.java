@@ -35,10 +35,13 @@ import org.springframework.test.web.servlet.MvcResult;
  * model.Utilisateur vers identity.User. Ecrit et verifie vert AVANT la migration, doit rester
  * vert et sans modification d'assertion apres.
  *
- * <p>Reproduit deliberement le comportement actuel, bugs inclus : {@link #changerMotDePasse...}
- * documente l'IDOR connu (aucune verification que l'appelant est la cible ou un admin) et
- * {@link #create...WithoutAnyPermission} documente l'absence de verification de permission sur
- * create/delete/find. Aucun des deux n'est corrige ici (voir docs/migration-notes.md).
+ * <p>Reproduit deliberement le comportement actuel, bugs inclus : {@link #create...WithoutAnyPermission}
+ * documente l'absence de verification de permission sur create/delete/find, non corrige ici (voir
+ * docs/migration-notes.md). L'IDOR sur le changement de mot de passe, lui, a ete corrige en Phase
+ * 5a (self-only) - voir {@link #changerMotDePasseRejectsWhenCallerIsNotTargetUser} et
+ * docs/phase-5a-report.md ; ce n'est pas une exception a la regle "ne jamais modifier un test sans
+ * comprendre pourquoi il echouait" mais le cas exact ou elle autorise la modification, le
+ * comportement qu'il verrouillait ayant ete volontairement change.
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -126,24 +129,23 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
   }
 
   @Test
-  public void loginFailsForUnknownEmailWith500NotBadCredentials() throws Exception {
-    // Asymetrie actuelle, non corrigee ici : mauvais mot de passe -> 400 BAD_CREDENTIALS (via
-    // BadCredentialsException, gere explicitement par RestExceptionHandler), mais email inconnu
-    // -> EntityNotFoundException levee par UtilisateurServiceImpl.findByEmail() a l'interieur de
-    // ApplicationUserDetailsService.loadUserByUsername() ; Spring Security n'attrape que
-    // UsernameNotFoundException a cet endroit (DaoAuthenticationProvider.retrieveUser), donc notre
-    // EntityNotFoundException remonte enveloppee en InternalAuthenticationServiceException ->
-    // capturee uniquement par le handler generique -> 500, code JSON null (pas UTILISATEUR_NOT_FOUND).
+  public void loginFailsForUnknownEmailWith400BadCredentialsSameAsWrongPassword() throws Exception {
+    // Phase 5a : l'asymetrie precedente (email inconnu -> 500 brut, mot de passe faux -> 400
+    // BAD_CREDENTIALS) etait aussi un oracle d'enumeration de compte via le code HTTP seul -
+    // corrigee dans ApplicationUserDetailsService.loadUserByUsername (voir docs/phase-5a-report.md).
+    // Les deux cas sont desormais indiscernables cote client, comme il se doit.
     mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"login\":\"" + uniqueCode("unknown") + "@test.local\",\"password\":\"whatever\"}"))
-        .andExpect(status().isInternalServerError());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("BAD_CREDENTIALS"));
   }
 
   @Test
-  public void changerMotDePasseHasNoOwnershipCheckIdorReproducedAsIs() throws Exception {
-    // Bug connu, delibere, non corrige ici (docs/migration-notes.md) : n'importe quel utilisateur
-    // authentifie peut changer le mot de passe de n'importe quel autre utilisateur.
+  public void changerMotDePasseRejectsWhenCallerIsNotTargetUser() throws Exception {
+    // Phase 5a : l'IDOR verrouille ici jusqu'a Phase 4a est corrige (self-only) - voir
+    // docs/phase-5a-report.md. L'appelant ne peut plus changer le mot de passe d'un autre
+    // utilisateur, et le mot de passe de la victime n'est pas modifie.
     String adminToken = adminToken();
     String attackerEmail = uniqueCode("attacker") + "@test.local";
     createUser(adminToken, attackerEmail, "Passw0rd!");
@@ -157,11 +159,51 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
             .header("Authorization", "Bearer " + attackerToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content(changePayload))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("USER_CHANGE_PASSWORD_FORBIDDEN"));
+
+    // Le mot de passe de la victime n'a pas change : l'ancien fonctionne toujours.
+    String victimToken = login(victimEmail, "OldPassw0rd!");
+    assertNotNull(victimToken);
+  }
+
+  @Test
+  public void changerMotDePasseSucceedsWhenCallerIsTargetUser() throws Exception {
+    String adminToken = adminToken();
+    String email = uniqueCode("self") + "@test.local";
+    long userId = createUser(adminToken, email, "OldPassw0rd!");
+    String ownToken = login(email, "OldPassw0rd!");
+
+    String changePayload = "{\"id\":" + userId + ",\"motDePasse\":\"NewPassw0rd!\",\"confirmMotDePasse\":\"NewPassw0rd!\"}";
+    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/update/password")
+            .header("Authorization", "Bearer " + ownToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(changePayload))
         .andExpect(status().isOk());
 
-    // Le nouveau mot de passe fonctionne bien pour la victime : la modification a reellement eu lieu.
-    String victimToken = login(victimEmail, "NewPassw0rd!");
-    assertNotNull(victimToken);
+    assertNotNull(login(email, "NewPassw0rd!"));
+  }
+
+  @Test
+  public void usersRoutePasswordChangeRejectsWhenCallerIsNotTargetUser() throws Exception {
+    // Meme correctif (self-only), verifie aussi sur la route module-neuf /users/{id}/password -
+    // voir docs/phase-5a-report.md.
+    String adminToken = adminToken();
+    String attackerEmail = uniqueCode("attacker-neuf") + "@test.local";
+    createUser(adminToken, attackerEmail, "Passw0rd!");
+    String attackerToken = login(attackerEmail, "Passw0rd!");
+
+    String victimEmail = uniqueCode("victim-neuf") + "@test.local";
+    long victimId = createUser(adminToken, victimEmail, "OldPassw0rd!");
+
+    mockMvc.perform(post("/gestiondestock/v1/users/" + victimId + "/password")
+            .header("Authorization", "Bearer " + attackerToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"motDePasse\":\"NewPassw0rd!\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("USER_CHANGE_PASSWORD_FORBIDDEN"));
+
+    assertNotNull(login(victimEmail, "OldPassw0rd!"));
   }
 
   @Test

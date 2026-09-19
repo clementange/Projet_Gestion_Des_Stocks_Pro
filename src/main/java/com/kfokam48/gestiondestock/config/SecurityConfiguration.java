@@ -4,7 +4,8 @@ import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 import static com.kfokam48.gestiondestock.utils.Constants.AUTHENTICATION_ENDPOINT;
 
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,9 +27,10 @@ import org.springframework.web.filter.CorsFilter;
 public class SecurityConfiguration {
 
   @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http, ApplicationRequestFilter applicationRequestFilter) throws Exception {
+  public SecurityFilterChain securityFilterChain(HttpSecurity http, ApplicationRequestFilter applicationRequestFilter,
+      CorsFilter corsFilter) throws Exception {
     http
-        .addFilterBefore(corsFilter(), SessionManagementFilter.class)
+        .addFilterBefore(corsFilter, SessionManagementFilter.class)
         .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(
@@ -51,13 +53,16 @@ public class SecurityConfiguration {
     return http.build();
   }
 
+  // Phase 5a : allowCredentials(true) + allowedOriginPatterns("*") est la combinaison
+  // explicitement interdite par CLAUDE.md (zero-tolerance) - une origine wildcard avec
+  // credentials autorise n'importe quel site tiers a rejouer un cookie/token de session. Liste
+  // d'origines explicite, configurable par environnement (voir .env.example).
   @Bean
-  public CorsFilter corsFilter() {
+  public CorsFilter corsFilter(@Value("${cors.allowed-origins:http://localhost:4200}") List<String> allowedOrigins) {
     final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     final CorsConfiguration config = new CorsConfiguration();
     config.setAllowCredentials(true);
-    // Don't do this in production, use a proper list  of allowed origins
-    config.setAllowedOriginPatterns(Collections.singletonList("*"));
+    config.setAllowedOriginPatterns(allowedOrigins);
     config.setAllowedHeaders(Arrays.asList("Origin", "Content-Type", "Accept", "Authorization"));
     config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "OPTIONS", "DELETE", "PATCH"));
     source.registerCorsConfiguration("/**", config);

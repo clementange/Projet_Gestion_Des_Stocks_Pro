@@ -37,6 +37,14 @@ jwt:
   # de dev (384 bits) ; a externaliser via variable d'environnement avant toute mise en prod.
   secret: ${JWT_SECRET:5ihIh2R5xJnVjcFapkSQIM8kbuBpyJXLV23DwyuJTzKh5vTZxnN0iLRgEGIMDsbX}
 
+cors:
+  # Phase 5a : allowedOriginPatterns("*") combine a allowCredentials(true) est la combinaison
+  # explicitement interdite par CLAUDE.md (zero-tolerance) - voir SecurityConfiguration.corsFilter
+  # et docs/phase-5a-report.md. Valeur par defaut = origine de dev local uniquement ; a
+  # externaliser via CORS_ALLOWED_ORIGINS (liste separee par des virgules) avant toute mise en
+  # prod, comme JWT_SECRET/MINIO_* ci-dessous.
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
 minio:
   # Phase 4c : remplace flickr (dont les 4 cles etaient en clair ici, sans ${VAR_ENV:...}, absentes
   # de .env.example - violation zero-tolerance CLAUDE.md trouvee en investiguant, resolue par la

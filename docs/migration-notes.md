@@ -951,3 +951,44 @@ organisation separee.
 `Organization.save()`/`Tenant.save()` restent non touches (coherent avec les 5 increments 5b-2
 precedents : jamais de restriction sur "qui peut creer un nouvel agregat racine", gap RBAC-on-create
 deja catalogue). `User.updatePhoto` durci maintenant plutot que reporte (voir ci-dessus).
+
+## Phase 5b-2d (InventoryController writes + SiteController.save City-ownership) : trouve pendant l'increment
+
+Voir `docs/phase-5b2d-report.md` pour le detail complet. Increment supplementaire propose et
+approuve apres 5b-2c (pas pre-nomme dans le plan d'origine), sur deux items du backlog deja
+catalogues en 5b-2b §4 : `InventoryController.receive/issue/correct` (ecriture, plus severe que le
+gap de lecture deja ferme) et `SiteController.save()` (appartenance de City).
+
+### Nouvelles permissions = admins de tenants existants bloques sans migration de seed
+
+`ADMINISTRATEUR` (role bootstrap de chaque tenant) ne regroupe que les codes de permission
+explicitement seedes par migration (V3/V4) - pas une notion "toutes permissions" dynamique.
+Introduire STOCK_RECEIVE/STOCK_ISSUE/STOCK_CORRECT sans les ajouter a ADMINISTRATEUR aurait
+immediatement bloque tout admin de tenant, existant ou nouveau, sur ces trois endpoints -
+regression fonctionnelle, pas seulement un durcissement. Corrige par une nouvelle migration
+(`V7__seed_stock_adjustment_permissions.sql`, meme motif idempotent que V3/V4), jamais en
+modifiant un fichier V* existant (zone gelee CLAUDE.md). A retenir pour tout futur increment qui
+introduirait de nouveaux codes de permission : verifier systematiquement si ADMINISTRATEUR doit
+etre mis a jour par une migration dediee.
+
+### Root cause additionnelle : /utilisateurs/create (legacy) ne force jamais idEntreprise depuis l'appelant
+
+Trouve en ecrivant un test de regression (`inventoryWritesRequirePermissionEvenOnOwnSite`) : un
+utilisateur cree via l'endpoint legacy sans fournir explicitement `entreprise.id` dans le payload
+n'appartient a AUCUN tenant - son organizationId ne se resout jamais correctement au login. Meme
+gap deja connu et delibere que celui documente en Phase 4a pour `/utilisateurs/*`/`/users/*`
+("pas une amelioration deliberee") - non corrige cote production (legacy, hors perimetre), la
+fixture de test a simplement ete corrigee pour fournir le champ explicitement.
+
+### Root cause additionnelle trouvee en verifiant : troisieme occurrence de la meme fixture "organisation deconnectee du principal"
+
+`OrganizationControllersHttpIntegrationTest.warehouseCreationRejectsSiteTypeSpoofedInPayload`
+(test preexistant) creait une organisation fraiche via `POST /organizations/create` pour y
+construire sa hierarchie City/Site de test. `SiteController.save()` verifiant desormais
+l'appartenance de la City, la creation du site echouait avant meme d'atteindre le scenario teste.
+Troisieme occurrence exacte du meme correctif documente en 5b-2b §3 et 5b-2c §3 : reutilise
+`organizationIdFromToken` au lieu de creer une organisation separee. Cette recurrence confirme que
+`OrganizationController.save()` (toujours sans aucune verification) est une source structurelle de
+regressions de fixture pour tout increment futur qui ajoute une verification d'appartenance en
+aval - argument de plus pour le traiter en increment dedie plutot que de continuer a le contourner
+au cas par cas dans les tests.

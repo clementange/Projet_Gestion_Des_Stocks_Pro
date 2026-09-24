@@ -799,3 +799,79 @@ restee inchangee plutot que de forcer un filtrage sur un chemin d'ecriture
 hors perimetre de cet increment. `CategoryServiceImpl` n'avait aucun appel
 interne de ce type, ses trois methodes de lecture ont ete changees
 directement.
+
+## Phase 5b-2b (lecture scopee par organisation, entites a derivation via Site) : trouve pendant l'increment
+
+Voir `docs/phase-5b2b-report.md` pour le detail complet. Deuxieme des trois
+increments de 5b-2 (Sale/CustomerOrder/PurchaseOrder/StockTransfer/Site -
+derivation `Site -> City -> Organization`, + les deux lectures de Stock
+exposees par InventoryController) - 5b-2c (cas speciaux Organization/Tenant/
+User/Role/Permission) reste ouvert.
+
+### Contournement GLOBAL trouve sur Sale.create, ferme independamment de hasPermission
+
+`SaleServiceImpl.create()` verifiait deja `hasPermission(..., ScopeType.SITE,
+siteId, organizationId)`, mais `AuthorizationServiceImpl.hasPermission`
+(Phase 5b-1) filtre d'abord les affectations du caller sur sa PROPRE
+organisation puis applique GLOBAL sans jamais revalider que le `scopeId`
+demande appartient a cette organisation - consequence mecanique du correctif
+5b-1 sur un parametre que rien ne validait deja. Un appelant GLOBAL dans
+l'organisation A pouvait donc creer une vente sur un site de l'organisation
+B. Ferme par `requireSiteInOrganization`, verification independante placee
+AVANT `hasPermission`, qui ne depend d'aucune logique RBAC.
+
+### CustomerOrder/PurchaseOrder/StockTransfer.create n'avaient aucune verification de permission ni de site - confirme et etendu le gap deja catalogue
+
+Contrairement a `Sale.create` (qui avait au moins `hasPermission`, defaillant
+comme ci-dessus), les trois autres `create()` n'avaient litteralement aucune
+verification, ni de permission ni d'appartenance de site - n'importe quel
+appelant authentifie pouvait creer une commande client/fournisseur ou un
+transfert sur le site de n'importe quelle autre organisation. La nouvelle
+verification `requireSiteInOrganization` (memes signature et comportement
+que pour Sale, ErrorCodes `*_ACCESS_DENIED` deja existants) ajoute une
+frontiere tenant etroite ; le gap RBAC plus large ("qui peut creer", pas
+seulement "sur quel site") reste celui deja catalogue en Phase 5b-1 §8 et
+Phase 0, non traite ici. StockTransfer a deux sites (origine ET destination)
+: les deux sont verifies independamment, aucun des deux ne peut appartenir a
+une autre organisation.
+
+### InventoryController : decouverte non cataloguee jusqu'ici, plus severe que les gaps connus (ecriture cross-tenant sans restriction)
+
+Les 5 endpoints (`getStock`, `findMovements`, `receive`, `issue`, `correct`)
+n'avaient AUCUNE verification de principal/permission - plus severe que les
+autres gaps de cette phase car `receive`/`issue`/`correct` sont des
+ECRITURES physiques sur le stock, pas de simples lectures. Perimetre de cet
+increment : corrige uniquement les 2 lectures (`getStock`/`findMovements`,
+via `siteService.findById(idSite, organizationId)` reutilise directement,
+sans nouvelle methode dediee) dans le cadre de la couverture "Stock" prevue.
+Les 3 ecritures restent NON corrigees, nouvellement cataloguees en backlog
+securite (a rapprocher du gap RBAC create deja connu, mais distinct : ici
+c'est un controleur entier sans AuthenticationPrincipal du tout, pas
+seulement une permission manquante).
+
+### SiteController.save() : gap d'appartenance non traite, delibere
+
+Aucune verification que la `City` referencee appartient a l'organisation de
+l'appelant - chaine `City -> Organization` plus profonde que les 6 entites
+nommees de cet increment. Javadoc explicite ajoutee sur la classe plutot que
+traite silencieusement. `OrganizationController` (save/findById/findAll/
+delete) reste lui aussi sans aucune verification - racine du probleme de
+fixture ci-dessous, cas special "self-only" deja prevu pour 5b-2c.
+
+### Root cause additionnelle trouvee en verifiant : fixtures de test qui creaient une organisation deconnectee du principal
+
+`./mvnw clean verify` a revele 3 echecs apres implementation (sur 210
+tests), tous dans des fixtures, pas en production. `BusinessModulesHttpIntegrationTest`
+et `OrganizationControllersHttpIntegrationTest` creaient une NOUVELLE
+`Organization` via `POST /organizations/create` (toujours sans aucune
+verification) pour construire leur hierarchie Site/City de test, distincte
+de l'organisation propre du principal authentifie (resolue a l'inscription
+du tenant, portee par son JWT). Fonctionnait par accident avant cet
+increment (rien ne verifiait qu'un site appartenait a l'organisation de
+l'appelant) ; rejete a raison une fois la verification en place. Corrige en
+decodant `organizationId` directement du JWT deja detenu par le test et en
+construisant la hierarchie sous cette organisation plutot que d'en creer une
+nouvelle - reflete l'usage reel, pas un contournement de l'assertion
+observee (regle CLAUDE.md "ne jamais adapter un test sans comprendre
+pourquoi il echouait" respectee : la cause etait bien comprise avant de
+toucher au test).

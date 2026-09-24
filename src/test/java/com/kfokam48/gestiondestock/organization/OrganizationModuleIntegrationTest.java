@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.organization.application.CityService;
@@ -56,7 +57,7 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
 
     SiteDto entrepot = siteService.save(
         SiteDto.builder().code(uniqueCode("DLA-ENT")).name("Entrepot Central Douala")
-            .type(SiteType.ENTREPOT).active(true).city(city).build());
+            .type(SiteType.ENTREPOT).active(true).city(city).build(), organization.getId());
     assertNotNull(entrepot.getId());
 
     WarehouseDto warehouse = warehouseService.save(
@@ -76,7 +77,7 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
         CityDto.builder().name("Yaounde").organization(organization).build());
     SiteDto boutique = siteService.save(
         SiteDto.builder().code(uniqueCode("YAO-BTQ")).name("Boutique Bastos")
-            .type(SiteType.BOUTIQUE).active(true).city(city).build());
+            .type(SiteType.BOUTIQUE).active(true).city(city).build(), organization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> warehouseService.save(
         WarehouseDto.builder().code(uniqueCode("WH-YAO")).name("Entrepot invalide").site(boutique).build()));
@@ -100,7 +101,7 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     CityDto city = cityService.save(CityDto.builder().name("Garoua").organization(organization).build());
     SiteDto entrepot = siteService.save(
         SiteDto.builder().code(uniqueCode("GAR-ENT")).name("Entrepot Garoua")
-            .type(SiteType.ENTREPOT).active(true).city(city).build());
+            .type(SiteType.ENTREPOT).active(true).city(city).build(), organization.getId());
     warehouseService.save(WarehouseDto.builder().code(uniqueCode("WH-GAR")).name("Entrepot Garoua").site(entrepot).build());
 
     assertThrows(InvalidOperationException.class, () -> siteService.delete(entrepot.getId()));
@@ -113,7 +114,7 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Site B").active(true).build());
     CityDto cityA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
     SiteDto siteA = siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Site A")
-        .type(SiteType.ENTREPOT).active(true).city(cityA).build());
+        .type(SiteType.ENTREPOT).active(true).city(cityA).build(), orgA.getId());
 
     assertEquals(siteA.getId(), siteService.findById(siteA.getId(), orgA.getId()).getId());
     assertEquals(siteA.getId(), siteService.findByCode(siteA.getCode(), orgA.getId()).getId());
@@ -148,5 +149,33 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     assertThrows(EntityNotFoundException.class, () -> organizationService.delete(orgA.getId(), orgB.getId()));
     // orgA existe toujours : la tentative de suppression depuis orgB a bien ete rejetee, pas seulement journalisee.
     assertEquals(orgA.getId(), organizationService.findById(orgA.getId(), orgA.getId()).getId());
+  }
+
+  // Phase 5b-2d : voir docs/phase-5b2d-report.md.
+  @Test
+  public void createSiteShouldRejectCityFromAnotherOrganization() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Site Create A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Site Create B").active(true).build());
+    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
+
+    InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> siteService.save(
+        SiteDto.builder().code(uniqueCode("SITE")).name("Site etranger")
+            .type(SiteType.ENTREPOT).active(true).city(cityB).build(),
+        orgA.getId()));
+
+    assertEquals(ErrorCodes.SITE_ACCESS_DENIED, exception.getErrorCode());
+  }
+
+  @Test
+  public void createSiteSucceedsWhenCityBelongsToCallerOrganization() {
+    OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Site Create Own").active(true).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+
+    SiteDto site = siteService.save(
+        SiteDto.builder().code(uniqueCode("SITE")).name("Site propre")
+            .type(SiteType.ENTREPOT).active(true).city(city).build(),
+        organization.getId());
+
+    assertNotNull(site.getId());
   }
 }

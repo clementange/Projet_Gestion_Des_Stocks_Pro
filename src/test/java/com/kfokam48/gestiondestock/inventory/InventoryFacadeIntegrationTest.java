@@ -71,7 +71,7 @@ public class InventoryFacadeIntegrationTest extends AbstractIntegrationTest {
         OrganizationDto.builder().name("Societe Inventory").active(true).build());
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
     return siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Site test")
-        .type(type).active(true).city(city).build());
+        .type(type).active(true).city(city).build(), organization.getId());
   }
 
   private ArticleDto createArticle() {

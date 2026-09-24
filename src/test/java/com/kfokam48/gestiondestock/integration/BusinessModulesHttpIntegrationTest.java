@@ -237,6 +237,93 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
         .andExpect(jsonPath("$.quantitePhysique").value(10.0));
   }
 
+  /**
+   * Phase 5b-2d : receive/issue/correct (ecriture) n'avaient avant ce correctif aucune
+   * verification d'appartenance de site - plus severe que le gap de lecture ferme en 5b-2b
+   * puisqu'il s'agit d'ecritures physiques cross-tenant - voir docs/phase-5b2d-report.md.
+   */
+  @Test
+  public void inventoryWritesRejectSiteFromAnotherOrganization() throws Exception {
+    String tokenA = adminToken();
+    long siteIdA = createEntrepotSite(tokenA, "Entrepot A");
+    long articleIdA = createArticle(tokenA);
+
+    String tokenB = adminToken();
+
+    mockMvc.perform(post("/gestiondestock/v1/stocks/article/" + articleIdA + "/site/" + siteIdA + "/entree?quantite=10&reference=INIT")
+            .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("SITE_NOT_FOUND"));
+    mockMvc.perform(post("/gestiondestock/v1/stocks/article/" + articleIdA + "/site/" + siteIdA + "/sortie?quantite=1")
+            .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("SITE_NOT_FOUND"));
+    mockMvc.perform(post("/gestiondestock/v1/stocks/article/" + articleIdA + "/site/" + siteIdA + "/correction?delta=1")
+            .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("SITE_NOT_FOUND"));
+  }
+
+  /**
+   * Phase 5b-2d : le proprietaire du site ne suffit pas non plus - il faut aussi
+   * STOCK_RECEIVE/STOCK_ISSUE/STOCK_CORRECT, meme sur son propre site.
+   */
+  @Test
+  public void inventoryWritesRequirePermissionEvenOnOwnSite() throws Exception {
+    String adminToken = adminToken();
+    long siteId = createEntrepotSite(adminToken, "Entrepot Permission");
+    long articleId = createArticle(adminToken);
+
+    String noPermEmail = uniqueCode("noperm-stock") + "@test.local";
+    long idEntreprise = idEntrepriseFromToken(adminToken);
+    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+            .header("Authorization", "Bearer " + adminToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nom\":\"NoPerm\",\"prenom\":\"User\",\"email\":\"" + noPermEmail + "\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+                + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"},"
+                + "\"entreprise\":{\"id\":" + idEntreprise + "}}"))
+        .andExpect(status().isOk());
+    MvcResult login = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"login\":\"" + noPermEmail + "\",\"password\":\"Passw0rd!\"}"))
+        .andExpect(status().isOk()).andReturn();
+    String noPermToken = objectMapper.readTree(login.getResponse().getContentAsString()).get("accessToken").asText();
+
+    mockMvc.perform(post("/gestiondestock/v1/stocks/article/" + articleId + "/site/" + siteId + "/entree?quantite=10&reference=INIT")
+            .header("Authorization", "Bearer " + noPermToken))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("STOCK_ACCESS_DENIED"));
+
+    // L'admin (ADMINISTRATEUR/GLOBAL, seede avec STOCK_RECEIVE) continue de fonctionner
+    // normalement, et le mouvement porte desormais le vrai userId de l'appelant (plus jamais null).
+    long adminUserId = idUtilisateurFromToken(adminToken);
+    mockMvc.perform(post("/gestiondestock/v1/stocks/article/" + articleId + "/site/" + siteId + "/entree?quantite=10&reference=INIT")
+            .header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.userId").value(adminUserId));
+  }
+
+  private long idUtilisateurFromToken(String token) throws Exception {
+    String payload = token.split("\\.")[1];
+    byte[] decoded = java.util.Base64.getUrlDecoder().decode(payload);
+    return objectMapper.readTree(decoded).get("idUtilisateur").asLong();
+  }
+
+  /**
+   * Phase 5b-2d, trouve en ecrivant le test ci-dessus : /utilisateurs/create (legacy) ne force
+   * jamais idEntreprise depuis l'appelant - il faut le fournir explicitement dans le payload,
+   * sinon l'utilisateur cree n'appartient a AUCUN tenant (organizationId ne se resout jamais au
+   * login). Gap deja connu et delibere sur le contrat legacy (meme posture que Phase 4a, jamais
+   * durci) - non corrige ici, seulement contourne dans la fixture de test - voir
+   * docs/phase-5b2d-report.md.
+   */
+  private long idEntrepriseFromToken(String token) throws Exception {
+    String payload = token.split("\\.")[1];
+    byte[] decoded = java.util.Base64.getUrlDecoder().decode(payload);
+    return objectMapper.readTree(decoded).get("idEntreprise").asLong();
+  }
+
   @Test
   public void reportingRejectsUserWithoutReportingViewEvenIfTheyClaimAnotherUserId() throws Exception {
     // Avant Phase 15, "userId" etait un @RequestParam controle par l'appelant : un utilisateur

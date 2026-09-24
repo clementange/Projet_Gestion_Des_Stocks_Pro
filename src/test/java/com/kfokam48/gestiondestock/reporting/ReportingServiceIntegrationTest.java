@@ -84,7 +84,7 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
 
   private SiteDto createSite(CityDto city, String name) {
     return siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name(name)
-        .type(SiteType.ENTREPOT).active(true).city(city).build());
+        .type(SiteType.ENTREPOT).active(true).city(city).build(), city.getOrganization().getId());
   }
 
   private ArticleDto createArticle() {

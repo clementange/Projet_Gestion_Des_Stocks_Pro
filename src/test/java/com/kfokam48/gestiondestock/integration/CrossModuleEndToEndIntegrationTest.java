@@ -126,15 +126,15 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(societeX).build());
 
     SiteDto entrepotCentral = siteService.save(SiteDto.builder().code(uniqueCode("ENT-DLA")).name("Entrepot Central Douala")
-        .type(SiteType.ENTREPOT).active(true).city(douala).build());
+        .type(SiteType.ENTREPOT).active(true).city(douala).build(), organizationId);
     WarehouseDto warehouse = warehouseService.save(WarehouseDto.builder().code(uniqueCode("WH-DLA")).name("Entrepot Central Douala")
         .site(entrepotCentral).build());
     assertEquals(entrepotCentral.getId(), warehouse.getSite().getId());
 
     SiteDto boutiqueAkwa = siteService.save(SiteDto.builder().code(uniqueCode("BTQ-AKW")).name("Boutique Akwa")
-        .type(SiteType.BOUTIQUE).active(true).city(douala).build());
+        .type(SiteType.BOUTIQUE).active(true).city(douala).build(), organizationId);
     SiteDto boutiqueBonamoussadi = siteService.save(SiteDto.builder().code(uniqueCode("BTQ-BON")).name("Boutique Bonamoussadi")
-        .type(SiteType.BOUTIQUE).active(true).city(douala).build());
+        .type(SiteType.BOUTIQUE).active(true).city(douala).build(), organizationId);
 
     // 2. Catalogue : article ORD-001.
     CategoryDto categorie = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Informatique").organization(societeX).build());

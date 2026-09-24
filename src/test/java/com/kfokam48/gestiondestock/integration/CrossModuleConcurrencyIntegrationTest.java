@@ -113,7 +113,7 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Concurrence").active(true).build());
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
     SiteDto site = siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Boutique concurrence")
-        .type(SiteType.BOUTIQUE).active(true).city(city).build());
+        .type(SiteType.BOUTIQUE).active(true).city(city).build(), organization.getId());
     CategoryDto category = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build());
     ArticleDto article = articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)

@@ -103,7 +103,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
 
   private SiteDto createSite(CityDto city, String name) {
     return siteService.save(SiteDto.builder().code(uniqueCode("ENT")).name(name)
-        .type(SiteType.ENTREPOT).active(true).city(city).build());
+        .type(SiteType.ENTREPOT).active(true).city(city).build(), city.getOrganization().getId());
   }
 
   private ArticleDto createArticle() {

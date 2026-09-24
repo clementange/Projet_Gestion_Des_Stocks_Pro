@@ -18,10 +18,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Phase 5b-2b : la creation (save) ne verifie pas que la City referencee appartient a
- * l'organisation de l'appelant - chaine City/Organization plus profonde que les 6 entites
- * couvertes par cet increment (Sale/CustomerOrder/PurchaseOrder/StockTransfer/Site/Stock),
- * deliberement laissee ouverte - voir docs/phase-5b2b-report.md.
+ * Phase 5b-2d : la creation (save) verifie desormais que la City referencee appartient a
+ * l'organisation de l'appelant (recuperee fraiche depuis la base, jamais depuis les donnees
+ * imbriquees fournies par le client) - voir docs/phase-5b2d-report.md. Aucune verification de
+ * permission ("qui peut creer un site") : question distincte, deliberement hors perimetre, meme
+ * raisonnement que CustomerOrder/PurchaseOrder/StockTransfer.create() en 5b-2b.
  */
 @Tag(name = "sites")
 @RestController
@@ -35,8 +36,8 @@ public class SiteController {
   }
 
   @PostMapping(value = APP_ROOT + "/sites/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public SiteDto save(@RequestBody SiteDto dto) {
-    return siteService.save(dto);
+  public SiteDto save(@RequestBody SiteDto dto, @AuthenticationPrincipal ExtendedUser principal) {
+    return siteService.save(dto, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/sites/{idSite}", produces = MediaType.APPLICATION_JSON_VALUE)

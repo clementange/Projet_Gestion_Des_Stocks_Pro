@@ -125,14 +125,11 @@ public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrat
   public void warehouseCreationRejectsSiteTypeSpoofedInPayload() throws Exception {
     // Regression Phase 15 : le site reel est BOUTIQUE, mais le payload pretend ENTREPOT. Doit
     // etre refuse (verification contre le Site persiste, pas contre le DTO fourni).
+    // Phase 5b-2d : la ville doit etre creee sous l'organisation propre de l'appelant (decodee du
+    // JWT), pas une organisation fraichement creee via /organizations/create - meme cause racine
+    // que le correctif de fixture documente en 5b-2b/5b-2c - voir docs/phase-5b2d-report.md.
     String token = adminToken();
-    MvcResult org = mockMvc.perform(post("/gestiondestock/v1/organizations/create")
-            .header("Authorization", "Bearer " + token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"Org Spoof\",\"active\":true}"))
-        .andExpect(status().isOk())
-        .andReturn();
-    long orgId = jsonId(org);
+    long orgId = organizationIdFromToken(token);
     MvcResult city = mockMvc.perform(post("/gestiondestock/v1/cities/create")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)

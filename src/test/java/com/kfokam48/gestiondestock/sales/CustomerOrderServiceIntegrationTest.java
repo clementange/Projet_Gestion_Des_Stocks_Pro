@@ -114,7 +114,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     organization = organizationService.save(OrganizationDto.builder().name("Societe Sales").active(true).build());
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
     return siteService.save(SiteDto.builder().code(uniqueCode("BTQ")).name("Boutique test")
-        .type(SiteType.BOUTIQUE).active(true).city(city).build());
+        .type(SiteType.BOUTIQUE).active(true).city(city).build(), organization.getId());
   }
 
   private ArticleDto createArticle() {
@@ -268,7 +268,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe CmdClient Foreign").active(true).build());
     CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
     SiteDto siteB = siteService.save(SiteDto.builder().code(uniqueCode("BTQ")).name("Boutique etrangere")
-        .type(SiteType.BOUTIQUE).active(true).city(cityB).build());
+        .type(SiteType.BOUTIQUE).active(true).city(cityB).build(), orgB.getId());
     ArticleDto article = createArticle();
 
     InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> customerOrderService.create(

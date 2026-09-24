@@ -5,7 +5,10 @@ import java.util.List;
 
 public interface SiteService {
 
-  SiteDto save(SiteDto dto);
+  // Phase 5b-2d : verifie que la City referencee appartient bien a l'organisation de l'appelant,
+  // recuperee fraiche depuis la base (jamais depuis les donnees imbriquees fournies par le
+  // client) - meme principe que requireSiteInOrganization en 5b-2b - voir docs/phase-5b2d-report.md.
+  SiteDto save(SiteDto dto, Long organizationId);
 
   SiteDto findById(Long id);
 

@@ -110,7 +110,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     organization = organizationService.save(OrganizationDto.builder().name("Societe Purchasing").active(true).build());
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
     return siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Entrepot reception")
-        .type(SiteType.ENTREPOT).active(true).city(city).build());
+        .type(SiteType.ENTREPOT).active(true).city(city).build(), organization.getId());
   }
 
   private ArticleDto createArticle() {
@@ -246,7 +246,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe CmdFour Foreign").active(true).build());
     CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
     SiteDto siteB = siteService.save(SiteDto.builder().code(uniqueCode("ENT")).name("Entrepot etranger")
-        .type(SiteType.ENTREPOT).active(true).city(cityB).build());
+        .type(SiteType.ENTREPOT).active(true).city(cityB).build(), orgB.getId());
     ArticleDto article = createArticle();
 
     InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> purchaseOrderService.create(

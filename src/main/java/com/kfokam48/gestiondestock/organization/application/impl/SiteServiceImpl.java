@@ -4,7 +4,9 @@ import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
+import com.kfokam48.gestiondestock.organization.application.CityService;
 import com.kfokam48.gestiondestock.organization.application.SiteService;
+import com.kfokam48.gestiondestock.organization.application.dto.CityDto;
 import com.kfokam48.gestiondestock.organization.application.dto.SiteDto;
 import com.kfokam48.gestiondestock.organization.application.validator.SiteValidator;
 import com.kfokam48.gestiondestock.organization.domain.model.Site;
@@ -23,23 +25,39 @@ public class SiteServiceImpl implements SiteService {
 
   private SiteRepository siteRepository;
   private WarehouseRepository warehouseRepository;
+  private CityService cityService;
 
   @Autowired
-  public SiteServiceImpl(SiteRepository siteRepository, WarehouseRepository warehouseRepository) {
+  public SiteServiceImpl(SiteRepository siteRepository, WarehouseRepository warehouseRepository, CityService cityService) {
     this.siteRepository = siteRepository;
     this.warehouseRepository = warehouseRepository;
+    this.cityService = cityService;
   }
 
   @Override
-  public SiteDto save(SiteDto dto) {
+  public SiteDto save(SiteDto dto, Long organizationId) {
     List<String> errors = SiteValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("Site is not valid {}", dto);
       throw new InvalidEntityException("Le site n'est pas valide", ErrorCodes.SITE_NOT_VALID, errors);
     }
+    requireCityInOrganization(dto.getCity().getId(), organizationId);
     return SiteDto.fromEntity(
         siteRepository.save(SiteDto.toEntity(dto))
     );
+  }
+
+  // Phase 5b-2d : voir docs/phase-5b2d-report.md.
+  private void requireCityInOrganization(Long cityId, Long organizationId) {
+    CityDto city = cityService.findById(cityId);
+    boolean matches = city != null && city.getOrganization() != null
+        && organizationId != null && organizationId.equals(city.getOrganization().getId());
+    if (!matches) {
+      log.warn("City {} does not belong to organization {}", cityId, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission de creer un site dans cette ville",
+          ErrorCodes.SITE_ACCESS_DENIED);
+    }
   }
 
   @Override

@@ -107,7 +107,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
 
   private SiteDto createBoutique(CityDto city, String name) {
     return siteService.save(SiteDto.builder().code(uniqueCode("BTQ")).name(name)
-        .type(SiteType.BOUTIQUE).active(true).city(city).build());
+        .type(SiteType.BOUTIQUE).active(true).city(city).build(), city.getOrganization().getId());
   }
 
   private ArticleDto createArticle() {

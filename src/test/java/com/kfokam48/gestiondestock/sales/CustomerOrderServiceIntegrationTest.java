@@ -127,7 +127,8 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
   private CustomerOrderDto createOrder(SiteDto site, ArticleDto article, BigDecimal quantity, Long[] lineIdOut) {
     CustomerOrderDto order = customerOrderService.create(
         CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(1L).site(site).build(),
-        List.of(CustomerOrderLineDto.builder().article(article).quantite(quantity).prixUnitaire(BigDecimal.TEN).build()));
+        List.of(CustomerOrderLineDto.builder().article(article).quantite(quantity).prixUnitaire(BigDecimal.TEN).build()),
+        organization.getId());
     lineIdOut[0] = customerOrderService.findLines(order.getId()).get(0).getId();
     return order;
   }
@@ -139,11 +140,13 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     ArticleDto article = createArticle();
     String code = uniqueCode("CMD");
     customerOrderService.create(CustomerOrderDto.builder().code(code).customerId(1L).site(site).build(),
-        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()));
+        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
+        organization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> customerOrderService.create(
         CustomerOrderDto.builder().code(code).customerId(1L).site(site).build(),
-        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build())));
+        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
+        organization.getId()));
 
     assertEquals(ErrorCodes.CUSTOMER_ORDER_ALREADY_EXISTS, exception.getErrorCode());
   }
@@ -199,7 +202,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     StockDto afterDelivery = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, afterDelivery.getQuantitePhysique().compareTo(BigDecimal.valueOf(4)));
     assertEquals(0, afterDelivery.getQuantiteReservee().compareTo(BigDecimal.ZERO));
-    assertEquals(CustomerOrderStatus.LIVREE, customerOrderService.findById(order.getId()).getStatus());
+    assertEquals(CustomerOrderStatus.LIVREE, customerOrderService.findById(order.getId(), organization.getId()).getStatus());
   }
 
   @Test
@@ -218,7 +221,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     StockDto stock = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, stock.getQuantiteReservee().compareTo(BigDecimal.ZERO));
     assertEquals(0, stock.getQuantitePhysique().compareTo(BigDecimal.TEN));
-    assertEquals(CustomerOrderStatus.ANNULEE, customerOrderService.findById(order.getId()).getStatus());
+    assertEquals(CustomerOrderStatus.ANNULEE, customerOrderService.findById(order.getId(), organization.getId()).getStatus());
   }
 
   @Test
@@ -233,5 +236,46 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     customerOrderService.reserve(order.getId(), userId, organization.getId());
 
     assertThrows(InvalidOperationException.class, () -> customerOrderService.deliver(order.getId(), userId, organization.getId()));
+  }
+
+  // Phase 5b-2b : voir docs/phase-5b2b-report.md.
+  @Test
+  public void crossOrganizationReadsAreScoped() {
+    SiteDto siteA = createSite();
+    OrganizationDto orgA = organization;
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe CmdClient B").active(true).build());
+    ArticleDto article = createArticle();
+    CustomerOrderDto order = createOrder(siteA, article, BigDecimal.ONE, new Long[1]);
+
+    assertEquals(order.getId(), customerOrderService.findById(order.getId(), orgA.getId()).getId());
+    assertEquals(order.getId(), customerOrderService.findByCode(order.getCode(), orgA.getId()).getId());
+    assertEquals(1, customerOrderService.findAll(orgA.getId()).size());
+
+    assertThrows(EntityNotFoundException.class, () -> customerOrderService.findById(order.getId(), orgB.getId()));
+    assertThrows(EntityNotFoundException.class, () -> customerOrderService.findByCode(order.getCode(), orgB.getId()));
+    assertEquals(0, customerOrderService.findAll(orgB.getId()).size());
+  }
+
+  /**
+   * Phase 5b-2b : CustomerOrder.create n'avait avant ce correctif aucune verification de
+   * permission ni d'appartenance de site - n'importe quel appelant authentifie pouvait creer une
+   * commande client sur le site de n'importe quelle autre organisation - voir
+   * docs/phase-5b2b-report.md.
+   */
+  @Test
+  public void createShouldRejectSiteFromAnotherOrganization() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe CmdClient Caller").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe CmdClient Foreign").active(true).build());
+    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
+    SiteDto siteB = siteService.save(SiteDto.builder().code(uniqueCode("BTQ")).name("Boutique etrangere")
+        .type(SiteType.BOUTIQUE).active(true).city(cityB).build());
+    ArticleDto article = createArticle();
+
+    InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> customerOrderService.create(
+        CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(1L).site(siteB).build(),
+        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
+        orgA.getId()));
+
+    assertEquals(ErrorCodes.CUSTOMER_ORDER_ACCESS_DENIED, exception.getErrorCode());
   }
 }

@@ -73,13 +73,20 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
     return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
   }
 
-  private long createEntrepotSite(String token, String orgName) throws Exception {
-    MvcResult org = mockMvc.perform(post("/gestiondestock/v1/organizations/create")
-            .header("Authorization", "Bearer " + token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"" + orgName + "\",\"active\":true}"))
-        .andExpect(status().isOk()).andReturn();
-    long orgId = jsonId(org);
+  /**
+   * Phase 5b-2b : les sites doivent appartenir a l'organisation propre de l'appelant (celle
+   * resolue a l'inscription du tenant) pour passer la nouvelle verification d'appartenance de
+   * site a la creation de PurchaseOrder/StockTransfer/Sale - voir docs/phase-5b2b-report.md.
+   * organizationId n'est pas expose par un endpoint dedie : on le decode directement du JWT.
+   */
+  private long organizationIdFromToken(String token) throws Exception {
+    String payload = token.split("\\.")[1];
+    byte[] decoded = java.util.Base64.getUrlDecoder().decode(payload);
+    return objectMapper.readTree(decoded).get("organizationId").asLong();
+  }
+
+  private long createEntrepotSite(String token, String siteName) throws Exception {
+    long orgId = organizationIdFromToken(token);
     MvcResult city = mockMvc.perform(post("/gestiondestock/v1/cities/create")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
@@ -89,7 +96,7 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
     MvcResult site = mockMvc.perform(post("/gestiondestock/v1/sites/create")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"code\":\"" + uniqueCode("SITE") + "\",\"name\":\"Entrepot\",\"type\":\"ENTREPOT\",\"active\":true,\"city\":{\"id\":" + cityId + "}}"))
+            .content("{\"code\":\"" + uniqueCode("SITE") + "\",\"name\":\"" + siteName + "\",\"type\":\"ENTREPOT\",\"active\":true,\"city\":{\"id\":" + cityId + "}}"))
         .andExpect(status().isOk()).andReturn();
     return jsonId(site);
   }
@@ -115,7 +122,7 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
   @Test
   public void fullSupplyChainFlowWorksOverRealHttpWithAuthenticatedPrincipal() throws Exception {
     String token = adminToken();
-    long siteId = createEntrepotSite(token, "Org Business");
+    long siteId = createEntrepotSite(token, "Entrepot");
     long articleId = createArticle(token);
 
     // inventory : entree directe
@@ -158,8 +165,8 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
   @Test
   public void stockTransferFullLifecycleWorksOverRealHttp() throws Exception {
     String token = adminToken();
-    long originSiteId = createEntrepotSite(token, "Org Transfer Origin");
-    long destSiteId = createEntrepotSite(token, "Org Transfer Dest");
+    long originSiteId = createEntrepotSite(token, "Entrepot Origin");
+    long destSiteId = createEntrepotSite(token, "Entrepot Dest");
     long articleId = createArticle(token);
 
     mockMvc.perform(post("/gestiondestock/v1/stocks/article/" + articleId + "/site/" + originSiteId + "/entree?quantite=50&reference=INIT")
@@ -194,6 +201,40 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
             .header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.quantitePhysique").value(20.0));
+  }
+
+  /**
+   * Phase 5b-2b : getStock/findMovements n'avaient avant ce correctif aucune verification
+   * d'appartenance de site a l'organisation de l'appelant - un utilisateur authentifie de
+   * n'importe quel tenant pouvait lire le stock d'un site appartenant a un AUTRE tenant en
+   * devinant simplement son ID - voir docs/phase-5b2b-report.md.
+   */
+  @Test
+  public void inventoryReadsRejectSiteFromAnotherOrganization() throws Exception {
+    String tokenA = adminToken();
+    long siteIdA = createEntrepotSite(tokenA, "Entrepot A");
+    long articleIdA = createArticle(tokenA);
+    mockMvc.perform(post("/gestiondestock/v1/stocks/article/" + articleIdA + "/site/" + siteIdA + "/entree?quantite=10&reference=INIT")
+            .header("Authorization", "Bearer " + tokenA))
+        .andExpect(status().isOk());
+
+    String tokenB = adminToken();
+
+    mockMvc.perform(get("/gestiondestock/v1/stocks/article/" + articleIdA + "/site/" + siteIdA)
+            .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("SITE_NOT_FOUND"));
+
+    mockMvc.perform(get("/gestiondestock/v1/stocks/article/" + articleIdA + "/site/" + siteIdA + "/mouvements")
+            .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("SITE_NOT_FOUND"));
+
+    // La meme lecture reste accessible au tenant proprietaire du site.
+    mockMvc.perform(get("/gestiondestock/v1/stocks/article/" + articleIdA + "/site/" + siteIdA)
+            .header("Authorization", "Bearer " + tokenA))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.quantitePhysique").value(10.0));
   }
 
   @Test

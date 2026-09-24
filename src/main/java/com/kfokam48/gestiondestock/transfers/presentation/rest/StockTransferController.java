@@ -30,23 +30,23 @@ public class StockTransferController {
   }
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public StockTransferDto create(@RequestBody CreateStockTransferRequest request) {
-    return stockTransferService.create(request.getTransfer(), request.getLines());
+  public StockTransferDto create(@RequestBody CreateStockTransferRequest request, @AuthenticationPrincipal ExtendedUser principal) {
+    return stockTransferService.create(request.getTransfer(), request.getLines(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public StockTransferDto findById(@PathVariable("idTransfert") Long id) {
-    return stockTransferService.findById(id);
+  public StockTransferDto findById(@PathVariable("idTransfert") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return stockTransferService.findById(id, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/stock-transfers/filter/{code}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public StockTransferDto findByCode(@PathVariable("code") String code) {
-    return stockTransferService.findByCode(code);
+  public StockTransferDto findByCode(@PathVariable("code") String code, @AuthenticationPrincipal ExtendedUser principal) {
+    return stockTransferService.findByCode(code, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/stock-transfers/all", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<StockTransferDto> findAll() {
-    return stockTransferService.findAll();
+  public List<StockTransferDto> findAll(@AuthenticationPrincipal ExtendedUser principal) {
+    return stockTransferService.findAll(principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/lignes", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -72,17 +72,21 @@ public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrat
     return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
   }
 
+  /**
+   * Phase 5b-2b : GET /sites/filter/city/{id} est desormais scope a l'organisation de l'appelant
+   * (celle resolue a l'inscription du tenant) - voir docs/phase-5b2b-report.md. organizationId
+   * n'est pas expose par un endpoint dedie : on le decode directement du JWT.
+   */
+  private long organizationIdFromToken(String token) throws Exception {
+    String payload = token.split("\\.")[1];
+    byte[] decoded = java.util.Base64.getUrlDecoder().decode(payload);
+    return objectMapper.readTree(decoded).get("organizationId").asLong();
+  }
+
   @Test
   public void fullOrganizationHierarchyCreationWorksOverHttp() throws Exception {
     String token = adminToken();
-
-    MvcResult org = mockMvc.perform(post("/gestiondestock/v1/organizations/create")
-            .header("Authorization", "Bearer " + token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"Org HTTP\",\"active\":true}"))
-        .andExpect(status().isOk())
-        .andReturn();
-    long orgId = jsonId(org);
+    long orgId = organizationIdFromToken(token);
 
     MvcResult city = mockMvc.perform(post("/gestiondestock/v1/cities/create")
             .header("Authorization", "Bearer " + token)

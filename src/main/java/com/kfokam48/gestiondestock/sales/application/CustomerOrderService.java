@@ -6,13 +6,15 @@ import java.util.List;
 
 public interface CustomerOrderService {
 
-  CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines);
+  // Phase 5b-2b : organizationId verifie contre celui du site de la commande (derive via
+  // Site -> City -> Organization) avant creation - voir docs/phase-5b2b-report.md.
+  CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines, Long organizationId);
 
-  CustomerOrderDto findById(Long id);
+  CustomerOrderDto findById(Long id, Long organizationId);
 
-  CustomerOrderDto findByCode(String code);
+  CustomerOrderDto findByCode(String code, Long organizationId);
 
-  List<CustomerOrderDto> findAll();
+  List<CustomerOrderDto> findAll(Long organizationId);
 
   List<CustomerOrderLineDto> findLines(Long customerOrderId);
 

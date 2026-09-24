@@ -7,6 +7,7 @@ import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.organization.application.SiteService;
 import com.kfokam48.gestiondestock.organization.application.dto.SiteDto;
 import com.kfokam48.gestiondestock.organization.application.validator.SiteValidator;
+import com.kfokam48.gestiondestock.organization.domain.model.Site;
 import com.kfokam48.gestiondestock.organization.infrastructure.persistence.SiteRepository;
 import com.kfokam48.gestiondestock.organization.infrastructure.persistence.WarehouseRepository;
 import java.util.List;
@@ -56,12 +57,28 @@ public class SiteServiceImpl implements SiteService {
   }
 
   @Override
-  public SiteDto findByCode(String code) {
+  public SiteDto findById(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Site ID is null");
+      return null;
+    }
+    return siteRepository.findById(id)
+        .filter(site -> belongsToOrganization(site, organizationId))
+        .map(SiteDto::fromEntity)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun site avec l'ID = " + id + " n'a ete trouve dans la BDD",
+            ErrorCodes.SITE_NOT_FOUND)
+        );
+  }
+
+  @Override
+  public SiteDto findByCode(String code, Long organizationId) {
     if (!StringUtils.hasLength(code)) {
       log.error("Site CODE is null");
       return null;
     }
     return siteRepository.findSiteByCode(code)
+        .filter(site -> belongsToOrganization(site, organizationId))
         .map(SiteDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucun site avec le CODE = " + code + " n'a ete trouve dans la BDD",
@@ -70,21 +87,31 @@ public class SiteServiceImpl implements SiteService {
   }
 
   @Override
-  public List<SiteDto> findAllByCity(Long cityId) {
+  public List<SiteDto> findAllByCity(Long cityId, Long organizationId) {
     if (cityId == null) {
       log.error("City ID is null");
       return List.of();
     }
     return siteRepository.findAllByCityId(cityId).stream()
+        .filter(site -> belongsToOrganization(site, organizationId))
         .map(SiteDto::fromEntity)
         .collect(Collectors.toList());
   }
 
   @Override
-  public List<SiteDto> findAll() {
+  public List<SiteDto> findAll(Long organizationId) {
     return siteRepository.findAll().stream()
+        .filter(site -> belongsToOrganization(site, organizationId))
         .map(SiteDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2b : les deux cotes doivent etre non-null pour matcher - voir docs/phase-5b2b-report.md.
+  private boolean belongsToOrganization(Site site, Long organizationId) {
+    return organizationId != null
+        && site.getCity() != null
+        && site.getCity().getOrganization() != null
+        && organizationId.equals(site.getCity().getOrganization().getId());
   }
 
   @Override

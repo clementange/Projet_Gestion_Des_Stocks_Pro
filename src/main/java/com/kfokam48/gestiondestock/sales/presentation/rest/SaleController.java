@@ -35,18 +35,18 @@ public class SaleController {
   }
 
   @GetMapping(value = APP_ROOT + "/sales/{idVente}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public SaleDto findById(@PathVariable("idVente") Long id) {
-    return saleService.findById(id);
+  public SaleDto findById(@PathVariable("idVente") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return saleService.findById(id, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/sales/filter/{code}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public SaleDto findByCode(@PathVariable("code") String code) {
-    return saleService.findByCode(code);
+  public SaleDto findByCode(@PathVariable("code") String code, @AuthenticationPrincipal ExtendedUser principal) {
+    return saleService.findByCode(code, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/sales/all", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<SaleDto> findAll() {
-    return saleService.findAll();
+  public List<SaleDto> findAll(@AuthenticationPrincipal ExtendedUser principal) {
+    return saleService.findAll(principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/sales/{idVente}/lignes", produces = MediaType.APPLICATION_JSON_VALUE)

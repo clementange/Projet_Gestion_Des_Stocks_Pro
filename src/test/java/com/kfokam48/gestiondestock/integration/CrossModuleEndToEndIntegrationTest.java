@@ -145,7 +145,8 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     // 3. Achat : commande fournisseur de 500 unites, receptionnee integralement a l'entrepot.
     PurchaseOrderDto commandeFournisseur = purchaseOrderService.create(
         PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(entrepotCentral).build(),
-        List.of(PurchaseOrderLineDto.builder().article(ord001).quantiteCommandee(BigDecimal.valueOf(500)).prixUnitaire(BigDecimal.valueOf(400)).build()));
+        List.of(PurchaseOrderLineDto.builder().article(ord001).quantiteCommandee(BigDecimal.valueOf(500)).prixUnitaire(BigDecimal.valueOf(400)).build()),
+        organizationId);
     purchaseOrderService.validate(commandeFournisseur.getId());
     Long ligneCommande = purchaseOrderService.findLines(commandeFournisseur.getId()).get(0).getId();
     grantPermission("PURCHASE_ORDER_RECEIVE", entrepotCentral, 10L);
@@ -156,7 +157,8 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     // 4. Transfert : 50 unites de l'entrepot central vers la boutique Akwa.
     StockTransferDto transfert = stockTransferService.create(
         StockTransferDto.builder().code(uniqueCode("TR")).originSite(entrepotCentral).destinationSite(boutiqueAkwa).requestedByUserId(10L).build(),
-        List.of(StockTransferLineDto.builder().article(ord001).quantite(BigDecimal.valueOf(50)).build()));
+        List.of(StockTransferLineDto.builder().article(ord001).quantite(BigDecimal.valueOf(50)).build()),
+        organizationId);
     stockTransferService.submit(transfert.getId());
     stockTransferService.approve(transfert.getId(), 11L);
     stockTransferService.startPreparation(transfert.getId());

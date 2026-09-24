@@ -6,13 +6,16 @@ import java.util.List;
 
 public interface StockTransferService {
 
-  StockTransferDto create(StockTransferDto dto, List<StockTransferLineDto> lines);
+  // Phase 5b-2b : organizationId verifie contre celui des DEUX sites du transfert (origine et
+  // destination, derives via Site -> City -> Organization) avant creation - voir
+  // docs/phase-5b2b-report.md.
+  StockTransferDto create(StockTransferDto dto, List<StockTransferLineDto> lines, Long organizationId);
 
-  StockTransferDto findById(Long id);
+  StockTransferDto findById(Long id, Long organizationId);
 
-  StockTransferDto findByCode(String code);
+  StockTransferDto findByCode(String code, Long organizationId);
 
-  List<StockTransferDto> findAll();
+  List<StockTransferDto> findAll(Long organizationId);
 
   List<StockTransferLineDto> findLines(Long stockTransferId);
 

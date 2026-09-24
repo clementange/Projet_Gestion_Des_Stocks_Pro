@@ -8,6 +8,7 @@ import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
 import com.kfokam48.gestiondestock.inventory.application.InventoryFacade;
 import com.kfokam48.gestiondestock.inventory.domain.model.StockMovementSource;
+import com.kfokam48.gestiondestock.organization.application.SiteService;
 import com.kfokam48.gestiondestock.sales.application.CustomerOrderService;
 import com.kfokam48.gestiondestock.sales.application.dto.CustomerOrderDto;
 import com.kfokam48.gestiondestock.sales.application.dto.CustomerOrderLineDto;
@@ -39,15 +40,17 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   private CustomerOrderLineRepository customerOrderLineRepository;
   private InventoryFacade inventoryFacade;
   private AuthorizationService authorizationService;
+  private SiteService siteService;
 
   @Autowired
   public CustomerOrderServiceImpl(CustomerOrderRepository customerOrderRepository,
       CustomerOrderLineRepository customerOrderLineRepository, InventoryFacade inventoryFacade,
-      AuthorizationService authorizationService) {
+      AuthorizationService authorizationService, SiteService siteService) {
     this.customerOrderRepository = customerOrderRepository;
     this.customerOrderLineRepository = customerOrderLineRepository;
     this.inventoryFacade = inventoryFacade;
     this.authorizationService = authorizationService;
+    this.siteService = siteService;
   }
 
   private void requireOrderPermission(String permissionCode, CustomerOrder order, Long userId, Long organizationId) {
@@ -61,7 +64,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines) {
+  public CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines, Long organizationId) {
     List<String> errors = CustomerOrderValidator.validate(dto, lines);
     if (!errors.isEmpty()) {
       log.error("CustomerOrder is not valid {}", dto);
@@ -73,6 +76,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
       log.error("CustomerOrder code {} already exists", dto.getCode());
       throw new InvalidEntityException("Une commande client avec ce code existe deja", ErrorCodes.CUSTOMER_ORDER_ALREADY_EXISTS);
     }
+    // Phase 5b-2b : CustomerOrder.create n'avait aucune verification de permission ni
+    // d'appartenance du site a l'organisation de l'appelant - voir docs/phase-5b2b-report.md.
+    requireSiteInOrganization(dto.getSite().getId(), organizationId);
 
     CustomerOrder order = CustomerOrderDto.toEntity(dto);
     order.setOrderDate(Instant.now());
@@ -89,18 +95,25 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
   @Override
   @Transactional(readOnly = true)
-  public CustomerOrderDto findById(Long id) {
-    return CustomerOrderDto.fromEntity(fetchOrder(id));
+  public CustomerOrderDto findById(Long id, Long organizationId) {
+    CustomerOrder order = fetchOrder(id);
+    if (!belongsToOrganization(order, organizationId)) {
+      throw new EntityNotFoundException(
+          "Aucune commande client avec l'ID = " + id + " n'a ete trouvee dans la BDD",
+          ErrorCodes.CUSTOMER_ORDER_NOT_FOUND);
+    }
+    return CustomerOrderDto.fromEntity(order);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public CustomerOrderDto findByCode(String code) {
+  public CustomerOrderDto findByCode(String code, Long organizationId) {
     if (!StringUtils.hasLength(code)) {
       log.error("CustomerOrder CODE is null");
       return null;
     }
     return customerOrderRepository.findCustomerOrderByCode(code)
+        .filter(order -> belongsToOrganization(order, organizationId))
         .map(CustomerOrderDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucune commande client avec le CODE = " + code + " n'a ete trouvee dans la BDD",
@@ -110,10 +123,32 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<CustomerOrderDto> findAll() {
+  public List<CustomerOrderDto> findAll(Long organizationId) {
     return customerOrderRepository.findAll().stream()
+        .filter(order -> belongsToOrganization(order, organizationId))
         .map(CustomerOrderDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2b : les deux cotes doivent etre non-null pour matcher - voir docs/phase-5b2b-report.md.
+  private boolean belongsToOrganization(CustomerOrder order, Long organizationId) {
+    return organizationId != null
+        && order.getSite() != null
+        && order.getSite().getCity() != null
+        && order.getSite().getCity().getOrganization() != null
+        && organizationId.equals(order.getSite().getCity().getOrganization().getId());
+  }
+
+  private void requireSiteInOrganization(Long siteId, Long organizationId) {
+    com.kfokam48.gestiondestock.organization.application.dto.SiteDto site = siteService.findById(siteId);
+    boolean matches = site != null && site.getCity() != null && site.getCity().getOrganization() != null
+        && organizationId != null && organizationId.equals(site.getCity().getOrganization().getId());
+    if (!matches) {
+      log.warn("Site {} does not belong to organization {}", siteId, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'enregistrer une commande client sur ce site",
+          ErrorCodes.CUSTOMER_ORDER_ACCESS_DENIED);
+    }
   }
 
   @Override

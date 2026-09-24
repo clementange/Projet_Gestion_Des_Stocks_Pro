@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.organization.application.CityService;
@@ -103,5 +104,30 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     warehouseService.save(WarehouseDto.builder().code(uniqueCode("WH-GAR")).name("Entrepot Garoua").site(entrepot).build());
 
     assertThrows(InvalidOperationException.class, () -> siteService.delete(entrepot.getId()));
+  }
+
+  // Phase 5b-2b : voir docs/phase-5b2b-report.md.
+  @Test
+  public void crossOrganizationSiteReadsAreScoped() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Site A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Site B").active(true).build());
+    CityDto cityA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
+    SiteDto siteA = siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Site A")
+        .type(SiteType.ENTREPOT).active(true).city(cityA).build());
+
+    assertEquals(siteA.getId(), siteService.findById(siteA.getId(), orgA.getId()).getId());
+    assertEquals(siteA.getId(), siteService.findByCode(siteA.getCode(), orgA.getId()).getId());
+    assertEquals(1, siteService.findAllByCity(cityA.getId(), orgA.getId()).size());
+    assertEquals(1, siteService.findAll(orgA.getId()).size());
+
+    assertThrows(EntityNotFoundException.class, () -> siteService.findById(siteA.getId(), orgB.getId()));
+    assertThrows(EntityNotFoundException.class, () -> siteService.findByCode(siteA.getCode(), orgB.getId()));
+    assertEquals(0, siteService.findAllByCity(cityA.getId(), orgB.getId()).size());
+    assertEquals(0, siteService.findAll(orgB.getId()).size());
+
+    // findById(Long) sans organizationId reste utilise en interne (ReportingServiceImpl,
+    // verifications d'appartenance de site a la creation de Sale/CustomerOrder/PurchaseOrder/
+    // StockTransfer) : pas de filtrage, meme depuis un contexte "etranger".
+    assertEquals(siteA.getId(), siteService.findById(siteA.getId()).getId());
   }
 }

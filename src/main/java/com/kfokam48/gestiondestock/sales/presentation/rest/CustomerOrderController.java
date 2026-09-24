@@ -30,23 +30,23 @@ public class CustomerOrderController {
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public CustomerOrderDto create(@RequestBody CreateCustomerOrderRequest request) {
-    return customerOrderService.create(request.getOrder(), request.getLines());
+  public CustomerOrderDto create(@RequestBody CreateCustomerOrderRequest request, @AuthenticationPrincipal ExtendedUser principal) {
+    return customerOrderService.create(request.getOrder(), request.getLines(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/customer-orders/{idCommande}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public CustomerOrderDto findById(@PathVariable("idCommande") Long id) {
-    return customerOrderService.findById(id);
+  public CustomerOrderDto findById(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return customerOrderService.findById(id, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/customer-orders/filter/{code}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public CustomerOrderDto findByCode(@PathVariable("code") String code) {
-    return customerOrderService.findByCode(code);
+  public CustomerOrderDto findByCode(@PathVariable("code") String code, @AuthenticationPrincipal ExtendedUser principal) {
+    return customerOrderService.findByCode(code, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/customer-orders/all", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<CustomerOrderDto> findAll() {
-    return customerOrderService.findAll();
+  public List<CustomerOrderDto> findAll(@AuthenticationPrincipal ExtendedUser principal) {
+    return customerOrderService.findAll(principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/customer-orders/{idCommande}/lignes", produces = MediaType.APPLICATION_JSON_VALUE)

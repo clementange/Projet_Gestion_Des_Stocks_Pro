@@ -7,13 +7,15 @@ import java.util.List;
 
 public interface PurchaseOrderService {
 
-  PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines);
+  // Phase 5b-2b : organizationId verifie contre celui du site de la commande (derive via
+  // Site -> City -> Organization) avant creation - voir docs/phase-5b2b-report.md.
+  PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines, Long organizationId);
 
-  PurchaseOrderDto findById(Long id);
+  PurchaseOrderDto findById(Long id, Long organizationId);
 
-  PurchaseOrderDto findByCode(String code);
+  PurchaseOrderDto findByCode(String code, Long organizationId);
 
-  List<PurchaseOrderDto> findAll();
+  List<PurchaseOrderDto> findAll(Long organizationId);
 
   List<PurchaseOrderLineDto> findLines(Long purchaseOrderId);
 

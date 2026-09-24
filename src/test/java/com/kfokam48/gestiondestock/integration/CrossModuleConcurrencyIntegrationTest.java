@@ -126,7 +126,8 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
 
     CustomerOrderDto order = customerOrderService.create(
         CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(1L).site(site).build(),
-        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.valueOf(7)).prixUnitaire(BigDecimal.TEN).build()));
+        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.valueOf(7)).prixUnitaire(BigDecimal.TEN).build()),
+        organization.getId());
     customerOrderService.validate(order.getId());
 
     Long saleUserId = grantPermission("SALE_CREATE", site, organization.getId());

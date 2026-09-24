@@ -8,6 +8,7 @@ import com.kfokam48.gestiondestock.catalog.application.CategoryService;
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 import com.kfokam48.gestiondestock.catalog.application.dto.CategoryDto;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.identity.application.PermissionService;
@@ -112,10 +113,11 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         .category(category).build());
   }
 
-  private StockTransferDto createTransfer(SiteDto origin, SiteDto destination, ArticleDto article, BigDecimal quantity) {
+  private StockTransferDto createTransfer(SiteDto origin, SiteDto destination, ArticleDto article, BigDecimal quantity, Long organizationId) {
     return stockTransferService.create(
         StockTransferDto.builder().code(uniqueCode("TR")).originSite(origin).destinationSite(destination).requestedByUserId(1L).build(),
-        List.of(StockTransferLineDto.builder().article(article).quantite(quantity).build()));
+        List.of(StockTransferLineDto.builder().article(article).quantite(quantity).build()),
+        organizationId);
   }
 
   private StockTransferDto runToShippable(StockTransferDto transfer) {
@@ -135,7 +137,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), entrepotA.getId(), BigDecimal.valueOf(100),
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-A", null);
 
-    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.valueOf(30));
+    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.valueOf(30), organization.getId());
     runToShippable(transfer);
     grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, 3L, organization.getId());
     grantTransferPermission("STOCK_TRANSFER_RECEIVE", entrepotB, 4L, organization.getId());
@@ -146,7 +148,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     StockDto stockB = inventoryFacade.getStock(article.getId(), entrepotB.getId());
     assertEquals(0, stockA.getQuantitePhysique().compareTo(BigDecimal.valueOf(70)));
     assertEquals(0, stockB.getQuantitePhysique().compareTo(BigDecimal.valueOf(30)));
-    assertEquals(TransferStatus.RECU, stockTransferService.findById(transfer.getId()).getStatus());
+    assertEquals(TransferStatus.RECU, stockTransferService.findById(transfer.getId(), organization.getId()).getStatus());
   }
 
   @Test
@@ -156,7 +158,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     SiteDto site = createSite(douala, "Entrepot Unique");
     ArticleDto article = createArticle();
 
-    assertThrows(InvalidEntityException.class, () -> createTransfer(site, site, article, BigDecimal.TEN));
+    assertThrows(InvalidEntityException.class, () -> createTransfer(site, site, article, BigDecimal.TEN, organization.getId()));
   }
 
   @Test
@@ -169,7 +171,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), entrepotA.getId(), BigDecimal.valueOf(50),
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
-    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN);
+    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN, organization.getId());
     Long userId = 30L;
     grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
 
@@ -186,7 +188,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), entrepotA.getId(), BigDecimal.valueOf(5),
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
-    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN);
+    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN, organization.getId());
     runToShippable(transfer);
     Long userId = 31L;
     grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
@@ -207,12 +209,74 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), entrepotA.getId(), BigDecimal.valueOf(50),
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
-    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN);
+    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN, organization.getId());
     runToShippable(transfer);
     Long userId = 32L;
     grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
     stockTransferService.ship(transfer.getId(), userId, organization.getId());
 
     assertThrows(InvalidOperationException.class, () -> stockTransferService.cancel(transfer.getId()));
+  }
+
+  // Phase 5b-2b : voir docs/phase-5b2b-report.md.
+  @Test
+  public void crossOrganizationReadsAreScoped() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Transfer Read A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Transfer Read B").active(true).build());
+    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
+    SiteDto entrepotA = createSite(doualaA, "Entrepot A");
+    SiteDto entrepotB = createSite(doualaA, "Entrepot B");
+    ArticleDto article = createArticle();
+    StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN, orgA.getId());
+
+    assertEquals(transfer.getId(), stockTransferService.findById(transfer.getId(), orgA.getId()).getId());
+    assertEquals(transfer.getId(), stockTransferService.findByCode(transfer.getCode(), orgA.getId()).getId());
+    assertEquals(1, stockTransferService.findAll(orgA.getId()).size());
+
+    assertThrows(EntityNotFoundException.class, () -> stockTransferService.findById(transfer.getId(), orgB.getId()));
+    assertThrows(EntityNotFoundException.class, () -> stockTransferService.findByCode(transfer.getCode(), orgB.getId()));
+    assertEquals(0, stockTransferService.findAll(orgB.getId()).size());
+  }
+
+  /**
+   * Phase 5b-2b : StockTransfer.create n'avait avant ce correctif aucune verification de
+   * permission ni d'appartenance de site (ni origine ni destination) - voir
+   * docs/phase-5b2b-report.md.
+   */
+  @Test
+  public void createShouldRejectOriginSiteFromAnotherOrganization() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Transfer Origin Caller").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Transfer Origin Foreign").active(true).build());
+    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
+    CityDto doualaB = cityService.save(CityDto.builder().name("Douala").organization(orgB).build());
+    SiteDto foreignOrigin = createSite(doualaB, "Entrepot etranger origine");
+    SiteDto destination = createSite(doualaA, "Entrepot destination");
+    ArticleDto article = createArticle();
+
+    InvalidOperationException exception = assertThrows(InvalidOperationException.class,
+        () -> createTransfer(foreignOrigin, destination, article, BigDecimal.TEN, orgA.getId()));
+
+    assertEquals(ErrorCodes.STOCK_TRANSFER_ACCESS_DENIED, exception.getErrorCode());
+  }
+
+  /**
+   * Phase 5b-2b : le site d'origine peut appartenir a l'organisation de l'appelant tout en ayant
+   * une destination etrangere - les DEUX sites doivent etre verifies independamment - voir
+   * docs/phase-5b2b-report.md.
+   */
+  @Test
+  public void createShouldRejectDestinationSiteFromAnotherOrganization() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Transfer Dest Caller").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Transfer Dest Foreign").active(true).build());
+    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
+    CityDto doualaB = cityService.save(CityDto.builder().name("Douala").organization(orgB).build());
+    SiteDto origin = createSite(doualaA, "Entrepot origine");
+    SiteDto foreignDestination = createSite(doualaB, "Entrepot etranger destination");
+    ArticleDto article = createArticle();
+
+    InvalidOperationException exception = assertThrows(InvalidOperationException.class,
+        () -> createTransfer(origin, foreignDestination, article, BigDecimal.TEN, orgA.getId()));
+
+    assertEquals(ErrorCodes.STOCK_TRANSFER_ACCESS_DENIED, exception.getErrorCode());
   }
 }

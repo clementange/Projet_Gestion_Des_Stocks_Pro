@@ -14,11 +14,14 @@ public interface SaleService {
    */
   SaleDto create(SaleDto dto, List<SaleLineDto> lines, Long userId, Long organizationId);
 
-  SaleDto findById(Long id);
+  // Phase 5b-2b : organizationId verifie contre celui du site de la vente (derive via
+  // Site -> City -> Organization), meme 404 qu'un id inexistant en cas de mismatch - voir
+  // docs/phase-5b2b-report.md.
+  SaleDto findById(Long id, Long organizationId);
 
-  SaleDto findByCode(String code);
+  SaleDto findByCode(String code, Long organizationId);
 
-  List<SaleDto> findAll();
+  List<SaleDto> findAll(Long organizationId);
 
   List<SaleLineDto> findLines(Long saleId);
 

@@ -8,6 +8,7 @@ import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
 import com.kfokam48.gestiondestock.inventory.application.InventoryFacade;
 import com.kfokam48.gestiondestock.inventory.domain.model.StockMovementSource;
+import com.kfokam48.gestiondestock.organization.application.SiteService;
 import com.kfokam48.gestiondestock.purchasing.application.PurchaseOrderService;
 import com.kfokam48.gestiondestock.purchasing.application.dto.PurchaseOrderDto;
 import com.kfokam48.gestiondestock.purchasing.application.dto.PurchaseOrderLineDto;
@@ -37,19 +38,21 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
   private PurchaseOrderLineRepository purchaseOrderLineRepository;
   private InventoryFacade inventoryFacade;
   private AuthorizationService authorizationService;
+  private SiteService siteService;
 
   @Autowired
   public PurchaseOrderServiceImpl(PurchaseOrderRepository purchaseOrderRepository,
       PurchaseOrderLineRepository purchaseOrderLineRepository, InventoryFacade inventoryFacade,
-      AuthorizationService authorizationService) {
+      AuthorizationService authorizationService, SiteService siteService) {
     this.purchaseOrderRepository = purchaseOrderRepository;
     this.purchaseOrderLineRepository = purchaseOrderLineRepository;
     this.inventoryFacade = inventoryFacade;
     this.authorizationService = authorizationService;
+    this.siteService = siteService;
   }
 
   @Override
-  public PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines) {
+  public PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines, Long organizationId) {
     List<String> errors = PurchaseOrderValidator.validate(dto, lines);
     if (!errors.isEmpty()) {
       log.error("PurchaseOrder is not valid {}", dto);
@@ -61,6 +64,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
       log.error("PurchaseOrder code {} already exists", dto.getCode());
       throw new InvalidEntityException("Une commande fournisseur avec ce code existe deja", ErrorCodes.PURCHASE_ORDER_ALREADY_EXISTS);
     }
+    // Phase 5b-2b : PurchaseOrder.create n'avait aucune verification de permission ni
+    // d'appartenance du site a l'organisation de l'appelant - voir docs/phase-5b2b-report.md.
+    requireSiteInOrganization(dto.getSite().getId(), organizationId);
 
     PurchaseOrder purchaseOrder = PurchaseOrderDto.toEntity(dto);
     purchaseOrder.setOrderDate(Instant.now());
@@ -77,18 +83,25 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
   @Override
   @Transactional(readOnly = true)
-  public PurchaseOrderDto findById(Long id) {
-    return PurchaseOrderDto.fromEntity(fetchOrder(id));
+  public PurchaseOrderDto findById(Long id, Long organizationId) {
+    PurchaseOrder purchaseOrder = fetchOrder(id);
+    if (!belongsToOrganization(purchaseOrder, organizationId)) {
+      throw new EntityNotFoundException(
+          "Aucune commande fournisseur avec l'ID = " + id + " n'a ete trouvee dans la BDD",
+          ErrorCodes.PURCHASE_ORDER_NOT_FOUND);
+    }
+    return PurchaseOrderDto.fromEntity(purchaseOrder);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public PurchaseOrderDto findByCode(String code) {
+  public PurchaseOrderDto findByCode(String code, Long organizationId) {
     if (!StringUtils.hasLength(code)) {
       log.error("PurchaseOrder CODE is null");
       return null;
     }
     return purchaseOrderRepository.findPurchaseOrderByCode(code)
+        .filter(order -> belongsToOrganization(order, organizationId))
         .map(PurchaseOrderDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucune commande fournisseur avec le CODE = " + code + " n'a ete trouvee dans la BDD",
@@ -98,10 +111,32 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<PurchaseOrderDto> findAll() {
+  public List<PurchaseOrderDto> findAll(Long organizationId) {
     return purchaseOrderRepository.findAll().stream()
+        .filter(order -> belongsToOrganization(order, organizationId))
         .map(PurchaseOrderDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2b : les deux cotes doivent etre non-null pour matcher - voir docs/phase-5b2b-report.md.
+  private boolean belongsToOrganization(PurchaseOrder order, Long organizationId) {
+    return organizationId != null
+        && order.getSite() != null
+        && order.getSite().getCity() != null
+        && order.getSite().getCity().getOrganization() != null
+        && organizationId.equals(order.getSite().getCity().getOrganization().getId());
+  }
+
+  private void requireSiteInOrganization(Long siteId, Long organizationId) {
+    com.kfokam48.gestiondestock.organization.application.dto.SiteDto site = siteService.findById(siteId);
+    boolean matches = site != null && site.getCity() != null && site.getCity().getOrganization() != null
+        && organizationId != null && organizationId.equals(site.getCity().getOrganization().getId());
+    if (!matches) {
+      log.warn("Site {} does not belong to organization {}", siteId, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'enregistrer une commande fournisseur sur ce site",
+          ErrorCodes.PURCHASE_ORDER_ACCESS_DENIED);
+    }
   }
 
   @Override

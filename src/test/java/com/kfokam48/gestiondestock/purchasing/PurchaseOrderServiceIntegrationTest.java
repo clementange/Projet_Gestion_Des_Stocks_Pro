@@ -123,7 +123,8 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
   private PurchaseOrderDto createDraftOrder(SiteDto site, ArticleDto article, BigDecimal quantity, Long[] lineIdOut) {
     PurchaseOrderDto order = purchaseOrderService.create(
         PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(site).build(),
-        List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(quantity).prixUnitaire(BigDecimal.TEN).build()));
+        List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(quantity).prixUnitaire(BigDecimal.TEN).build()),
+        organization.getId());
     lineIdOut[0] = purchaseOrderService.findLines(order.getId()).get(0).getId();
     return order;
   }
@@ -135,11 +136,13 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     ArticleDto article = createArticle();
     String code = uniqueCode("PO");
     purchaseOrderService.create(PurchaseOrderDto.builder().code(code).supplierId(1L).site(site).build(),
-        List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()));
+        List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
+        organization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> purchaseOrderService.create(
         PurchaseOrderDto.builder().code(code).supplierId(1L).site(site).build(),
-        List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build())));
+        List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
+        organization.getId()));
 
     assertEquals(ErrorCodes.PURCHASE_ORDER_ALREADY_EXISTS, exception.getErrorCode());
   }
@@ -180,7 +183,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
 
     StockDto stock = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, stock.getQuantitePhysique().compareTo(BigDecimal.TEN));
-    assertEquals(PurchaseOrderStatus.RECUE, purchaseOrderService.findById(order.getId()).getStatus());
+    assertEquals(PurchaseOrderStatus.RECUE, purchaseOrderService.findById(order.getId(), organization.getId()).getStatus());
   }
 
   @Test
@@ -193,10 +196,10 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     Long userId = grantPurchaseOrderReceive(site, organization.getId());
 
     purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(4), userId, organization.getId());
-    assertEquals(PurchaseOrderStatus.VALIDEE, purchaseOrderService.findById(order.getId()).getStatus());
+    assertEquals(PurchaseOrderStatus.VALIDEE, purchaseOrderService.findById(order.getId(), organization.getId()).getStatus());
 
     purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(6), userId, organization.getId());
-    assertEquals(PurchaseOrderStatus.RECUE, purchaseOrderService.findById(order.getId()).getStatus());
+    assertEquals(PurchaseOrderStatus.RECUE, purchaseOrderService.findById(order.getId(), organization.getId()).getStatus());
 
     StockDto stock = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, stock.getQuantitePhysique().compareTo(BigDecimal.TEN));
@@ -213,5 +216,44 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
 
     assertThrows(InvalidOperationException.class,
         () -> purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(15), userId, organization.getId()));
+  }
+
+  // Phase 5b-2b : voir docs/phase-5b2b-report.md.
+  @Test
+  public void crossOrganizationReadsAreScoped() {
+    SiteDto siteA = createReceivingSite();
+    OrganizationDto orgA = organization;
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe CmdFour B").active(true).build());
+    ArticleDto article = createArticle();
+    PurchaseOrderDto order = createDraftOrder(siteA, article, BigDecimal.TEN, new Long[1]);
+
+    assertEquals(order.getId(), purchaseOrderService.findById(order.getId(), orgA.getId()).getId());
+    assertEquals(order.getId(), purchaseOrderService.findByCode(order.getCode(), orgA.getId()).getId());
+    assertEquals(1, purchaseOrderService.findAll(orgA.getId()).size());
+
+    assertThrows(EntityNotFoundException.class, () -> purchaseOrderService.findById(order.getId(), orgB.getId()));
+    assertThrows(EntityNotFoundException.class, () -> purchaseOrderService.findByCode(order.getCode(), orgB.getId()));
+    assertEquals(0, purchaseOrderService.findAll(orgB.getId()).size());
+  }
+
+  /**
+   * Phase 5b-2b : PurchaseOrder.create n'avait avant ce correctif aucune verification de
+   * permission ni d'appartenance de site - voir docs/phase-5b2b-report.md.
+   */
+  @Test
+  public void createShouldRejectSiteFromAnotherOrganization() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe CmdFour Caller").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe CmdFour Foreign").active(true).build());
+    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
+    SiteDto siteB = siteService.save(SiteDto.builder().code(uniqueCode("ENT")).name("Entrepot etranger")
+        .type(SiteType.ENTREPOT).active(true).city(cityB).build());
+    ArticleDto article = createArticle();
+
+    InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> purchaseOrderService.create(
+        PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(siteB).build(),
+        List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
+        orgA.getId()));
+
+    assertEquals(ErrorCodes.PURCHASE_ORDER_ACCESS_DENIED, exception.getErrorCode());
   }
 }

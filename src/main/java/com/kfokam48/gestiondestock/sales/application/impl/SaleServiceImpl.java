@@ -8,6 +8,7 @@ import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
 import com.kfokam48.gestiondestock.inventory.application.InventoryFacade;
 import com.kfokam48.gestiondestock.inventory.domain.model.StockMovementSource;
+import com.kfokam48.gestiondestock.organization.application.SiteService;
 import com.kfokam48.gestiondestock.sales.application.SaleService;
 import com.kfokam48.gestiondestock.sales.application.dto.SaleDto;
 import com.kfokam48.gestiondestock.sales.application.dto.SaleLineDto;
@@ -36,14 +37,16 @@ public class SaleServiceImpl implements SaleService {
   private SaleLineRepository saleLineRepository;
   private InventoryFacade inventoryFacade;
   private AuthorizationService authorizationService;
+  private SiteService siteService;
 
   @Autowired
   public SaleServiceImpl(SaleRepository saleRepository, SaleLineRepository saleLineRepository,
-      InventoryFacade inventoryFacade, AuthorizationService authorizationService) {
+      InventoryFacade inventoryFacade, AuthorizationService authorizationService, SiteService siteService) {
     this.saleRepository = saleRepository;
     this.saleLineRepository = saleLineRepository;
     this.inventoryFacade = inventoryFacade;
     this.authorizationService = authorizationService;
+    this.siteService = siteService;
   }
 
   @Override
@@ -59,6 +62,13 @@ public class SaleServiceImpl implements SaleService {
       log.error("Sale code {} already exists", dto.getCode());
       throw new InvalidEntityException("Une vente avec ce code existe deja", ErrorCodes.SALE_ALREADY_EXISTS);
     }
+    // Phase 5b-2b : ferme le contournement GLOBAL trouve en investiguant - hasPermission seul ne
+    // suffit pas a empecher un appelant GLOBAL de creer une vente sur le site d'une AUTRE
+    // organisation (son affectation GLOBAL, une fois filtree sur sa propre organisation, matche
+    // n'importe quel scopeId demande). Verification independante que le site appartient
+    // reellement a l'organisation de l'appelant, avant toute verification de permission - voir
+    // docs/phase-5b2b-report.md.
+    requireSiteInOrganization(dto.getSite().getId(), organizationId);
     if (!authorizationService.hasPermission(userId, SALE_CREATE, ScopeType.SITE, dto.getSite().getId(), organizationId)) {
       log.warn("User {} tried to create a sale on site {} without SALE_CREATE on that scope", userId, dto.getSite().getId());
       throw new InvalidOperationException(
@@ -87,12 +97,13 @@ public class SaleServiceImpl implements SaleService {
 
   @Override
   @Transactional(readOnly = true)
-  public SaleDto findById(Long id) {
+  public SaleDto findById(Long id, Long organizationId) {
     if (id == null) {
       log.error("Sale ID is null");
       return null;
     }
     return saleRepository.findById(id)
+        .filter(sale -> belongsToOrganization(sale, organizationId))
         .map(SaleDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucune vente avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.SALE_NOT_FOUND)
@@ -101,12 +112,13 @@ public class SaleServiceImpl implements SaleService {
 
   @Override
   @Transactional(readOnly = true)
-  public SaleDto findByCode(String code) {
+  public SaleDto findByCode(String code, Long organizationId) {
     if (!StringUtils.hasLength(code)) {
       log.error("Sale CODE is null");
       return null;
     }
     return saleRepository.findSaleByCode(code)
+        .filter(sale -> belongsToOrganization(sale, organizationId))
         .map(SaleDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucune vente avec le CODE = " + code + " n'a ete trouvee dans la BDD", ErrorCodes.SALE_NOT_FOUND)
@@ -115,10 +127,32 @@ public class SaleServiceImpl implements SaleService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<SaleDto> findAll() {
+  public List<SaleDto> findAll(Long organizationId) {
     return saleRepository.findAll().stream()
+        .filter(sale -> belongsToOrganization(sale, organizationId))
         .map(SaleDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2b : les deux cotes doivent etre non-null pour matcher - voir docs/phase-5b2b-report.md.
+  private boolean belongsToOrganization(Sale sale, Long organizationId) {
+    return organizationId != null
+        && sale.getSite() != null
+        && sale.getSite().getCity() != null
+        && sale.getSite().getCity().getOrganization() != null
+        && organizationId.equals(sale.getSite().getCity().getOrganization().getId());
+  }
+
+  private void requireSiteInOrganization(Long siteId, Long organizationId) {
+    com.kfokam48.gestiondestock.organization.application.dto.SiteDto site = siteService.findById(siteId);
+    boolean matches = site != null && site.getCity() != null && site.getCity().getOrganization() != null
+        && organizationId != null && organizationId.equals(site.getCity().getOrganization().getId());
+    if (!matches) {
+      log.warn("Site {} does not belong to organization {}", siteId, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'enregistrer une vente sur ce site",
+          ErrorCodes.SALE_ACCESS_DENIED);
+    }
   }
 
   @Override

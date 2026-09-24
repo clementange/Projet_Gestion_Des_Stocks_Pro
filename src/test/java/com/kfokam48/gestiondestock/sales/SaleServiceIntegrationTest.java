@@ -209,4 +209,63 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     StockDto stockOk = inventoryFacade.getStock(articleOk.getId(), site.getId());
     assertEquals(0, stockOk.getQuantitePhysique().compareTo(BigDecimal.valueOf(20)));
   }
+
+  // Phase 5b-2b : voir docs/phase-5b2b-report.md.
+  @Test
+  public void crossOrganizationReadsAreScoped() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Sale A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Sale B").active(true).build());
+    CityDto cityA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
+    SiteDto siteA = createBoutique(cityA, "Boutique A");
+    ArticleDto article = createArticle();
+    inventoryFacade.receive(article.getId(), siteA.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
+    Long userId = grantSaleCreate(siteA, orgA.getId());
+    SaleDto sale = saleService.create(SaleDto.builder().code(uniqueCode("VEN")).site(siteA).build(),
+        List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
+        userId, orgA.getId());
+
+    assertEquals(sale.getId(), saleService.findById(sale.getId(), orgA.getId()).getId());
+    assertEquals(sale.getId(), saleService.findByCode(sale.getCode(), orgA.getId()).getId());
+    assertEquals(1, saleService.findAll(orgA.getId()).size());
+
+    assertThrows(EntityNotFoundException.class, () -> saleService.findById(sale.getId(), orgB.getId()));
+    assertThrows(EntityNotFoundException.class, () -> saleService.findByCode(sale.getCode(), orgB.getId()));
+    assertEquals(0, saleService.findAll(orgB.getId()).size());
+  }
+
+  /**
+   * Phase 5b-2b : avant ce correctif, un appelant avec une affectation GLOBAL dans son
+   * organisation pouvait creer une vente sur le site de N'IMPORTE QUELLE AUTRE organisation - la
+   * verification hasPermission(..., ScopeType.SITE, siteId, organizationId) filtre les
+   * affectations sur l'organisation de l'appelant PUIS matche GLOBAL sans jamais verifier que le
+   * siteId demande appartient reellement a cette organisation. requireSiteInOrganization ferme ce
+   * contournement independamment de hasPermission - voir docs/phase-5b2b-report.md.
+   */
+  @Test
+  public void createShouldRejectSiteFromAnotherOrganizationEvenWithGlobalScope() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Global A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Global B").active(true).build());
+    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
+    SiteDto siteB = createBoutique(cityB, "Boutique B");
+    ArticleDto article = createArticle();
+    inventoryFacade.receive(article.getId(), siteB.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
+
+    PermissionDto permission;
+    try {
+      permission = permissionService.findByCode("SALE_CREATE");
+    } catch (EntityNotFoundException e) {
+      permission = permissionService.save(PermissionDto.builder().code("SALE_CREATE").description("Vente").build());
+    }
+    RoleDto globalRole = roleService.save(RoleDto.builder().code(uniqueCode("ROLE")).name("Admin global test").permissions(Set.of(permission)).build());
+    Long globalUserId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+    userRoleAssignmentService.save(UserRoleAssignmentDto.builder().userId(globalUserId).role(globalRole)
+        .scopeType(ScopeType.GLOBAL).organizationId(orgA.getId()).build());
+
+    InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> saleService.create(
+        SaleDto.builder().code(uniqueCode("VEN")).site(siteB).build(),
+        List.of(SaleLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
+        globalUserId, orgA.getId()));
+
+    assertEquals(ErrorCodes.SALE_ACCESS_DENIED, exception.getErrorCode());
+  }
 }

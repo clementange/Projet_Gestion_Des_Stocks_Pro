@@ -1,9 +1,11 @@
 package com.kfokam48.gestiondestock.identity;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfokam48.gestiondestock.dto.AdresseDto;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
@@ -61,6 +63,12 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
         .andExpect(status().isOk())
         .andReturn();
     return objectMapper.readTree(result.getResponse().getContentAsString()).get("accessToken").asText();
+  }
+
+  private long idUtilisateurFromToken(String token) throws Exception {
+    String payload = token.split("\\.")[1];
+    byte[] decoded = java.util.Base64.getUrlDecoder().decode(payload);
+    return objectMapper.readTree(decoded).get("idUtilisateur").asLong();
   }
 
   @Test
@@ -130,5 +138,123 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
             .content("{\"userId\":999999,\"role\":{\"id\":1},\"scopeType\":\"GLOBAL\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("USER_ROLE_ASSIGNMENT_ACCESS_DENIED"));
+  }
+
+  /**
+   * Phase 5b-2c : avant ce correctif, GET /roles/{id}, /roles/all, /permissions/{id},
+   * /permissions/all n'appliquaient aucune verification de permission (contrairement a
+   * save/delete, deja gates) - violation directe du zero-tolerance CLAUDE.md sur les routes RBAC
+   * "y compris les endpoints de lecture (GET)" - voir docs/phase-5b2c-report.md.
+   */
+  @Test
+  public void plainUserCannotReadRolesOrPermissions() throws Exception {
+    String adminToken = tokenFor(uniqueCode("admin4") + "@test.local");
+    MvcResult permission = mockMvc.perform(post("/gestiondestock/v1/permissions/create")
+            .header("Authorization", "Bearer " + adminToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"code\":\"" + uniqueCode("PERM4") + "\",\"description\":\"x\"}"))
+        .andExpect(status().isOk()).andReturn();
+    long permissionId = objectMapper.readTree(permission.getResponse().getContentAsString()).get("id").asLong();
+    MvcResult role = mockMvc.perform(post("/gestiondestock/v1/roles/create")
+            .header("Authorization", "Bearer " + adminToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"code\":\"" + uniqueCode("ROLE4") + "\",\"name\":\"Role HTTP 4\",\"permissions\":[]}"))
+        .andExpect(status().isOk()).andReturn();
+    long roleId = objectMapper.readTree(role.getResponse().getContentAsString()).get("id").asLong();
+
+    String plainEmail = uniqueCode("plain4") + "@test.local";
+    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+            .header("Authorization", "Bearer " + adminToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nom\":\"Plain\",\"prenom\":\"User\",\"email\":\"" + plainEmail + "\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+                + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
+        .andExpect(status().isOk());
+    MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"login\":\"" + plainEmail + "\",\"password\":\"Passw0rd!\"}"))
+        .andExpect(status().isOk()).andReturn();
+    String plainToken = objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("accessToken").asText();
+
+    mockMvc.perform(get("/gestiondestock/v1/permissions/" + permissionId).header("Authorization", "Bearer " + plainToken))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("PERMISSION_ACCESS_DENIED"));
+    mockMvc.perform(get("/gestiondestock/v1/permissions/all").header("Authorization", "Bearer " + plainToken))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("PERMISSION_ACCESS_DENIED"));
+    mockMvc.perform(get("/gestiondestock/v1/roles/" + roleId).header("Authorization", "Bearer " + plainToken))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("ROLE_ACCESS_DENIED"));
+    mockMvc.perform(get("/gestiondestock/v1/roles/all").header("Authorization", "Bearer " + plainToken))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("ROLE_ACCESS_DENIED"));
+
+    // Le meme admin (RBAC_MANAGE) continue de lire normalement.
+    mockMvc.perform(get("/gestiondestock/v1/permissions/" + permissionId).header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk());
+    mockMvc.perform(get("/gestiondestock/v1/roles/" + roleId).header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  public void plainUserCannotReadUserRoleAssignments() throws Exception {
+    String adminToken = tokenFor(uniqueCode("admin5") + "@test.local");
+    long adminUserId = idUtilisateurFromToken(adminToken);
+
+    String plainEmail = uniqueCode("plain5") + "@test.local";
+    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+            .header("Authorization", "Bearer " + adminToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nom\":\"Plain\",\"prenom\":\"User\",\"email\":\"" + plainEmail + "\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+                + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
+        .andExpect(status().isOk());
+    MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"login\":\"" + plainEmail + "\",\"password\":\"Passw0rd!\"}"))
+        .andExpect(status().isOk()).andReturn();
+    String plainToken = objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("accessToken").asText();
+
+    mockMvc.perform(get("/gestiondestock/v1/user-role-assignments/filter/user/" + adminUserId)
+            .header("Authorization", "Bearer " + plainToken))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("USER_ROLE_ASSIGNMENT_ACCESS_DENIED"));
+
+    // Le meme admin (RBAC_MANAGE) continue de lire normalement sa propre affectation bootstrap.
+    mockMvc.perform(get("/gestiondestock/v1/user-role-assignments/filter/user/" + adminUserId)
+            .header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk());
+  }
+
+  /**
+   * Phase 5b-2c : le garde-fou d'appartenance d'organisation sur UserRoleAssignment doit etre
+   * INDEPENDANT de hasPermission - un appelant avec RBAC_MANAGE en GLOBAL dans SA PROPRE
+   * organisation (A) ne doit jamais pouvoir lire l'affectation bootstrap d'une AUTRE organisation
+   * (B) simplement parce que hasPermission le laisserait passer sur la portee GLOBAL - meme
+   * classe de garde-fou que requireSiteInOrganization (5b-2b). Reponse attendue : 404 masque
+   * (USER_ROLE_ASSIGNMENT_NOT_FOUND), pas 400 ACCESS_DENIED - preuve que c'est bien le garde-fou
+   * d'appartenance qui rejette, pas seulement la permission - voir docs/phase-5b2c-report.md.
+   */
+  @Test
+  public void globalRbacManageCallerCannotReadAssignmentFromAnotherOrganization() throws Exception {
+    String tokenOrgA = tokenFor(uniqueCode("orga") + "@test.local");
+    String tokenOrgB = tokenFor(uniqueCode("orgb") + "@test.local");
+    long orgBAdminUserId = idUtilisateurFromToken(tokenOrgB);
+
+    MvcResult orgBAssignments = mockMvc.perform(get("/gestiondestock/v1/user-role-assignments/filter/user/" + orgBAdminUserId)
+            .header("Authorization", "Bearer " + tokenOrgB))
+        .andExpect(status().isOk()).andReturn();
+    JsonNode assignments = objectMapper.readTree(orgBAssignments.getResponse().getContentAsString());
+    long orgBAssignmentId = assignments.get(0).get("id").asLong();
+
+    mockMvc.perform(get("/gestiondestock/v1/user-role-assignments/" + orgBAssignmentId)
+            .header("Authorization", "Bearer " + tokenOrgA))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("USER_ROLE_ASSIGNMENT_NOT_FOUND"));
+
+    // Org B continue de lire sa propre affectation normalement.
+    mockMvc.perform(get("/gestiondestock/v1/user-role-assignments/" + orgBAssignmentId)
+            .header("Authorization", "Bearer " + tokenOrgB))
+        .andExpect(status().isOk());
   }
 }

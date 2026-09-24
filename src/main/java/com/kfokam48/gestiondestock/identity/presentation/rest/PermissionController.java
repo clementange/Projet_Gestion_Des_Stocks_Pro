@@ -56,12 +56,14 @@ public class PermissionController {
   }
 
   @GetMapping(value = APP_ROOT + "/permissions/{idPermission}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public PermissionDto findById(@PathVariable("idPermission") Long id) {
+  public PermissionDto findById(@PathVariable("idPermission") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    requireRbacManage(principal);
     return permissionService.findById(id);
   }
 
   @GetMapping(value = APP_ROOT + "/permissions/all", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<PermissionDto> findAll() {
+  public List<PermissionDto> findAll(@AuthenticationPrincipal ExtendedUser principal) {
+    requireRbacManage(principal);
     return permissionService.findAll();
   }
 

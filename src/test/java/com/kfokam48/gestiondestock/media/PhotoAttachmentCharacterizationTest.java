@@ -230,4 +230,46 @@ public class PhotoAttachmentCharacterizationTest extends AbstractIntegrationTest
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.accessToken").exists());
   }
+
+  /**
+   * Phase 5b-2c : {@code POST /users/{id}/photo} n'avait avant ce correctif aucune verification
+   * de propriete (n'importe quel utilisateur authentifie pouvait definir la photo de n'importe
+   * quel autre) - meme classe d'IDOR que changePassword, corrige en self-only avec le meme motif
+   * (mirror de {@code UtilisateurAuthenticationCharacterizationTest.changerMotDePasseRejectsWhenCallerIsNotTargetUser})
+   * - voir docs/phase-5b2c-report.md.
+   */
+  @Test
+  public void attachingPhotoToAnotherUserIsRejected() throws Exception {
+    String adminEmail = uniqueCode("photo-victim") + "@test.local";
+    String adminToken = adminToken(adminEmail, "Test-Passw0rd!");
+    MvcResult meResult = mockMvc.perform(get("/gestiondestock/v1/users/find/" + adminEmail)
+            .header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk())
+        .andReturn();
+    long victimId = objectMapper.readTree(meResult.getResponse().getContentAsString()).get("id").asLong();
+
+    String attackerEmail = uniqueCode("photo-attacker") + "@test.local";
+    String attackerPassword = "Passw0rd!";
+    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+            .header("Authorization", "Bearer " + adminToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nom\":\"Attacker\",\"prenom\":\"User\",\"email\":\"" + attackerEmail + "\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"" + attackerPassword + "\","
+                + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
+        .andExpect(status().isOk());
+    MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"login\":\"" + attackerEmail + "\",\"password\":\"" + attackerPassword + "\"}"))
+        .andExpect(status().isOk()).andReturn();
+    String attackerToken = objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("accessToken").asText();
+
+    String url = uploadMedia(adminToken);
+
+    mockMvc.perform(post("/gestiondestock/v1/users/" + victimId + "/photo")
+            .header("Authorization", "Bearer " + attackerToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"url\":\"" + url + "\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("USER_UPDATE_PHOTO_FORBIDDEN"));
+  }
 }

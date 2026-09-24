@@ -50,10 +50,15 @@ public class OrganizationServiceImpl implements OrganizationService {
   }
 
   @Override
-  public OrganizationDto findById(Long id) {
+  public OrganizationDto findById(Long id, Long callerOrganizationId) {
     if (id == null) {
       log.error("Organization ID is null");
       return null;
+    }
+    if (!id.equals(callerOrganizationId)) {
+      throw new EntityNotFoundException(
+          "Aucune organisation avec l'ID = " + id + " n'a ete trouvee dans la BDD",
+          ErrorCodes.ORGANIZATION_NOT_FOUND);
     }
     return organizationRepository.findById(id)
         .map(OrganizationDto::fromEntity)
@@ -63,18 +68,25 @@ public class OrganizationServiceImpl implements OrganizationService {
         );
   }
 
+  // Phase 5b-2c : self-only - au plus une organisation (la sienne) - voir docs/phase-5b2c-report.md.
   @Override
-  public List<OrganizationDto> findAll() {
+  public List<OrganizationDto> findAll(Long callerOrganizationId) {
     return organizationRepository.findAll().stream()
+        .filter(org -> callerOrganizationId != null && callerOrganizationId.equals(org.getId()))
         .map(OrganizationDto::fromEntity)
         .collect(Collectors.toList());
   }
 
   @Override
-  public void delete(Long id) {
+  public void delete(Long id, Long callerOrganizationId) {
     if (id == null) {
       log.error("Organization ID is null");
       return;
+    }
+    if (!id.equals(callerOrganizationId)) {
+      throw new EntityNotFoundException(
+          "Aucune organisation avec l'ID = " + id + " n'a ete trouvee dans la BDD",
+          ErrorCodes.ORGANIZATION_NOT_FOUND);
     }
     List<City> cities = cityRepository.findAllByOrganizationId(id);
     if (!cities.isEmpty()) {

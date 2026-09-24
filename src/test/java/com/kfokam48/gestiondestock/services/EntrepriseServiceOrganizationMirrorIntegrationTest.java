@@ -52,7 +52,7 @@ public class EntrepriseServiceOrganizationMirrorIntegrationTest extends Abstract
 
     assertNotNull(tenant.getOrganizationId());
 
-    OrganizationDto organization = organizationService.findById(tenant.getOrganizationId());
+    OrganizationDto organization = organizationService.findById(tenant.getOrganizationId(), tenant.getOrganizationId());
     assertEquals("Societe Miroir", organization.getName());
     assertEquals("Test miroir Organization", organization.getDescription());
 

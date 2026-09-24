@@ -6,6 +6,7 @@ import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserRoleAssignmentDto;
 import com.kfokam48.gestiondestock.identity.application.validator.UserRoleAssignmentValidator;
+import com.kfokam48.gestiondestock.identity.domain.model.UserRoleAssignment;
 import com.kfokam48.gestiondestock.identity.infrastructure.persistence.RoleRepository;
 import com.kfokam48.gestiondestock.identity.infrastructure.persistence.UserRoleAssignmentRepository;
 import java.util.List;
@@ -56,18 +57,27 @@ public class UserRoleAssignmentServiceImpl implements UserRoleAssignmentService 
     );
   }
 
+  // Phase 5b-2c : voir docs/phase-5b2c-report.md.
   @Override
-  public UserRoleAssignmentDto findById(Long id) {
+  public UserRoleAssignmentDto findById(Long id, Long organizationId) {
     if (id == null) {
       log.error("UserRoleAssignment ID is null");
       return null;
     }
     return userRoleAssignmentRepository.findById(id)
+        .filter(assignment -> belongsToOrganization(assignment, organizationId))
         .map(UserRoleAssignmentDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucune affectation avec l'ID = " + id + " n'a ete trouvee dans la BDD",
             ErrorCodes.USER_ROLE_ASSIGNMENT_NOT_FOUND)
         );
+  }
+
+  // Phase 5b-2c : les deux cotes doivent etre non-null pour matcher - voir docs/phase-5b2c-report.md.
+  private boolean belongsToOrganization(UserRoleAssignment assignment, Long organizationId) {
+    return organizationId != null
+        && assignment.getOrganizationId() != null
+        && organizationId.equals(assignment.getOrganizationId());
   }
 
   @Override
@@ -77,6 +87,19 @@ public class UserRoleAssignmentServiceImpl implements UserRoleAssignmentService 
       return List.of();
     }
     return userRoleAssignmentRepository.findAllByUserId(userId).stream()
+        .map(UserRoleAssignmentDto::fromEntity)
+        .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2c : voir docs/phase-5b2c-report.md.
+  @Override
+  public List<UserRoleAssignmentDto> findAllByUser(Long userId, Long organizationId) {
+    if (userId == null) {
+      log.error("User ID is null");
+      return List.of();
+    }
+    return userRoleAssignmentRepository.findAllByUserId(userId).stream()
+        .filter(assignment -> belongsToOrganization(assignment, organizationId))
         .map(UserRoleAssignmentDto::fromEntity)
         .collect(Collectors.toList());
   }

@@ -71,6 +71,19 @@ public class UserServiceImpl implements UserService {
         );
   }
 
+  // Phase 5b-2c : self-only via Tenant.id - meme 404 qu'un id inexistant en cas de mismatch -
+  // voir docs/phase-5b2c-report.md.
+  @Override
+  public UserDto findById(Long id, Long callerTenantId) {
+    UserDto user = findById(id);
+    if (user == null || !belongsToTenant(user, callerTenantId)) {
+      throw new EntityNotFoundException(
+          "Aucun utilisateur avec l'ID = " + id + " n' ete trouve dans la BDD",
+          ErrorCodes.USER_NOT_FOUND);
+    }
+    return user;
+  }
+
   @Override
   public UserDto findByEmail(String email) {
     return userRepository.findUserByEmail(email)
@@ -82,10 +95,33 @@ public class UserServiceImpl implements UserService {
   }
 
   @Override
+  public UserDto findByEmail(String email, Long callerTenantId) {
+    UserDto user = findByEmail(email);
+    if (!belongsToTenant(user, callerTenantId)) {
+      throw new EntityNotFoundException(
+          "Aucun utilisateur avec l'email = " + email + " n' ete trouve dans la BDD",
+          ErrorCodes.USER_NOT_FOUND);
+    }
+    return user;
+  }
+
+  @Override
   public List<UserDto> findAll() {
     return userRepository.findAll().stream()
         .map(UserDto::fromEntity)
         .collect(Collectors.toList());
+  }
+
+  // Phase 5b-2c : voir docs/phase-5b2c-report.md.
+  @Override
+  public List<UserDto> findAll(Long callerTenantId) {
+    return findAll().stream()
+        .filter(user -> belongsToTenant(user, callerTenantId))
+        .collect(Collectors.toList());
+  }
+
+  private boolean belongsToTenant(UserDto user, Long callerTenantId) {
+    return callerTenantId != null && callerTenantId.equals(user.getIdEntreprise());
   }
 
   @Override
@@ -95,6 +131,13 @@ public class UserServiceImpl implements UserService {
       return;
     }
     userRepository.deleteById(id);
+  }
+
+  // Phase 5b-2c : voir docs/phase-5b2c-report.md.
+  @Override
+  public void delete(Long id, Long callerTenantId) {
+    UserDto user = findById(id, callerTenantId);
+    delete(user.getId());
   }
 
   @Override

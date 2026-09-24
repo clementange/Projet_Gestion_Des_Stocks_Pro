@@ -56,12 +56,14 @@ public class RoleController {
   }
 
   @GetMapping(value = APP_ROOT + "/roles/{idRole}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public RoleDto findById(@PathVariable("idRole") Long id) {
+  public RoleDto findById(@PathVariable("idRole") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    requireRbacManage(principal);
     return roleService.findById(id);
   }
 
   @GetMapping(value = APP_ROOT + "/roles/all", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<RoleDto> findAll() {
+  public List<RoleDto> findAll(@AuthenticationPrincipal ExtendedUser principal) {
+    requireRbacManage(principal);
     return roleService.findAll();
   }
 

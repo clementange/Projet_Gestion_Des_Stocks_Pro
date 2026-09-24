@@ -56,14 +56,26 @@ public class UserRoleAssignmentController {
     return userRoleAssignmentService.save(dto);
   }
 
+  /**
+   * Phase 5b-2c : l'appartenance de l'affectation a l'organisation de l'appelant est verifiee
+   * EN PREMIER, avant requireRbacManage - garde-fou independant, non contournable par la logique
+   * RBAC elle-meme (meme ordre que requireSiteInOrganization avant hasPermission en 5b-2b). Un
+   * appelant GLOBAL RBAC_MANAGE dans son organisation ne doit jamais pouvoir lire l'affectation
+   * d'une AUTRE organisation simplement parce que hasPermission le laisserait passer - voir
+   * docs/phase-5b2c-report.md.
+   */
   @GetMapping(value = APP_ROOT + "/user-role-assignments/{idAssignment}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public UserRoleAssignmentDto findById(@PathVariable("idAssignment") Long id) {
-    return userRoleAssignmentService.findById(id);
+  public UserRoleAssignmentDto findById(@PathVariable("idAssignment") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    UserRoleAssignmentDto dto = userRoleAssignmentService.findById(id, principal.getOrganizationId());
+    requireRbacManage(principal);
+    return dto;
   }
 
   @GetMapping(value = APP_ROOT + "/user-role-assignments/filter/user/{idUser}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<UserRoleAssignmentDto> findAllByUser(@PathVariable("idUser") Long idUser) {
-    return userRoleAssignmentService.findAllByUser(idUser);
+  public List<UserRoleAssignmentDto> findAllByUser(@PathVariable("idUser") Long idUser, @AuthenticationPrincipal ExtendedUser principal) {
+    List<UserRoleAssignmentDto> assignments = userRoleAssignmentService.findAllByUser(idUser, principal.getOrganizationId());
+    requireRbacManage(principal);
+    return assignments;
   }
 
   @DeleteMapping(value = APP_ROOT + "/user-role-assignments/delete/{idAssignment}")

@@ -50,18 +50,37 @@ public class TenantServiceImpl implements TenantService {
         );
   }
 
+  // Phase 5b-2c : self-only - meme 404 qu'un id inexistant en cas de mismatch - voir
+  // docs/phase-5b2c-report.md.
   @Override
-  public List<TenantDto> findAll() {
+  public TenantDto findById(Long id, Long callerTenantId) {
+    if (id == null || !id.equals(callerTenantId)) {
+      throw new EntityNotFoundException(
+          "Aucune entreprise avec l'ID = " + id + " n' ete trouve dans la BDD",
+          ErrorCodes.TENANT_NOT_FOUND);
+    }
+    return findById(id);
+  }
+
+  // Phase 5b-2c : self-only - au plus un tenant (le sien) - voir docs/phase-5b2c-report.md.
+  @Override
+  public List<TenantDto> findAll(Long callerTenantId) {
     return tenantRepository.findAll().stream()
+        .filter(tenant -> callerTenantId != null && callerTenantId.equals(tenant.getId()))
         .map(TenantDto::fromEntity)
         .collect(Collectors.toList());
   }
 
   @Override
-  public void delete(Long id) {
+  public void delete(Long id, Long callerTenantId) {
     if (id == null) {
       log.error("Tenant ID is null");
       return;
+    }
+    if (!id.equals(callerTenantId)) {
+      throw new EntityNotFoundException(
+          "Aucune entreprise avec l'ID = " + id + " n' ete trouve dans la BDD",
+          ErrorCodes.TENANT_NOT_FOUND);
     }
     tenantRepository.deleteById(id);
   }
@@ -70,8 +89,8 @@ public class TenantServiceImpl implements TenantService {
   // etant deja un upsert plat sans orchestration (voir javadoc de l'interface), aucun risque de
   // redeclencher le bootstrap ici, contrairement a l'ancien EntrepriseServiceImpl.save().
   @Override
-  public TenantDto updatePhoto(Long id, String url) {
-    TenantDto tenant = findById(id);
+  public TenantDto updatePhoto(Long id, String url, Long callerTenantId) {
+    TenantDto tenant = findById(id, callerTenantId);
     tenant.setPhoto(url);
     return save(tenant);
   }

@@ -90,7 +90,7 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
         OrganizationDto.builder().name("Societe Z").active(true).build());
     cityService.save(CityDto.builder().name("Bafoussam").organization(organization).build());
 
-    assertThrows(InvalidOperationException.class, () -> organizationService.delete(organization.getId()));
+    assertThrows(InvalidOperationException.class, () -> organizationService.delete(organization.getId(), organization.getId()));
   }
 
   @Test
@@ -129,5 +129,24 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     // verifications d'appartenance de site a la creation de Sale/CustomerOrder/PurchaseOrder/
     // StockTransfer) : pas de filtrage, meme depuis un contexte "etranger".
     assertEquals(siteA.getId(), siteService.findById(siteA.getId()).getId());
+  }
+
+  // Phase 5b-2c : voir docs/phase-5b2c-report.md.
+  @Test
+  public void organizationAccessIsSelfOnly() {
+    OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Org Self A").active(true).build());
+    OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Org Self B").active(true).build());
+
+    assertEquals(orgA.getId(), organizationService.findById(orgA.getId(), orgA.getId()).getId());
+    assertEquals(1, organizationService.findAll(orgA.getId()).size());
+
+    assertThrows(EntityNotFoundException.class, () -> organizationService.findById(orgA.getId(), orgB.getId()));
+    // findAll(orgB) voit sa propre organisation (1 element), jamais orgA.
+    assertEquals(1, organizationService.findAll(orgB.getId()).size());
+    assertEquals(orgB.getId(), organizationService.findAll(orgB.getId()).get(0).getId());
+
+    assertThrows(EntityNotFoundException.class, () -> organizationService.delete(orgA.getId(), orgB.getId()));
+    // orgA existe toujours : la tentative de suppression depuis orgB a bien ete rejetee, pas seulement journalisee.
+    assertEquals(orgA.getId(), organizationService.findById(orgA.getId(), orgA.getId()).getId());
   }
 }

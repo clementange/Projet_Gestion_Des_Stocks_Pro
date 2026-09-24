@@ -160,14 +160,13 @@ public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrat
 
   @Test
   public void organizationDeleteWithDependentCityIsRejected() throws Exception {
+    // Phase 5b-2c : delete est desormais self-only - la ville doit etre creee sous l'organisation
+    // propre de l'appelant (decodee du JWT), pas une organisation fraichement creee via
+    // /organizations/create (toujours sans verification, mais desormais distincte de
+    // l'organisation de l'appelant) - meme cause racine que le correctif de fixture en 5b-2b, voir
+    // docs/phase-5b2c-report.md.
     String token = adminToken();
-    MvcResult org = mockMvc.perform(post("/gestiondestock/v1/organizations/create")
-            .header("Authorization", "Bearer " + token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"Org NoDelete\",\"active\":true}"))
-        .andExpect(status().isOk())
-        .andReturn();
-    long orgId = jsonId(org);
+    long orgId = organizationIdFromToken(token);
     mockMvc.perform(post("/gestiondestock/v1/cities/create")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)

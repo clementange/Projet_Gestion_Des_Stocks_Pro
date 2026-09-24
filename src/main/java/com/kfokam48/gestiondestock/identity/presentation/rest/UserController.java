@@ -24,16 +24,17 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Phase 4a : contrat canonique pour identity.User, en parallele de l'adaptateur legacy
- * {@code /utilisateurs/*} (inchange, voir docs/phase-4a-report.md). Meme posture de securite que
- * l'adaptateur legacy aujourd'hui : {@code authenticated()} seul (regle par defaut de
- * SecurityConfiguration), aucune verification de permission fine - pas une amelioration
- * deliberee, un choix de ne pas durcir une surface neuve au-dela de ce que l'existant offrait
- * deja, dans le meme esprit que "ne pas corriger les bugs connus pendant la migration".
+ * {@code /utilisateurs/*} (inchange, voir docs/phase-4a-report.md) - toujours sans verification
+ * de permission fine au-dela de ce qui est decrit ci-dessous, dans le meme esprit que "ne pas
+ * corriger les bugs connus pendant la migration".
  *
- * <p>Phase 5a : exception a ce principe pour {@link #changePassword} - l'IDOR (n'importe quel
- * utilisateur authentifie pouvait changer le mot de passe de n'importe quel autre) est corrige,
- * en self-only (l'appelant doit etre la cible), sans introduire de nouvelle permission RBAC pour
- * un override admin - voir docs/phase-5a-report.md.
+ * <p>Phase 5a : {@link #changePassword} est self-only (l'appelant doit etre la cible), sans
+ * introduire de nouvelle permission RBAC pour un override admin - voir docs/phase-5a-report.md.
+ *
+ * <p>Phase 5b-2c : {@link #findById}/{@link #findByEmail}/{@link #findAll}/{@link #delete} sont
+ * scopes au tenant de l'appelant ({@code User.idEntreprise}, pas {@code organizationId}) ;
+ * {@link #updatePhoto} devient self-only, meme motif que {@link #changePassword} - voir
+ * docs/phase-5b2c-report.md.
  */
 @Tag(name = "users")
 @RestController
@@ -69,29 +70,43 @@ public class UserController {
     }
   }
 
+  // Phase 5b-2c : meme motif que requireSelf ci-dessus, applique a la photo - voir
+  // docs/phase-5b2c-report.md.
+  private void requireSelfForPhoto(Long targetId, ExtendedUser principal) {
+    Long callerId = principal == null ? null : principal.getIdUtilisateur();
+    if (callerId == null || !callerId.equals(targetId)) {
+      log.warn("User {} tried to change the photo of user {}", callerId, targetId);
+      throw new InvalidOperationException(
+          "Vous ne pouvez modifier que votre propre photo",
+          ErrorCodes.USER_UPDATE_PHOTO_FORBIDDEN);
+    }
+  }
+
   @GetMapping(value = APP_ROOT + "/users/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public UserDto findById(@PathVariable("id") Long id) {
-    return userService.findById(id);
+  public UserDto findById(@PathVariable("id") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return userService.findById(id, principal.getIdEntreprise());
   }
 
   @GetMapping(value = APP_ROOT + "/users/find/{email}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public UserDto findByEmail(@PathVariable("email") String email) {
-    return userService.findByEmail(email);
+  public UserDto findByEmail(@PathVariable("email") String email, @AuthenticationPrincipal ExtendedUser principal) {
+    return userService.findByEmail(email, principal.getIdEntreprise());
   }
 
   @GetMapping(value = APP_ROOT + "/users/all", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<UserDto> findAll() {
-    return userService.findAll();
+  public List<UserDto> findAll(@AuthenticationPrincipal ExtendedUser principal) {
+    return userService.findAll(principal.getIdEntreprise());
   }
 
   @DeleteMapping(value = APP_ROOT + "/users/delete/{id}")
-  public void delete(@PathVariable("id") Long id) {
-    userService.delete(id);
+  public void delete(@PathVariable("id") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    userService.delete(id, principal.getIdEntreprise());
   }
 
   // Phase 4c : remplace /save/{id}/{title}/utilisateur (StrategyPhotoContext, supprime).
   @PostMapping(value = APP_ROOT + "/users/{id}/photo", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public UserDto updatePhoto(@PathVariable("id") Long id, @RequestBody PhotoUrlRequest request) {
+  public UserDto updatePhoto(@PathVariable("id") Long id, @RequestBody PhotoUrlRequest request,
+      @AuthenticationPrincipal ExtendedUser principal) {
+    requireSelfForPhoto(id, principal);
     return userService.updatePhoto(id, request.url());
   }
 }

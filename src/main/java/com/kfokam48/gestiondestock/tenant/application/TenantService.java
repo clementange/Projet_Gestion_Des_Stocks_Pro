@@ -16,10 +16,16 @@ public interface TenantService {
 
   TenantDto findById(Long id);
 
-  List<TenantDto> findAll();
+  // Phase 5b-2c : self-only - id doit correspondre au tenant de l'appelant, meme 404 qu'un id
+  // inexistant en cas de mismatch. findById(Long) sans verification reste utilise en interne
+  // (ApplicationUserDetailsService au login pour resoudre organizationId, et l'adaptateur legacy
+  // UtilisateurServiceImpl) - voir docs/phase-5b2c-report.md.
+  TenantDto findById(Long id, Long callerTenantId);
 
-  void delete(Long id);
+  List<TenantDto> findAll(Long callerTenantId);
 
-  TenantDto updatePhoto(Long id, String url);
+  void delete(Long id, Long callerTenantId);
+
+  TenantDto updatePhoto(Long id, String url, Long callerTenantId);
 
 }

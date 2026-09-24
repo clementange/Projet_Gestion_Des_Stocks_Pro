@@ -875,3 +875,79 @@ nouvelle - reflete l'usage reel, pas un contournement de l'assertion
 observee (regle CLAUDE.md "ne jamais adapter un test sans comprendre
 pourquoi il echouait" respectee : la cause etait bien comprise avant de
 toucher au test).
+
+## Phase 5b-2c (cas speciaux : Organization/Tenant self-only, User via Tenant.id, Role/Permission/UserRoleAssignment) : trouve pendant l'increment
+
+Voir `docs/phase-5b2c-report.md` pour le detail complet. Troisieme et dernier increment de 5b-2 -
+5b-2 (lecture scopee par organisation + RBAC) est desormais complet dans son integralite (5a,
+5b-1, 5b-2a, 5b-2b, 5b-2c).
+
+### Quatre motifs distincts, pas un seul applique 6 fois
+
+Contrairement a 5b-2a/2b (un seul motif "filtrer par organizationId derive"), 5b-2c a demande
+quatre traitements differents selon la nature de chaque entite : self-only (Organization/Tenant,
+compare directement l'id demande a celui de l'appelant), scoping via un scalaire different
+(User.idEntreprise = Tenant.id, PAS organizationId, absent de l'entite), gate de permission sans
+filtrage de ligne (Role/Permission : aucun champ organizationId, catalogue global partage entre
+tous les tenants confirme par le bootstrap ADMINISTRATEUR), et gate de permission PLUS garde-fou
+d'appartenance par ligne (UserRoleAssignment : porte reellement organizationId depuis 5b-1).
+
+### Role/Permission : violation directe du zero-tolerance CLAUDE.md sur les lectures RBAC
+
+`RoleController`/`PermissionController` gataient deja `save`/`delete` via `requireRbacManage`
+(helper existant), mais pas `findById`/`findAll` - violation litterale de la regle CLAUDE.md "toute
+route qui lit ou modifie des donnees RBAC... y compris les endpoints de lecture (GET)". Corrige en
+appliquant le meme helper existant aux lectures, sans aucun changement de service (Role/Permission
+n'ont pas de champ organizationId a filtrer - confirme par lecture directe des deux entites de
+domaine et par l'usage de `roleService.findByCode("ADMINISTRATEUR")` au bootstrap de chaque nouveau
+tenant, qui doit trouver le meme role template quelle que soit l'organisation).
+
+### UserRoleAssignment : meme classe de bug que le contournement GLOBAL de Sale.create (5b-2b), evitee des la conception
+
+`UserRoleAssignment` porte reellement `organizationId` (ajoute en 5b-1), contrairement a Role/
+Permission. Gater ses lectures uniquement sur `requireRbacManage` aurait reproduit exactement le
+contournement GLOBAL trouve en 5b-2b : un appelant avec RBAC_MANAGE/GLOBAL dans son organisation A
+aurait pu lire l'affectation d'une organisation B, puisque `hasPermission` ne valide jamais que la
+ligne demandee appartient a l'organisation de l'appelant. Le garde-fou d'appartenance (nouveau
+`findById(Long, Long organizationId)`/`findAllByUser(Long, Long organizationId)`) s'execute donc EN
+PREMIER dans le controleur, avant `requireRbacManage` - meme ordre que `requireSiteInOrganization`
+avant `hasPermission` en 5b-2b, explicitement demande pour eviter toute reintroduction de cette
+classe de bug par une inversion d'ordre. Test dedie : un appelant GLOBAL RBAC_MANAGE dans son
+organisation ne peut pas lire l'affectation bootstrap d'une AUTRE organisation (404 masque, pas 400
+ACCESS_DENIED - preuve que c'est bien le garde-fou d'appartenance qui rejette).
+
+### User.updatePhoto : meme IDOR que changePassword avant Phase 5a, corrige avec le meme motif
+
+`POST /users/{id}/photo` n'avait aucune verification de propriete - n'importe quel utilisateur
+authentifie pouvait definir la photo de n'importe quel autre. Meme classe et meme gravite que l'IDOR
+sur changePassword corrige en Phase 5a. Decision explicite avant implementation : inclus dans ce
+perimetre plutot que catalogue en backlog (contrairement a InventoryController.receive/issue/correct
+en 5b-2b) - fix mirror exact de `requireSelf` (nouveau helper `requireSelfForPhoto`, nouveau code
+`USER_UPDATE_PHOTO_FORBIDDEN`).
+
+### Root cause additionnelle : User.idEntreprise porte une contrainte FK reelle malgre le commentaire "reference faible"
+
+Le javadoc de `User`/`Tenant` decrit `idEntreprise` comme une reference faible (`Long`, pas
+`@ManyToOne`) - exact cote JPA, mais **une contrainte FK reelle existe en base**
+(`fk1lqyf8cuumbj0iku4axqklfu3`, `utilisateur.identreprise -> entreprise(id)`,
+`V1__initial_schema.sql`). Trouve en ecrivant les tests de scoping User : un id de tenant fabrique
+(non lie a une vraie ligne `entreprise`) est rejete a l'insertion par
+`DataIntegrityViolationException`. Corrige en creant de vrais `Tenant` via `TenantService.save()`
+dans les tests - meme lecon que `AuthorizationServiceIntegrationTest` en Phase 5b-1.
+
+### Root cause additionnelle trouvee en verifiant : meme fixture "organisation deconnectee du principal" qu'en 5b-2b, sur un test preexistant
+
+`OrganizationControllersHttpIntegrationTest.organizationDeleteWithDependentCityIsRejected` (test
+preexistant, pas ajoute dans cet increment) creait une organisation fraiche via
+`POST /organizations/create` (toujours sans aucune verification) pour y construire une ville, plutot
+que d'utiliser l'organisation propre de l'appelant. `delete` etant desormais self-only, la requete
+est rejetee en 404 (masquage) avant meme d'atteindre la regle metier `ORGANIZATION_ALREADY_IN_USE`
+attendue par le test. Meme cause racine et meme correctif que documente en 5b-2b §3 : reutilise
+`organizationIdFromToken` (deja ajoute dans ce meme fichier en 5b-2b) au lieu de creer une
+organisation separee.
+
+### Deux arbitrages tranches avant implementation (voir docs/phase-5b2c-report.md §1)
+
+`Organization.save()`/`Tenant.save()` restent non touches (coherent avec les 5 increments 5b-2
+precedents : jamais de restriction sur "qui peut creer un nouvel agregat racine", gap RBAC-on-create
+deja catalogue). `User.updatePhoto` durci maintenant plutot que reporte (voir ci-dessus).

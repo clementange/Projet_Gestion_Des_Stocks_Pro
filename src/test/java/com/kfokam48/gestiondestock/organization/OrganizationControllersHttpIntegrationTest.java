@@ -199,4 +199,66 @@ public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrat
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(orgId));
   }
+
+  /** Cree une ville appartenant a l'organisation de l'appelant et retourne son id. */
+  private long createCity(String token, String name) throws Exception {
+    long orgId = organizationIdFromToken(token);
+    MvcResult city = mockMvc.perform(post("/gestiondestock/v1/cities/create")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"" + name + "\",\"organization\":{\"id\":" + orgId + "}}"))
+        .andExpect(status().isOk())
+        .andReturn();
+    return jsonId(city);
+  }
+
+  /**
+   * Phase 5b-2f : POST /sites/create acceptait un {@code id} fourni par le client
+   * ({@code SiteDto.toEntity} fait {@code setId}), et {@code siteRepository.save()} sur une entite
+   * portant un id deja existant est un MERGE, donc une mise a jour. Un utilisateur du tenant B
+   * pouvait ainsi ECRASER un site du tenant A en fournissant l'id de A et une ville lui
+   * appartenant, a lui, B : la verification d'appartenance de City posee en 5b-2d ne regarde que
+   * la ville, jamais l'entite ciblee par l'id. Ecriture inter-tenant, pas une simple fuite de
+   * lecture - voir docs/phase-5b2f-report.md.
+   */
+  @Test
+  public void createSiteMustNotOverwriteAnExistingSiteOfAnotherTenantViaClientSuppliedId() throws Exception {
+    // Tenant A : un site legitime, qu'on ne doit pas pouvoir toucher depuis un autre tenant.
+    String tokenA = adminToken();
+    long cityA = createCity(tokenA, "Douala A");
+    String codeA = uniqueCode("SITE-A");
+    MvcResult siteAResult = mockMvc.perform(post("/gestiondestock/v1/sites/create")
+            .header("Authorization", "Bearer " + tokenA)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"code\":\"" + codeA + "\",\"name\":\"Site A legitime\",\"type\":\"ENTREPOT\","
+                + "\"active\":true,\"city\":{\"id\":" + cityA + "}}"))
+        .andExpect(status().isOk())
+        .andReturn();
+    long siteAId = jsonId(siteAResult);
+
+    // Tenant B : sa propre ville, donc le controle City de 5b-2d passe sans probleme.
+    String tokenB = adminToken();
+    long cityB = createCity(tokenB, "Yaounde B");
+
+    // L'attaque : B reutilise l'id du site de A. Doit etre refuse explicitement.
+    mockMvc.perform(post("/gestiondestock/v1/sites/create")
+            .header("Authorization", "Bearer " + tokenB)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"id\":" + siteAId + ",\"code\":\"" + uniqueCode("HIJACK") + "\","
+                + "\"name\":\"Site detourne par B\",\"type\":\"BOUTIQUE\","
+                + "\"active\":false,\"city\":{\"id\":" + cityB + "}}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("SITE_NOT_VALID"));
+
+    // Le site de A doit etre strictement inchange, et toujours visible par A (donc toujours
+    // rattache a une ville de A : s'il avait ete repointe sur la ville de B, la lecture
+    // org-scopee de A renverrait 404).
+    mockMvc.perform(get("/gestiondestock/v1/sites/" + siteAId).header("Authorization", "Bearer " + tokenA))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(codeA))
+        .andExpect(jsonPath("$.name").value("Site A legitime"))
+        .andExpect(jsonPath("$.type").value("ENTREPOT"))
+        .andExpect(jsonPath("$.active").value(true))
+        .andExpect(jsonPath("$.city.id").value(cityA));
+  }
 }

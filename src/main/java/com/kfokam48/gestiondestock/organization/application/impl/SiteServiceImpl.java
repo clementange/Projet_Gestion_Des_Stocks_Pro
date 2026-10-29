@@ -41,10 +41,28 @@ public class SiteServiceImpl implements SiteService {
       log.error("Site is not valid {}", dto);
       throw new InvalidEntityException("Le site n'est pas valide", ErrorCodes.SITE_NOT_VALID, errors);
     }
+    // Phase 5b-2f : un id fourni par le client transformait cette creation en MERGE JPA, donc en
+    // mise a jour d'un site existant - potentiellement celui d'un AUTRE tenant, que l'appelant
+    // s'appropriait alors integralement (le site basculait vers sa propre ville, donc vers sa
+    // propre organisation, et devenait invisible a son proprietaire legitime). La verification
+    // d'appartenance de City ci-dessous ne l'empeche pas : elle ne regarde que la ville fournie,
+    // jamais l'entite ciblee par l'id. Rejet explicite plutot que mise a null silencieuse, pour
+    // qu'un appelant qui croyait faire une mise a jour ne reste pas persuade d'avoir reussi -
+    // voir docs/phase-5b2f-report.md.
+    requireNoClientSuppliedId(dto);
     requireCityInOrganization(dto.getCity().getId(), organizationId);
     return SiteDto.fromEntity(
         siteRepository.save(SiteDto.toEntity(dto))
     );
+  }
+
+  // Phase 5b-2f : voir docs/phase-5b2f-report.md.
+  private void requireNoClientSuppliedId(SiteDto dto) {
+    if (dto.getId() != null) {
+      log.warn("Site creation rejected: client supplied an id ({})", dto.getId());
+      throw new InvalidEntityException("Le site n'est pas valide", ErrorCodes.SITE_NOT_VALID,
+          List.of("L'identifiant d'un site ne peut pas etre fourni a la creation"));
+    }
   }
 
   // Phase 5b-2d : voir docs/phase-5b2d-report.md.

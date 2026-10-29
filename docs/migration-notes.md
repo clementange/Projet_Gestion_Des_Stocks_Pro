@@ -991,4 +991,49 @@ Troisieme occurrence exacte du meme correctif documente en 5b-2b §3 et 5b-2c §
 `OrganizationController.save()` (toujours sans aucune verification) est une source structurelle de
 regressions de fixture pour tout increment futur qui ajoute une verification d'appartenance en
 aval - argument de plus pour le traiter en increment dedie plutot que de continuer a le contourner
-au cas par cas dans les tests.
+au cas par cas dans les tests. **Traite en 5b-2e** (voir section suivante).
+
+## Phase 5b-2e (suppression de POST /organizations/create) : trouve pendant l'increment
+
+Voir `docs/phase-5b2e-report.md` pour le detail complet. Dernier item du backlog 5b-2 encore
+ouvert ; clot 5b-2 dans son integralite (5a, 5b-1, 5b-2a/b/c/d/e).
+
+### L'endpoint n'avait plus aucun appelant - la suppression etait le correctif, pas le durcissement
+
+Recherche exhaustive avant decision : en production, le seul createur d'Organization est
+`TenantRegistrationServiceImpl`, qui appelle `OrganizationService.save()` DIRECTEMENT (pas via
+HTTP) dans le cadre de l'orchestration complete d'inscription ; dans `src/test`, les deux seules
+occurrences de `organizations/create` etaient des COMMENTAIRES expliquant pourquoi les fixtures
+avaient cesse de l'utiliser apres 5b-2b/2c/2d. Une Organization creee par cette route n'avait ni
+Tenant, ni admin, ni affectation RBAC : une orpheline inatteignable, y compris par son propre
+createur depuis que la lecture est self-only (5b-2c).
+
+L'option "gater derriere RBAC_MANAGE" a ete explicitement ecartee apres analyse : elle ne corrigeait
+PAS le probleme structurel, puisque tout admin de tenant possede deja RBAC_MANAGE via le bootstrap
+ADMINISTRATEUR (V4) - les organisations orphelines auraient continue d'etre creables par exactement
+les appelants qui les creaient deja. Precedent direct : Phase 4b a supprime toute la couche
+`/entreprises/create` plutot que d'en garder un adaptateur, avec le meme raisonnement ("sans
+l'orchestration RBAC/Organization n'aurait plus eu aucune utilite fonctionnelle").
+
+`OrganizationService.save()` est conserve intact (toujours necessaire a l'inscription de tenant),
+avec une javadoc expliquant qu'il n'a plus de surface HTTP et pourquoi ne pas le reexposer sans
+l'orchestration complete.
+
+### Assertion de test volontairement en 4xx plutot qu'un code pinne
+
+Le test de non-regression assure `is4xxClientError()` et non `isNotFound()`/`isMethodNotAllowed()` :
+le code exact releve du routage Spring (`/organizations/create` collisionne partiellement avec le
+motif `GET /organizations/{idOrganization}`), pas du contrat metier produit par
+`RestExceptionHandler`. Pinner 404 ou 405 rendrait le test fragile face a une evolution de Spring
+sans rapport avec la garantie testee. Les codes metier restent pinnes exactement partout ailleurs.
+
+### Ecart d'environnement rencontre : JDK 25 incompatible avec le Lombok epingle (non corrige)
+
+En cours d'increment, `JAVA_HOME` est passe de JDK 21.0.12 (tous les builds anterieurs de la
+session) a JDK 25.0.2. Lombok 1.18.30 (epingle dans `pom.xml`) ne supporte pas JDK 25 : tout
+`mvnw compile` echoue alors en `ExceptionInInitializerError: com.sun.tools.javac.code.TypeTag ::
+UNKNOWN` - erreur de chaine d'outils, aucun rapport avec le code (verifie : le meme code compile et
+passe integralement sous JDK 21). Les builds de cet increment ont tourne sous JDK 21 (cible reelle
+du projet selon CLAUDE.md). `pom.xml` n'a PAS ete touche : monter Lombok est un changement de
+dependance transverse, hors perimetre, qui merite sa propre validation. A traiter separement si
+l'environnement doit rester sur JDK 25.

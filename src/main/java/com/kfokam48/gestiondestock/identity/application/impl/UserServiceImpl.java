@@ -6,6 +6,7 @@ import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
 import com.kfokam48.gestiondestock.identity.application.validator.UserValidator;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.identity.domain.model.User;
 import com.kfokam48.gestiondestock.identity.infrastructure.persistence.UserRepository;
 import java.util.Collections;
@@ -32,6 +33,13 @@ public class UserServiceImpl implements UserService {
 
   @Override
   public UserDto save(UserDto dto) {
+    // Phase 5b-2f : sans ce garde-fou, un id fourni par le client transformait cette creation en
+    // MERGE JPA : la ligne utilisateur visee etait reecrite avec l'email et le mot de passe
+    // choisis par l'appelant - une primitive de prise de controle de compte, d'autant que le
+    // pre-check d'unicite d'email ci-dessous ne s'exclut pas lui-meme (un email neuf suffit a le
+    // passer). Couvre aussi l'adaptateur legacy /utilisateurs/create, qui propage lui aussi
+    // dto.getId() - voir docs/phase-5b2f-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'un utilisateur");
     List<String> errors = UserValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("User is not valid {}", dto);

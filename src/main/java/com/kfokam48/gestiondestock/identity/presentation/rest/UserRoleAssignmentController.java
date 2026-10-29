@@ -53,6 +53,11 @@ public class UserRoleAssignmentController {
   @PostMapping(value = APP_ROOT + "/user-role-assignments/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public UserRoleAssignmentDto save(@RequestBody UserRoleAssignmentDto dto, @AuthenticationPrincipal ExtendedUser principal) {
     requireRbacManage(principal);
+    // Phase 5b-2f : organizationId ne vient plus du client. Fourni librement, il permettait a un
+    // admin de tenant d'ancrer une affectation dans l'organisation d'un AUTRE tenant, donc d'y
+    // accorder un role. TOUJOURS ecrase, pas seulement renseigne si absent - voir
+    // docs/phase-5b2f-report.md.
+    dto.setOrganizationId(principal.getOrganizationId());
     return userRoleAssignmentService.save(dto);
   }
 

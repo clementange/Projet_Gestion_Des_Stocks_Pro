@@ -6,6 +6,7 @@ import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserRoleAssignmentDto;
 import com.kfokam48.gestiondestock.identity.application.validator.UserRoleAssignmentValidator;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.identity.domain.model.UserRoleAssignment;
 import com.kfokam48.gestiondestock.identity.infrastructure.persistence.RoleRepository;
 import com.kfokam48.gestiondestock.identity.infrastructure.persistence.UserRoleAssignmentRepository;
@@ -40,6 +41,11 @@ public class UserRoleAssignmentServiceImpl implements UserRoleAssignmentService 
   @Override
   @Transactional
   public UserRoleAssignmentDto save(UserRoleAssignmentDto dto) {
+    // Phase 5b-2f : un id fourni transformait cette creation en MERGE, donc en reecriture d'une
+    // affectation existante - potentiellement celle d'un autre tenant, ce que le gate
+    // RBAC_MANAGE ne protege pas puisque tout admin de tenant le possede via le bootstrap
+    // ADMINISTRATEUR - voir docs/phase-5b2f-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'une affectation de role");
     List<String> errors = UserRoleAssignmentValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("UserRoleAssignment is not valid {}", dto);

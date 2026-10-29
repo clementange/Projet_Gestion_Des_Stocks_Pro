@@ -18,10 +18,18 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Phase 5b-2f : {@code POST /roles/create} a ete SUPPRIME. Role est un catalogue
+ * GLOBAL partage par tous les tenants (aucun {@code organizationId} - confirme en 5b-2c), seede
+ * par Flyway (V3/V4). Le gate {@code RBAC_MANAGE} ne protegeait rien ici, puisque tout admin de
+ * tenant le possede via le bootstrap ADMINISTRATEUR : n'importe lequel pouvait donc creer - et,
+ * via un id fourni, ECRASER - une entree utilisee par tous les autres tenants. Meme precedent que
+ * la suppression de {@code /organizations/create} en 5b-2e. {@code RoleService.save()}
+ * est conserve : il reste utilise par les tests et resterait necessaire a tout futur amorcage -
+ * voir docs/phase-5b2f-report.md.
+ */
 @Tag(name = "roles")
 @RestController
 @Slf4j
@@ -49,11 +57,6 @@ public class RoleController {
     }
   }
 
-  @PostMapping(value = APP_ROOT + "/roles/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public RoleDto save(@RequestBody RoleDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    requireRbacManage(principal);
-    return roleService.save(dto);
-  }
 
   @GetMapping(value = APP_ROOT + "/roles/{idRole}", produces = MediaType.APPLICATION_JSON_VALUE)
   public RoleDto findById(@PathVariable("idRole") Long id, @AuthenticationPrincipal ExtendedUser principal) {

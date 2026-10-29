@@ -8,6 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.identity.application.PermissionService;
+import com.kfokam48.gestiondestock.identity.application.RoleService;
+import com.kfokam48.gestiondestock.identity.application.dto.PermissionDto;
+import com.kfokam48.gestiondestock.identity.application.dto.RoleDto;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
 import java.time.Instant;
 import java.util.UUID;
@@ -41,6 +45,15 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
   @Autowired
   private ObjectMapper objectMapper;
 
+  // Phase 5b-2f : /permissions/create et /roles/create sont supprimes (catalogues globaux seedes
+  // par Flyway). Le seeding de test passe desormais par les services, qui sont conserves - voir
+  // docs/phase-5b2f-report.md.
+  @Autowired
+  private PermissionService permissionService;
+
+  @Autowired
+  private RoleService roleService;
+
   private static String uniqueCode(String prefix) {
     return prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
   }
@@ -72,32 +85,29 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
   }
 
   @Test
-  public void entrepriseAdminCanCreatePermissionsAndRoles() throws Exception {
-    // Cree via le bootstrap RBAC (EntrepriseServiceImpl) : role ADMINISTRATEUR, scope GLOBAL.
+  public void entrepriseAdminCanReadPermissionsAndRoles() throws Exception {
+    // Cree via le bootstrap RBAC (TenantRegistrationServiceImpl) : role ADMINISTRATEUR, GLOBAL.
+    // Phase 5b-2f : la CREATION par HTTP n'existe plus (catalogues globaux) ; ce qui reste a
+    // verifier est que l'admin bootstrap franchit bien le gate RBAC_MANAGE sur les lectures.
     String adminToken = tokenFor(uniqueCode("admin") + "@test.local");
 
-    mockMvc.perform(post("/gestiondestock/v1/permissions/create")
-            .header("Authorization", "Bearer " + adminToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"code\":\"" + uniqueCode("PERM") + "\",\"description\":\"x\"}"))
+    mockMvc.perform(get("/gestiondestock/v1/permissions/all")
+            .header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isOk());
 
-    mockMvc.perform(post("/gestiondestock/v1/roles/create")
-            .header("Authorization", "Bearer " + adminToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"code\":\"" + uniqueCode("ROLE") + "\",\"name\":\"Role HTTP\",\"permissions\":[]}"))
+    mockMvc.perform(get("/gestiondestock/v1/roles/all")
+            .header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isOk());
   }
 
   @Test
   public void secondEntrepriseAdminIsAlsoAutomaticallyGrantedRbacManage() throws Exception {
     // Chaque nouvelle Entreprise amorce son propre admin GLOBAL independamment des autres.
+    // Phase 5b-2f : verifie sur une route RBAC_MANAGE survivante, la creation ayant disparu.
     String otherAdminToken = tokenFor(uniqueCode("admin2") + "@test.local");
 
-    mockMvc.perform(post("/gestiondestock/v1/permissions/create")
-            .header("Authorization", "Bearer " + otherAdminToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"code\":\"" + uniqueCode("PERM2") + "\",\"description\":\"x\"}"))
+    mockMvc.perform(get("/gestiondestock/v1/permissions/all")
+            .header("Authorization", "Bearer " + otherAdminToken))
         .andExpect(status().isOk());
   }
 
@@ -125,10 +135,8 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
         .andReturn();
     String plainToken = objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("accessToken").asText();
 
-    mockMvc.perform(post("/gestiondestock/v1/permissions/create")
-            .header("Authorization", "Bearer " + plainToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"code\":\"" + uniqueCode("SHOULD_FAIL") + "\",\"description\":\"x\"}"))
+    mockMvc.perform(get("/gestiondestock/v1/permissions/all")
+            .header("Authorization", "Bearer " + plainToken))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("PERMISSION_ACCESS_DENIED"));
 
@@ -149,18 +157,10 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
   @Test
   public void plainUserCannotReadRolesOrPermissions() throws Exception {
     String adminToken = tokenFor(uniqueCode("admin4") + "@test.local");
-    MvcResult permission = mockMvc.perform(post("/gestiondestock/v1/permissions/create")
-            .header("Authorization", "Bearer " + adminToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"code\":\"" + uniqueCode("PERM4") + "\",\"description\":\"x\"}"))
-        .andExpect(status().isOk()).andReturn();
-    long permissionId = objectMapper.readTree(permission.getResponse().getContentAsString()).get("id").asLong();
-    MvcResult role = mockMvc.perform(post("/gestiondestock/v1/roles/create")
-            .header("Authorization", "Bearer " + adminToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"code\":\"" + uniqueCode("ROLE4") + "\",\"name\":\"Role HTTP 4\",\"permissions\":[]}"))
-        .andExpect(status().isOk()).andReturn();
-    long roleId = objectMapper.readTree(role.getResponse().getContentAsString()).get("id").asLong();
+    long permissionId = permissionService.save(
+        PermissionDto.builder().code(uniqueCode("PERM4")).description("x").build()).getId();
+    long roleId = roleService.save(
+        RoleDto.builder().code(uniqueCode("ROLE4")).name("Role HTTP 4").build()).getId();
 
     String plainEmail = uniqueCode("plain4") + "@test.local";
     mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")

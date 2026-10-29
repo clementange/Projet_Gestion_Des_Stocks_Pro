@@ -248,7 +248,9 @@ public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrat
                 + "\"name\":\"Site detourne par B\",\"type\":\"BOUTIQUE\","
                 + "\"active\":false,\"city\":{\"id\":" + cityB + "}}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("SITE_NOT_VALID"));
+        // Phase 5b-2f : code transverse du garde-fou central (CreationIdGuard), pas SITE_NOT_VALID
+        // - l'invariant « un create n'est jamais un update » est le meme pour tous les endpoints.
+        .andExpect(jsonPath("$.code").value("CREATION_ID_FORBIDDEN"));
 
     // Le site de A doit etre strictement inchange, et toujours visible par A (donc toujours
     // rattache a une ville de A : s'il avait ete repointe sur la ville de B, la lecture

@@ -138,7 +138,12 @@ public enum ErrorCodes {
 
   TENANT_NOT_FOUND(31000),
   TENANT_NOT_VALID(31001),
-  TENANT_REGISTRATION_NOT_VALID(31002)
+  TENANT_REGISTRATION_NOT_VALID(31002),
+
+  // Phase 5b-2f : code transverse, partage par tous les endpoints de creation - un id fourni par
+  // le client transformerait repository.save() en MERGE JPA, donc en mise a jour d'une ressource
+  // existante, potentiellement celle d'un autre tenant - voir docs/phase-5b2f-report.md.
+  CREATION_ID_FORBIDDEN(32000)
   ;
 
   private int code;

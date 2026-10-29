@@ -1076,3 +1076,54 @@ notion d'organisation a la creation, et pour City l'organisation de destination 
 fournie par le client. Les controleurs qui forcent l'organisation depuis le principal
 (Article/Category/Customer/Supplier, 5b-2a) n'empechent pas le merge : ils ACHEVENT le transfert de
 propriete. Aucun pre-check d'unicite (code, mail, email) ne protege : une valeur neuve suffit.
+
+### Suite de 5b-2f : mecanisme central, perimetre etendu, suppression des catalogues globaux
+
+Correctifs apportes apres l'audit ci-dessus (meme increment, deuxieme partie) :
+
+`validator/CreationIdGuard.requireNoId(...)` devient le point d'entree unique interdisant qu'un id
+client atteigne un chemin de creation, avec un code d'erreur dedie et transverse
+(`CREATION_ID_FORBIDDEN`, 32000, HTTP 400). `SiteServiceImpl` a ete migre de sa methode privee vers
+ce mecanisme, et son test de `SITE_NOT_VALID` vers `CREATION_ID_FORBIDDEN` : l'invariant « un create
+n'est jamais un update » est transverse, pas propre a Site. Garde-fou appele EN PREMIER, avant la
+validation de forme - un id fourni est une erreur de protocole sans ambiguite, et les garde-fous
+d'appartenance existants (City en 5b-2d, Site en 5b-2b) ne protegent pas de ce vecteur puisqu'ils
+valident la reference FOURNIE, jamais l'entite CIBLEE par l'id.
+
+Perimetre protege : `/sites/create`, `/users/create`, `/user-role-assignments/create` (+
+`organizationId` desormais force depuis le principal, et non plus fourni par le client - sans quoi
+un admin de tenant pouvait ancrer une affectation dans l'organisation d'un AUTRE tenant).
+`/utilisateurs/create` (legacy) est protege par ricochet, car il delegue a `UserServiceImpl.save` et
+son `toUserDto` propageait lui aussi `dto.getId()` - route que les greps sur `*Controller.java`
+manquaient, revelee par l'enumeration runtime du `RequestMappingHandlerMapping`.
+
+`/roles/create` et `/permissions/create` sont SUPPRIMES (meme precedent que `/organizations/create`
+en 5b-2e) : catalogues globaux sans `organizationId`, seedes par Flyway, ou `RBAC_MANAGE` ne
+protegeait rien puisque tout admin de tenant le possede via le bootstrap. Un id fourni y permettait
+d'ECRASER une entree partagee par tous les tenants, le role ADMINISTRATEUR inclus. Les methodes de
+service sont conservees (une douzaine de suites de tests les utilisent pour leur seeding RBAC ;
+aucun appelant de production hors les deux controleurs supprimes - verifie).
+
+### Le test d'inventaire et sa limite assumee
+
+`architecture/CreateEndpointIdGuardTest` tient l'inventaire en deux parties : (1) les
+`POST .../create` reellement exposes, lus depuis le `RequestMappingHandlerMapping`, doivent
+correspondre exactement a l'inventaire declare (GUARDED + KNOWN_UNGUARDED_DEBT) - un endpoint neuf
+non classe fait echouer le test ; (2) chaque service declare protege doit reellement appeler
+`CreationIdGuard.requireNoId`, verifie SUR LE BYTECODE via ArchUnit. Les deux parties ont ete
+validees par mutation (declarer `CategoryServiceImpl` protege casse la partie 2 ; ajouter un
+`/ghost/create` casse la partie 1) : le test n'est pas vert a vide.
+
+Limite explicite : la partie 1 detecte la DERIVE d'inventaire, elle ne prouve pas l'absence de
+faille - le prouver exige un payload valide propre a chaque endpoint, ce que font les tests
+d'integration dedies. Documente comme tel plutot que presente comme une preuve generalisee.
+
+### Customer/Supplier : aucun endpoint d'update n'existe, ce qui bloque le correctif generique
+
+Routes exposees : `all`, `create`, `{id}`, `delete/{id}` - et rien d'autre. `save()` y est
+DELIBEREMENT un upsert (Phase 5a : le pre-check de mail s'exclut explicitement lui-meme via
+`!existing.getId().equals(dto.getId())`, precisement pour autoriser la mise a jour). Appliquer
+`CreationIdGuard` a ces deux endpoints supprimerait donc le seul moyen HTTP de modifier un client ou
+un fournisseur : ce n'est plus un correctif de securite isole mais une decision fonctionnelle
+(introduire un PUT/PATCH dedie, ou scinder `save()` en `create()`/`update()`). Raison pour laquelle
+ils restent hors perimetre.

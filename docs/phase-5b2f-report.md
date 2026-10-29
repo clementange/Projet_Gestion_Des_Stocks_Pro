@@ -1,151 +1,214 @@
-# Phase 5b-2f — écriture inter-tenant via id client sur les endpoints create — Rapport
+# Phase 5b-2f — un create ne peut jamais être un update — Rapport
 
-Incrément en trois étapes imposées : reproduire d'abord (test rouge), corriger `Site` seulement,
-puis auditer l'ensemble des endpoints `create` et **attendre un feu vert** avant d'élargir.
-Seul `Site` est corrigé dans ce commit.
+Vecteur générique : tous les `toEntity` des DTO applicatifs propagent `dto.getId()`, et
+`repository.save()` sur une entité portant un id existant est un **MERGE JPA**. Tout endpoint de
+création qui laisse passer un id client est donc un endpoint de mise à jour déguisé, exploitable
+d'un tenant à l'autre.
 
-## 1. Reproduction (étape 1) — test rouge, puis preuve de l'impact réel
+Périmètre corrigé : `/sites/create`, `/users/create`, `/user-role-assignments/create` (+
+`organizationId` forcé depuis le principal), et **suppression** de `/roles/create` et
+`/permissions/create`. Les 10 autres endpoints vulnérables sont audités, inventoriés et
+délibérément non touchés.
 
-`SiteDto.toEntity` fait `site.setId(dto.getId())` ; `SiteValidator` ne rejette pas un id fourni ;
-`siteRepository.save()` sur une entité portant un id existant est un **MERGE JPA**, donc une mise à
-jour. La vérification d'appartenance de `City` posée en 5b-2d ne protège pas : elle ne regarde que
-la ville fournie, jamais l'entité ciblée par l'id.
+## 1. Reproduction — rouge d'abord, et pour la bonne raison
 
-Test ajouté :
-`OrganizationControllersHttpIntegrationTest.createSiteMustNotOverwriteAnExistingSiteOfAnotherTenantViaClientSuppliedId`
-— tenant A crée un site ; tenant B poste sur `/sites/create` avec l'id du site de A et **sa propre**
-ville. Premier run, avant correctif : `AssertionError: Status expected:<400> but was:<200>` — la
-requête de B était acceptée.
+### 1.1 `/sites/create`
 
-Un probe temporaire (ajouté, exécuté, puis retiré — il n'est pas commité) a documenté l'impact
-exact, qui dépasse le simple écrasement :
+Rouge : `AssertionError: Status expected:<400> but was:<200>`. Un probe temporaire (exécuté puis
+retiré, non commité) a documenté l'impact, qui dépasse l'écrasement :
 
 | Requête | Résultat observé |
 |---|---|
-| B poste avec l'id du site de A | **200 OK** — site `id=2` réécrit (`code=HIJACKED`, `type=BOUTIQUE`, `active=false`) et repointé sur la ville de B (`city.id=4`, `organization.id=2`) |
-| A relit son propre site | **404 `SITE_NOT_FOUND`** — A a perdu l'accès à son propre site |
-| B relit ce même site | **200 OK** — B en est désormais propriétaire |
+| B poste avec l'id du site de A + sa propre ville | **200 OK** — site réécrit, repointé sur la ville de B donc sur l'organisation de B |
+| A relit son propre site | **404 `SITE_NOT_FOUND`** — A est évincé |
+| B relit ce même site | **200 OK** — B en est propriétaire |
 
-Ce n'est donc pas une écriture inter-tenant « en aveugle » mais une **appropriation complète** : le
-site change d'organisation, le propriétaire légitime est évincé, l'attaquant récupère l'actif. La
-lecture org-scopée introduite en 5b-2c/2b rend le vol total plutôt que partiel.
+**Appropriation complète**, pas un simple écrasement : c'est la lecture org-scopée (5b-2b/2c) qui
+rend le vol total plutôt que partiel.
 
-## 2. Correctif `Site` (étape 2)
+### 1.2 `/users/create` et `/user-role-assignments/create`
 
-`SiteServiceImpl.save` : nouveau `requireNoClientSuppliedId(dto)`, exécuté après la validation de
-forme et **avant** `requireCityInOrganization`. Un `dto.getId()` non-null lève
-`InvalidEntityException(SITE_NOT_VALID)` avec l'erreur
-« L'identifiant d'un site ne peut pas etre fourni a la creation ».
+Trois tests, rouges puis verts. Deux itérations ont été nécessaires pour obtenir un rouge
+**honnête**, ce qui vaut d'être noté :
 
-**Rejet explicite plutôt que mise à `null` silencieuse**, conformément à la consigne : un appelant
-qui croyait faire une mise à jour (il n'existe aucun endpoint d'update de site) ne doit pas repartir
-convaincu d'avoir réussi alors qu'un site neuf vient d'être créé à côté. Le silence transformerait
-une tentative d'écrasement en création fantôme difficile à diagnostiquer.
+- Premier run : `createAssignmentMustNotOverwrite...` échouait **dans son setup**
+  (`expected:<200> but was:<400>`) — `UserRoleAssignmentValidator` exige `organizationId` depuis
+  5b-1, que ma fixture omettait. Rouge de fixture, pas de production.
+- Deuxième run : l'attaque elle-même était rejetée en `USER_ROLE_ASSIGNMENT_NOT_VALID` — **pour la
+  mauvaise raison**, car le payload d'attaque omettait lui aussi `organizationId`. Un vrai attaquant
+  le fournirait. Corrigé pour que l'attaque soit réaliste.
+- Troisième run — baseline propre, les trois en `expected:<4xx> but was:<200>` :
 
-Après correctif : les 5 tests de `OrganizationControllersHttpIntegrationTest` passent — le nouveau,
-et les 4 préexistants, qui prouvent que la création légitime (sans id) n'est pas affectée.
+| Test | Rouge |
+|---|---|
+| `createUserMustNotOverwriteAnExistingUserViaClientSuppliedId` | 400 attendu, **200** obtenu |
+| `createAssignmentMustNotOverwriteAnExistingAssignmentOfAnotherTenantViaClientSuppliedId` | 400 attendu, **200** obtenu |
+| `createAssignmentMustIgnoreClientSuppliedOrganizationId` | 404 attendu, **200** obtenu — A lisait l'affectation que B avait ancrée dans l'organisation de A |
 
-## 3. Audit exhaustif des endpoints `create` (étape 3)
+Le test `/users/create` prouve explicitement ce qui était demandé : la victime se reconnecte avec
+son email **et** son mot de passe d'origine après l'attaque ; l'email choisi par l'attaquant n'est
+jamais devenu un identifiant valide ; et le mot de passe de l'attaquant ne fonctionne pas sur le
+compte de la victime.
 
-Méthode, appliquée à chaque endpoint : (a) le `toEntity` du DTO propage-t-il `dto.getId()` ?
-(b) le service passe-t-il cette entité directement à `repository.save()` (donc merge) ? (c) l'entité
-visée par cet id peut-elle appartenir à une autre organisation ? (d) le contrôleur force-t-il
-l'organisation depuis le principal — ce qui, en cas de merge, **achève** le transfert de propriété
-au lieu de l'empêcher ?
+## 2. Mécanisme central (décision 1)
 
-Les 16 DTO applicatifs portant un `id` propagent tous `dto.getId()` dans `toEntity`. Les DTO de
-*ligne* (`SaleLineDto`, `CustomerOrderLineDto`, `PurchaseOrderLineDto`, `StockTransferLineDto`) ne
-le font pas : ils exposent `toNewEntity`, qui n'affecte jamais d'id — c'est le bon motif, déjà
-présent dans le code.
+`validator/CreationIdGuard.requireNoId(Long id, String entityLabel)` — point d'entrée unique, hors
+module (même emplacement partagé qu'`AdresseValidator`, déjà importé par les validateurs de
+plusieurs modules). Lève `InvalidEntityException` avec le **code dédié**
+`ErrorCodes.CREATION_ID_FORBIDDEN` (32000) → HTTP 400.
 
-| # | Endpoint | id client → `save()` ? | Cible peut être d'une autre org ? | Org forcée depuis le principal ? | Verdict |
-|---|---|---|---|---|---|
-| 1 | `POST /sites/create` | oui | oui | non (City vérifiée depuis 5b-2d) | **CORRIGÉ dans ce commit** — exploit prouvé |
-| 2 | `POST /articles/create` | oui | oui | oui → achève le transfert | **Exploitable**, même forme que Site |
-| 3 | `POST /categories/create` | oui | oui | oui → achève le transfert | **Exploitable**, même forme que Site |
-| 4 | `POST /customers/create` | oui | oui | oui → achève le transfert | **Exploitable** (`save` déjà assumé upsert en 5a) |
-| 5 | `POST /suppliers/create` | oui | oui | oui → achève le transfert | **Exploitable** (idem Customer) |
-| 6 | `POST /cities/create` | oui | oui | **non, aucune** — `organization.id` vient du client | **Exploitable**, pire : l'org cible est librement choisie |
-| 7 | `POST /warehouses/create` | oui | oui | **non, aucune** — seul le *type* du site est vérifié en base | **Exploitable** |
-| 8 | `POST /sales/create` | oui | oui | non (Site vérifié depuis 5b-2b) | **Exploitable** — pré-check de code contourné avec un code neuf |
-| 9 | `POST /customer-orders/create` | oui | oui | non (Site vérifié) | **Exploitable** (idem Sale) |
-| 10 | `POST /purchase-orders/create` | oui | oui | non (Site vérifié) | **Exploitable** (idem Sale) |
-| 11 | `POST /stock-transfers/create` | oui | oui | non (2 sites vérifiés) | **Exploitable**, et aucun pré-check de code |
-| 12 | `POST /users/create` | oui | oui | **non, aucune** (`idEntreprise` vient du client) | **Exploitable — primitive de prise de contrôle de compte** (voir ci-dessous) |
-| 13 | `POST /roles/create` | oui | **catalogue global** (pas d'`organizationId`) | s.o. | **Exploitable**, portée globale |
-| 14 | `POST /permissions/create` | oui | **catalogue global** | s.o. | **Exploitable**, portée globale |
-| 15 | `POST /user-role-assignments/create` | oui | oui (`organizationId` vient du client) | non | **Exploitable** |
-| 16 | `POST /tenants/register` | non — passe par `TenantRegistrationService`, pas `TenantService.save` | — | — | Non atteignable par cette voie |
-| — | `OrganizationService.save` | plus aucune surface HTTP depuis 5b-2e | — | — | Non atteignable |
+Rejet explicite plutôt que mise à `null` silencieuse : aucun endpoint d'update n'existe pour Site
+ou User, donc un appelant qui croyait mettre à jour ne doit pas repartir convaincu d'avoir réussi
+alors qu'une ressource neuve a été créée à côté.
 
-### Points qui méritent une lecture attentive avant de trancher le périmètre suivant
+Appelé **en premier**, avant la validation de forme : un id fourni est une erreur de protocole sans
+ambiguïté, et les garde-fous d'appartenance existants (City en 5b-2d, Site en 5b-2b) ne protègent
+pas de ce vecteur — ils valident la référence *fournie*, jamais l'entité *ciblée* par l'id.
+`SiteServiceImpl` a été migré de sa méthode privée (premier commit de l'incrément) vers ce
+mécanisme ; son test a suivi, de `SITE_NOT_VALID` vers `CREATION_ID_FORBIDDEN` — changement de
+contrat assumé dans le même incrément, l'invariant étant transverse et non propre à Site.
 
-- **`/users/create` (#12) est probablement le plus grave après Site.** `userAlreadyExists(email)`
-  rejette tout email déjà pris et **n'exclut pas son propre id** — l'attaquant fournit donc un email
-  neuf, ce qui est trivial, puis l'id de la victime : le merge réécrit la ligne utilisateur avec
-  l'email et le mot de passe (encodé) choisis par l'attaquant. L'endpoint n'exige que
-  `authenticated()`. Aucune organisation n'est forcée.
-- **`/roles/create` et `/permissions/create` (#13, #14) ont une portée globale, pas inter-tenant.**
-  `Role` et `Permission` sont un catalogue partagé sans `organizationId` (confirmé en 5b-2c).
-  Écraser par id le rôle `ADMINISTRATEUR` ou une permission seedée par V3/V4 affecte **tous** les
-  tenants à la fois. Les deux endpoints sont gatés par `RBAC_MANAGE`, que tout admin de tenant
-  possède via le bootstrap.
-- **`/cities/create` (#6) et `/warehouses/create` (#7) n'ont aucune notion d'organisation** sur la
-  création : ni forçage, ni vérification. Pour City, le client fournit librement
-  `organization.id` — l'attaquant choisit donc aussi l'organisation de destination.
-- **#8–#11 ont déjà un garde-fou d'appartenance de site** (5b-2b/2d) qui ne protège pas de ce
-  vecteur, exactement comme pour Site : le garde-fou valide le site *fourni*, jamais l'entité visée
-  par l'id.
-- Les pré-checks d'unicité (code pour Sale/CustomerOrder/PurchaseOrder, mail pour
-  Customer/Supplier, email pour User) **ne protègent pas** : il suffit de fournir une valeur neuve.
+### Le test d'inventaire (décision 1, seconde partie)
 
-### Correctif générique envisageable (à décider, non implémenté)
+`architecture/CreateEndpointIdGuardTest`, en deux parties :
 
-Les 14 cas exploitables partagent une cause unique : `create` et `update` passent par le même
-`repository.save()`, et l'id est lu depuis le DTO. Deux pistes, à arbitrer :
+1. **Dérive** — énumère les `POST .../create` réellement exposés depuis le
+   `RequestMappingHandlerMapping` et exige une correspondance exacte avec l'inventaire déclaré
+   (`GUARDED` + `KNOWN_UNGUARDED_DEBT`). Un endpoint neuf non classé fait échouer le test, forçant
+   une décision explicite.
+2. **Application** — vérifie **sur le bytecode** (ArchUnit `ClassFileImporter`) que chaque service
+   déclaré protégé appelle réellement `CreationIdGuard.requireNoId`. Retirer le garde-fou casse le
+   test.
 
-1. **Rejet par endpoint** — répliquer `requireNoClientSuppliedId` dans chaque service de création.
-   Explicite, localisé, testable un par un ; répétitif (14 fois).
-2. **`toNewEntity` systématique** — généraliser le motif déjà utilisé par les DTO de ligne :
-   un `toNewEntity` qui n'affecte jamais l'id, utilisé par les chemins de création. Supprime la
-   classe de bug à la racine, mais touche plus de fichiers et demande de distinguer proprement
-   création et mise à jour là où `save()` est aujourd'hui volontairement un upsert
-   (`Customer`/`Supplier`, documenté en 5a ; `Tenant.updatePhoto`).
+L'approche runtime a immédiatement payé : elle a révélé `/utilisateurs/create` →
+`UtilisateurController#save`, que les greps sur `*Controller.java` manquaient (route legacy déclarée
+sur une interface `*Api`). Elle est **déjà protégée**, car elle délègue à `UserServiceImpl.save` —
+et son `toUserDto` propage lui aussi `dto.getId()`, donc la faille y existait à l'identique.
 
-Option 1 est la plus sûre à incrément constant ; option 2 est structurellement meilleure mais
-redéfinit la frontière create/update, ce qui dépasse un incrément.
+**Les deux parties ont été vérifiées par mutation** : déclarer `CategoryServiceImpl` comme protégé
+fait échouer la partie 2 ; ajouter un `/ghost/create` fantôme à l'inventaire fait échouer la
+partie 1. Le test n'est pas vert à vide.
 
-## 4. Critère de sortie
+**Limite assumée** : la partie 1 détecte la *dérive d'inventaire*, elle ne prouve pas l'absence de
+faille. Le prouver exige un payload valide propre à chaque endpoint — ce que font les tests
+d'intégration dédiés. Les deux niveaux sont complémentaires, et le rapport le dit plutôt que de
+laisser croire à une preuve généralisée.
+
+## 3. Suppression de `/roles/create` et `/permissions/create` (décision 3)
+
+`Role` et `Permission` sont un **catalogue global** sans `organizationId` (confirmé en 5b-2c), seedé
+par Flyway (V3/V4). `RBAC_MANAGE` ne protégeait rien : tout admin de tenant le possède via le
+bootstrap `ADMINISTRATEUR`. N'importe lequel pouvait donc créer — et, via un id fourni, **écraser**
+— une entrée utilisée par *tous* les tenants (y compris le rôle `ADMINISTRATEUR` lui-même). Même
+précédent que `/organizations/create` en 5b-2e.
+
+Appelants vérifiés avant suppression : en production, `roleService.save`/`permissionService.save`
+n'étaient appelés **que** par les deux contrôleurs supprimés ; `TenantRegistrationServiceImpl`
+utilise `roleService.findByCode("ADMINISTRATEUR")`, pas `save`. Les méthodes de service sont donc
+**conservées** — une douzaine de suites de tests s'en servent pour leur seeding RBAC, et un futur
+amorçage en aurait besoin.
+
+`RbacAdminEndpointsHttpIntegrationTest` a été retravaillé pour préserver l'intention de couverture
+sans les routes disparues, sans rien affaiblir :
+
+| Test | Avant | Après |
+|---|---|---|
+| `entrepriseAdminCanCreatePermissionsAndRoles` | POST create ×2 | renommé `...CanReadPermissionsAndRoles`, vérifie le franchissement du gate sur `GET /permissions/all` et `/roles/all` |
+| `secondEntrepriseAdminIsAlsoAutomaticallyGrantedRbacManage` | POST create | même garantie via `GET /permissions/all` (route `RBAC_MANAGE` survivante) |
+| `userWithNoRoleAssignmentCannotSelfGrantARole` | POST create refusé | `GET /permissions/all` refusé (`PERMISSION_ACCESS_DENIED`), partie auto-attribution inchangée |
+| `plainUserCannotReadRolesOrPermissions` | seeding par HTTP | seeding par `PermissionService`/`RoleService`, assertions de gating identiques |
+
+## 4. Inventaire complet des endpoints de création
+
+15 `POST .../create` exposés (relevé runtime). Les DTO de *ligne* (`SaleLineDto`,
+`CustomerOrderLineDto`, `PurchaseOrderLineDto`, `StockTransferLineDto`) sont les seuls à ne pas
+propager d'id : ils exposent `toNewEntity` — le bon motif, déjà présent.
+
+| Endpoint | État |
+|---|---|
+| `/sites/create` | **Protégé** (5b-2f) |
+| `/users/create` | **Protégé** (5b-2f) |
+| `/utilisateurs/create` (legacy) | **Protégé** (5b-2f, par délégation à `UserServiceImpl`) |
+| `/user-role-assignments/create` | **Protégé** (5b-2f) + `organizationId` forcé |
+| `/roles/create` | **Supprimé** (5b-2f) |
+| `/permissions/create` | **Supprimé** (5b-2f) |
+| `/organizations/create` | Supprimé en 5b-2e |
+| `/articles/create` | Dette inventoriée |
+| `/categories/create` | Dette inventoriée |
+| `/cities/create` | Dette inventoriée — aucune notion d'organisation, `organization.id` libre |
+| `/warehouses/create` | Dette inventoriée — aucune notion d'organisation |
+| `/customers/create` | Dette inventoriée — **voir §5** |
+| `/suppliers/create` | Dette inventoriée — **voir §5** |
+| `/sales/create` | Dette inventoriée |
+| `/customer-orders/create` | Dette inventoriée |
+| `/purchase-orders/create` | Dette inventoriée |
+| `/stock-transfers/create` | Dette inventoriée |
+| `/tenants/register` | Non concerné — passe par `TenantRegistrationService`, pas `TenantService.save` |
+
+## 5. Customer / Supplier : réponse à la question posée (décision 4)
+
+**Non, il n'existe aucun endpoint d'update séparé.** Les routes exposées sont exactement :
+
+```
+/customers/all   /customers/create   /customers/{id}   /customers/delete/{id}
+/suppliers/all   /suppliers/create   /suppliers/{id}   /suppliers/delete/{id}
+```
+
+Conséquence directe pour la suite : `save()` y est **délibérément un upsert** (documenté en Phase
+5a — le pré-check d'unicité de mail s'exclut explicitement lui-même, `!existing.getId().equals(dto.getId())`,
+précisément pour permettre la mise à jour d'un client existant). Appliquer `CreationIdGuard` à ces
+deux endpoints supprimerait donc **le seul moyen HTTP de modifier un client ou un fournisseur**.
+
+Ce n'est plus un correctif de sécurité isolé mais une décision fonctionnelle : il faudrait d'abord
+introduire un `PUT`/`PATCH` dédié, ou scinder `save()` en `create()` + `update()`. C'est exactement
+la frontière create/update évoquée en §6 du rapport précédent, et la raison pour laquelle ces deux
+endpoints ne sont pas dans le périmètre.
+
+## 6. Critère de sortie
 
 | Critère | Résultat |
 |---|---|
-| Test rouge reproduisant l'écriture inter-tenant, montré avant correctif | **Vérifié** — `expected:<400> but was:<200>`, puis impact documenté (200 / 404 / 200) |
-| `Site` : id fourni à la création rejeté explicitement | **Vérifié** — `InvalidEntityException`/`SITE_NOT_VALID` |
-| Création légitime de site (sans id) inchangée | **Vérifié** — 4 tests préexistants verts |
-| Audit de tous les endpoints `create` présenté | **Vérifié** — 16 lignes, §3 |
-| Aucun autre correctif que `Site` | **Vérifié** — en attente de feu vert |
-| Aucun `V*.sql` existant modifié, aucun `@Disabled` | **Vérifié** — aucune migration touchée |
+| Test rouge montré avant correctif, pour chaque endpoint du périmètre | **Vérifié** — 4 rouges (Site + 3 identity), dont 2 itérations pour écarter un rouge de mauvaise raison |
+| `/users/create` : email ET mot de passe de la victime inchangés | **Vérifié** — reconnexion d'origine OK, email et mot de passe de l'attaquant inopérants |
+| Mécanisme central, pas 14 copies | **Vérifié** — `CreationIdGuard`, code dédié `CREATION_ID_FORBIDDEN` |
+| Test énumérant les `POST .../create` et échouant sur dérive | **Vérifié** — 2 parties, **toutes deux validées par mutation** |
+| `organizationId` ne vient plus du client (affectations) | **Vérifié** — forcé depuis le principal, toujours écrasé |
+| `/roles/create` et `/permissions/create` supprimés, services conservés, appelants vérifiés | **Vérifié** |
+| Customer/Supplier et autres entités non touchés | **Vérifié** |
+| Aucun `V*.sql` modifié, aucun `@Disabled` | **Vérifié** |
 | `ArchitectureRulesTest`/`ModularityTests` verts | **Vérifié** |
-| Tous les tests verts | **Vérifié** — 239 tests, 0 échec, 0 erreur (238 avant, +1 test dédié) |
+| Tous les tests verts | **Vérifié** — 244 tests, 0 échec, 0 erreur (238 avant l'incrément) |
 
-## 5. Fichiers modifiés
+## 7. Fichiers modifiés
 
-**Production** : `organization/application/impl/SiteServiceImpl.java` (+`requireNoClientSuppliedId`).
+**Production** : `validator/CreationIdGuard.java` (nouveau), `exception/ErrorCodes.java`
+(+`CREATION_ID_FORBIDDEN`), `organization/application/impl/SiteServiceImpl.java`,
+`identity/application/impl/UserServiceImpl.java`,
+`identity/application/impl/UserRoleAssignmentServiceImpl.java`,
+`identity/presentation/rest/UserRoleAssignmentController.java`,
+`identity/presentation/rest/RoleController.java`,
+`identity/presentation/rest/PermissionController.java`.
 
-**Test** : `organization/OrganizationControllersHttpIntegrationTest.java` (+1 test de
-non-régression, +helper `createCity`).
+**Test** : `identity/CreateEndpointIdInjectionHttpIntegrationTest.java` (nouveau, 3 tests),
+`architecture/CreateEndpointIdGuardTest.java` (nouveau, 2 tests),
+`organization/OrganizationControllersHttpIntegrationTest.java`,
+`identity/RbacAdminEndpointsHttpIntegrationTest.java`.
 
 **Docs** : `docs/migration-notes.md`.
 
-Builds exécutés sous JDK 21 (`JAVA_HOME=~/.jdks/ms-21.0.10`) : Lombok 1.18.30 reste incompatible
-avec le JDK 25 de l'environnement — écart documenté en 5b-2e §4, toujours non corrigé, `pom.xml`
-non touché.
+Builds sous JDK 21 (`JAVA_HOME=~/.jdks/ms-21.0.10`) : Lombok 1.18.30 reste incompatible avec le
+JDK 25 de l'environnement — écart documenté en 5b-2e §4, `pom.xml` non touché.
 
-## 6. Prochaine étape
+## 8. Prochaine étape
 
-**Arrêt demandé.** 14 endpoints restent exploitables par le même vecteur (§3). Rien n'est corrigé
-au-delà de `Site` sans feu vert explicite, et le choix entre correctif par endpoint (option 1) et
-`toNewEntity` systématique (option 2) reste à trancher.
+**Arrêt.** 10 endpoints restent vulnérables au même vecteur, tous inventoriés et verrouillés contre
+la dérive par `CreateEndpointIdGuardTest`. Deux groupes à traiter différemment :
 
-Backlog antérieur inchangé : RBAC-on-create (« qui a le droit de créer », distinct de ce vecteur),
-et montée de Lombok pour JDK 25.
+- **Sans endpoint d'update** (`cities`, `warehouses`, `sales`, `customer-orders`,
+  `purchase-orders`, `stock-transfers`, `articles`, `categories`) : `CreationIdGuard` s'applique
+  directement, incrément mécanique.
+- **Avec upsert assumé** (`customers`, `suppliers`) : nécessite d'abord un endpoint d'update dédié
+  — décision fonctionnelle, voir §5.
+
+Backlog antérieur inchangé : RBAC-on-create (« qui a le droit de créer »), et montée de Lombok pour
+JDK 25.

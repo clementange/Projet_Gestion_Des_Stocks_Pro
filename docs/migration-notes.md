@@ -1037,3 +1037,42 @@ passe integralement sous JDK 21). Les builds de cet increment ont tourne sous JD
 du projet selon CLAUDE.md). `pom.xml` n'a PAS ete touche : monter Lombok est un changement de
 dependance transverse, hors perimetre, qui merite sa propre validation. A traiter separement si
 l'environnement doit rester sur JDK 25.
+
+## Phase 5b-2f (ecriture inter-tenant via id client sur les endpoints create) : trouve pendant l'increment
+
+Voir `docs/phase-5b2f-report.md` pour le detail complet, dont le tableau d'audit des 16 endpoints
+`create`. Seul `Site` est corrige dans cet increment ; 14 autres endpoints restent exploitables par
+le meme vecteur, en attente d'un feu vert sur le perimetre suivant.
+
+### Un id fourni par le client transforme une creation en MERGE JPA, donc en appropriation d'actif
+
+`SiteDto.toEntity` fait `setId(dto.getId())`, `SiteValidator` ne rejette pas un id fourni, et
+`siteRepository.save()` sur une entite portant un id existant est un MERGE, donc une mise a jour.
+La verification d'appartenance de City posee en 5b-2d ne protege pas : elle ne regarde que la ville
+FOURNIE, jamais l'entite CIBLEE par l'id. Impact mesure (probe temporaire, retire depuis) : le
+tenant B poste sur `/sites/create` avec l'id du site du tenant A et sa propre ville -> 200 OK, le
+site est reecrit et repointe sur la ville de B donc sur l'organisation de B ; A relit son propre
+site -> 404 SITE_NOT_FOUND ; B le relit -> 200. Ce n'est pas un simple ecrasement mais une
+appropriation complete, et c'est justement la lecture org-scopee (5b-2b/2c) qui rend le vol total
+plutot que partiel.
+
+Correctif : rejet explicite (`InvalidEntityException`/`SITE_NOT_VALID`) plutot que mise a null
+silencieuse - un appelant qui croyait faire une mise a jour (aucun endpoint d'update de site
+n'existe) ne doit pas repartir convaincu d'avoir reussi alors qu'un site neuf a ete cree a cote.
+
+### Le vecteur est generique : les 16 DTO applicatifs portant un id le propagent tous
+
+Les DTO de *ligne* (`SaleLineDto`, `CustomerOrderLineDto`, `PurchaseOrderLineDto`,
+`StockTransferLineDto`) sont les seuls a ne pas le faire : ils exposent `toNewEntity`, qui n'affecte
+jamais d'id - motif correct, deja present dans le code et candidat a une generalisation.
+
+Points notables de l'audit (tableau complet dans le rapport) : `/users/create` est probablement le
+plus grave apres Site (le pre-check d'email n'exclut pas son propre id, donc un email neuf suffit ->
+merge qui reecrit email + mot de passe de la victime ; endpoint `authenticated()` seul, aucune
+organisation forcee) ; `/roles/create` et `/permissions/create` ont une portee GLOBALE et non
+inter-tenant, puisque Role/Permission sont un catalogue partage sans organizationId (ecraser le role
+ADMINISTRATEUR affecte tous les tenants) ; `/cities/create` et `/warehouses/create` n'ont aucune
+notion d'organisation a la creation, et pour City l'organisation de destination est meme librement
+fournie par le client. Les controleurs qui forcent l'organisation depuis le principal
+(Article/Category/Customer/Supplier, 5b-2a) n'empechent pas le merge : ils ACHEVENT le transfert de
+propriete. Aucun pre-check d'unicite (code, mail, email) ne protege : une valeur neuve suffit.

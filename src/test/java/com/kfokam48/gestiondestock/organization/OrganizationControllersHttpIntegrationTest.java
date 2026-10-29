@@ -158,10 +158,9 @@ public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrat
   @Test
   public void organizationDeleteWithDependentCityIsRejected() throws Exception {
     // Phase 5b-2c : delete est desormais self-only - la ville doit etre creee sous l'organisation
-    // propre de l'appelant (decodee du JWT), pas une organisation fraichement creee via
-    // /organizations/create (toujours sans verification, mais desormais distincte de
-    // l'organisation de l'appelant) - meme cause racine que le correctif de fixture en 5b-2b, voir
-    // docs/phase-5b2c-report.md.
+    // propre de l'appelant (decodee du JWT) - voir docs/phase-5b2c-report.md. Phase 5b-2e :
+    // /organizations/create, qui servait auparavant a fabriquer une organisation de test
+    // deconnectee du principal, n'existe plus du tout - voir docs/phase-5b2e-report.md.
     String token = adminToken();
     long orgId = organizationIdFromToken(token);
     mockMvc.perform(post("/gestiondestock/v1/cities/create")
@@ -173,5 +172,31 @@ public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrat
     mockMvc.perform(delete("/gestiondestock/v1/organizations/delete/" + orgId).header("Authorization", "Bearer " + token))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("ORGANIZATION_ALREADY_IN_USE"));
+  }
+
+  /**
+   * Phase 5b-2e : POST /organizations/create est supprime. Une Organization creee par cette route
+   * n'avait ni Tenant, ni admin, ni affectation RBAC - une orpheline inatteignable, cause racine
+   * de trois regressions de fixture consecutives. Le seul chemin de creation restant est
+   * POST /tenants/register (exerce par adminToken() ci-dessus, et par
+   * EntrepriseServiceOrganizationMirrorIntegrationTest pour l'Organization miroir) - voir
+   * docs/phase-5b2e-report.md.
+   */
+  @Test
+  public void organizationCreateEndpointNoLongerExists() throws Exception {
+    String token = adminToken();
+
+    mockMvc.perform(post("/gestiondestock/v1/organizations/create")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Org Fantome\",\"active\":true}"))
+        .andExpect(status().is4xxClientError());
+
+    // Les autres routes du controleur restent operationnelles : la suppression est bien ciblee
+    // sur la seule creation, pas sur l'ensemble du controleur.
+    long orgId = organizationIdFromToken(token);
+    mockMvc.perform(get("/gestiondestock/v1/organizations/" + orgId).header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(orgId));
   }
 }

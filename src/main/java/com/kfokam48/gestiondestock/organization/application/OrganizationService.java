@@ -6,6 +6,14 @@ import java.util.List;
 
 public interface OrganizationService {
 
+  /**
+   * Phase 5b-2e : plus aucune surface HTTP ne mene ici ({@code POST /organizations/create}
+   * supprime). Seul appelant restant : {@code TenantRegistrationServiceImpl}, qui cree
+   * l'Organization miroir d'un Tenant dans le cadre de l'orchestration complete d'inscription
+   * (Tenant + Organization + Site par defaut + admin + RBAC). Ne pas reexposer en HTTP sans
+   * cette orchestration : une Organization seule est une orpheline inatteignable - voir
+   * docs/phase-5b2e-report.md.
+   */
   OrganizationDto save(OrganizationDto dto);
 
   // Phase 5b-2c : self-only - id doit correspondre a l'organisation de l'appelant, meme 404

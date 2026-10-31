@@ -1164,3 +1164,48 @@ dans le depot, ou accepter qu'il reste un artefact local.
 Aucun build n'a ete lance sur un JDK < 21 ni un Maven < 3.9 pour voir le message s'afficher
 reellement (aucun JDK < 21 configure ; retrograder le wrapper pour le prouver n'avait pas de
 valeur). La regle est donc active mais son chemin d'echec n'est pas teste.
+
+## Phase 5b-2g (« create n'est jamais update » sur les 10 endpoints restants) : trouve pendant l'increment
+
+Voir `docs/phase-5b2g-report.md`. La dette `KNOWN_UNGUARDED_DEBT` est ramenee a ZERO et un test
+(`theDebtListMustStayEmpty`) casse desormais le build si elle est realimentee.
+
+### Aucun des 10 endpoints n'avait d'endpoint d'update : poser la garde seule aurait supprime le seul moyen d'editer
+
+Constat d'investigation decisif. D'ou 6 nouveaux `PUT /<ressource>/update/{id}` (articles,
+categories, cities, warehouses, customers, suppliers), tous sur le meme motif : entite RECHARGEE,
+appartenance verifiee AVANT ecriture (404 fail-closed), id pris dans le CHEMIN, organisation
+REINJECTEE depuis l'entite existante avant validation (le corps ne peut ni la changer ni l'effacer),
+champs appliques sur l'entite chargee et jamais via `toEntity(dto)`. Pour sales/customer-orders/
+purchase-orders/stock-transfers : PAS d'update generique (agregats a machine d'etats, modifies par
+leurs actions metier) - la garde de creation suffit.
+
+### Regression introduite par la garde, puis corrigee : updatePhoto passait par le chemin de creation
+
+`ArticleServiceImpl`/`CustomerServiceImpl`/`SupplierServiceImpl.updatePhoto` faisaient
+`dto = findById(id); dto.setPhoto(url); return save(dto);` - un aller-retour par le chemin de
+CREATION avec un id, donc casse par la garde (3 tests de `PhotoAttachmentCharacterizationTest`
+passes au rouge). Corrige en mutant l'entite CHARGEE, exactement le motif deja applique a
+`UserServiceImpl.updatePhoto` en Phase 4c, ou ce meme aller-retour corrompait le mot de passe. Lecon
+generale : tout `updatePhoto`/`updateX` qui reutilise `save(dto)` est suspect par construction.
+
+### Trois tests utilisaient save() comme upsert (pas deux)
+
+Le grep initial sur `.id(` n'en avait trouve que deux (Customer, Supplier) ;
+`CategoryServiceImplTest.shouldUpdateCategoryWithSuccess` appelait `save()` deux fois de suite sur
+le meme objet, motif invisible a ce grep. A retenir : chercher l'upsert par la FORME (deux save
+successifs) et pas seulement par la presence d'un `.id(`.
+
+### City et Warehouse n'ont JAMAIS eu de lecture scopee par organisation (backlog, gravite elevee)
+
+Decouvert en lisant les interfaces : `CityService` et `WarehouseService` n'exposent aucune methode
+prenant un `organizationId`. Les phases 5b-2a/b/c ne les ont jamais couvertes.
+`GET /cities/{id}`, `GET /warehouses/{id}`, `GET /warehouses/all` et surtout
+`GET /cities/filter/organization/{idOrganization}` (l'organisation vient du CHEMIN) fuient en
+lecture inter-tenant. A traiter en 5b-2h, dont la matrice automatique le revelera.
+
+### Protection ecrite mais PAS prouvee sur les 6 nouveaux PUT
+
+Aucun test inter-tenant dedie ne couvre encore les nouveaux `PUT` ni le forcage d'organisation sur
+`/cities/create` / l'appartenance de site sur `/warehouses/create`. C'est l'objet de la matrice
+5b-2h. Jusque-la : declare, non prouve.

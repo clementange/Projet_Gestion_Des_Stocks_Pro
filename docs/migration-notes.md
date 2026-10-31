@@ -1127,3 +1127,40 @@ DELIBEREMENT un upsert (Phase 5a : le pre-check de mail s'exclut explicitement l
 un fournisseur : ce n'est plus un correctif de securite isole mais une decision fonctionnelle
 (introduire un PUT/PATCH dedie, ou scinder `save()` en `create()`/`update()`). Raison pour laquelle
 ils restent hors perimetre.
+
+## Incrément L0 (chaîne d'outils : Java 21 + Lombok) : trouvé pendant l'incrément
+
+Voir `docs/phase-L0-report.md`. Premier incrément du Lot 1.
+
+### Le blocage JDK 25 / Lombok est levé ; la contrainte JAVA_HOME imposée depuis 5b-2e disparaît
+
+`java.version` 17 -> 21 (cible documentée enfin appliquée), Lombok 1.18.30 -> 1.18.46,
+wrapper Maven 3.6.3 -> 3.9.12, et `maven-enforcer-plugin` qui exige JDK >= 21 et Maven >= 3.9.
+Build complet VERIFIE vert sous les deux JDK (21.0.10 et 25.0.2), 244 tests, 0 echec : les
+increments suivants n'ont plus besoin de forcer `JAVA_HOME`. L'erreur
+`ExceptionInInitializerError: com.sun.tools.javac.code.TypeTag :: UNKNOWN` ne se reproduit plus
+(0 occurrence dans le log JDK 25).
+
+Le wrapper a du etre monte en meme temps : exiger Maven >= 3.9 avec un wrapper 3.6.3 aurait casse
+le build immediatement. Contradiction prompt/code tranchee en faveur du code, puis signalee.
+
+### Aucune reecriture de syntaxe pre-21 (decision explicite)
+
+Le gain est nul, le risque non nul, et le critere de sortie exigeait un diff de production limite a
+`pom.xml`. Melanger un changement d'outillage et un refactor de masse `record`/`switch` aurait
+viole la regle de perimetre.
+
+### CLAUDE.md n'est PAS sous controle de version dans ce depot
+
+Constat a retenir pour tous les increments suivants : `CLAUDE.md` est a `../CLAUDE.md`, un niveau
+AU-DESSUS de la racine git, et n'est pas suivi (`git ls-files` vide pour ce motif). Les consignes
+qui demandent de « mettre a jour CLAUDE.md » produisent donc une modification REELLE mais
+NON AUDITABLE par le depot : un relecteur de commits ne la verra jamais. Le fichier est tout de
+meme tenu a jour (il pilote les sessions suivantes). A trancher par le proprietaire : le deplacer
+dans le depot, ou accepter qu'il reste un artefact local.
+
+### Limite assumee : l'enforcer est declare mais pas verifie en echec
+
+Aucun build n'a ete lance sur un JDK < 21 ni un Maven < 3.9 pour voir le message s'afficher
+reellement (aucun JDK < 21 configure ; retrograder le wrapper pour le prouver n'avait pas de
+valeur). La regle est donc active mais son chemin d'echec n'est pas teste.

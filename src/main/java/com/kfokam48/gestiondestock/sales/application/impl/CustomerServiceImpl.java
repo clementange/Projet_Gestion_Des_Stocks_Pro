@@ -1,7 +1,10 @@
 package com.kfokam48.gestiondestock.sales.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.sales.domain.model.Customer;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.sales.application.CustomerService;
@@ -34,6 +37,9 @@ public class CustomerServiceImpl implements CustomerService {
 
   @Override
   public CustomerDto save(CustomerDto dto) {
+    // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
+    // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'un client");
     List<String> errors = CustomerValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("Customer is not valid {}", dto);
@@ -117,9 +123,55 @@ public class CustomerServiceImpl implements CustomerService {
   // Phase 4c : remplace SaveClientPhoto (supprime, voir docs/phase-4c-report.md). save() est deja
   // un upsert plat, aucun risque de bug de mise a jour ici.
   @Override
+  /**
+   * Phase 5b-2g : mise a jour ciblee sur l'entite CHARGEE, et non un aller-retour par
+   * {@code save(dto)}. Ce round-trip reinjectait l'id dans un chemin de creation - desormais
+   * refuse par {@code CreationIdGuard} - et c'est exactement le motif de bug corrige en Phase 4c
+   * sur {@code UserServiceImpl.updatePhoto} (le save() de l'epoque corrompait le mot de passe).
+   * Voir docs/phase-5b2g-report.md.
+   */
   public CustomerDto updatePhoto(Long id, String url) {
-    CustomerDto customer = findById(id);
-    customer.setPhoto(url);
-    return save(customer);
+    Customer existing = customerRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun client avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CUSTOMER_NOT_FOUND));
+    existing.setPhoto(url);
+    return CustomerDto.fromEntity(customerRepository.save(existing));
+  }
+
+  // Phase 5b-2g : voir docs/phase-5b2g-report.md.
+  @Override
+  public CustomerDto update(Long id, CustomerDto dto, Long organizationId) {
+    Customer existing = customerRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun client avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CUSTOMER_NOT_FOUND));
+    if (organizationId == null || existing.getOrganizationId() == null
+        || !organizationId.equals(existing.getOrganizationId())) {
+      log.warn("Customer {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucun client avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CUSTOMER_NOT_FOUND);
+    }
+    dto.setId(id);
+    dto.setOrganizationId(existing.getOrganizationId());
+    List<String> errors = CustomerValidator.validate(dto);
+    if (!errors.isEmpty()) {
+      log.error("Customer is not valid {}", dto);
+      throw new InvalidEntityException("Le client n'est pas valide", ErrorCodes.CUSTOMER_NOT_VALID, errors);
+    }
+    // Pre-check d'unicite : s'exclut lui-meme, sinon une mise a jour qui conserve son propre mail
+    // serait rejetee a tort (meme motif qu'en Phase 5a, desormais porte par update et non save).
+    if (StringUtils.hasLength(dto.getMail())) {
+      customerRepository.findByMail(dto.getMail())
+          .filter(other -> !other.getId().equals(id))
+          .ifPresent(other -> {
+            log.error("Customer mail {} already exists", dto.getMail());
+            throw new InvalidEntityException("Un client avec ce mail existe deja", ErrorCodes.CUSTOMER_ALREADY_EXISTS);
+          });
+    }
+    existing.setNom(dto.getNom());
+    existing.setPrenom(dto.getPrenom());
+    existing.setMail(dto.getMail());
+    existing.setNumTel(dto.getNumTel());
+    existing.setAdresse(AdresseDto.toEntity(dto.getAdresse()));
+    return CustomerDto.fromEntity(customerRepository.save(existing));
   }
 }

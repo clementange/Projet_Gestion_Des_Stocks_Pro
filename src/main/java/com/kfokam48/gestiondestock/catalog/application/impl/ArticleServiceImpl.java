@@ -6,7 +6,10 @@ import com.kfokam48.gestiondestock.catalog.application.validator.ArticleValidato
 import com.kfokam48.gestiondestock.catalog.domain.model.Article;
 import com.kfokam48.gestiondestock.catalog.infrastructure.persistence.ArticleRepository;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.catalog.application.dto.CategoryDto;
+import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.model.LigneCommandeClient;
@@ -86,6 +89,9 @@ public class ArticleServiceImpl implements ArticleService {
 
   @Override
   public ArticleDto save(ArticleDto dto) {
+    // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
+    // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'un article");
     List<String> errors = ArticleValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("Article is not valid {}", dto);
@@ -200,9 +206,48 @@ public class ArticleServiceImpl implements ArticleService {
   // Phase 4c : remplace SaveArticlePhoto (supprime, voir docs/phase-4c-report.md). Mise a jour
   // ciblee, ne relance aucune validation/orchestration au-dela du champ photo.
   @Override
+  /**
+   * Phase 5b-2g : mise a jour ciblee sur l'entite CHARGEE, et non un aller-retour par
+   * {@code save(dto)}. Ce round-trip reinjectait l'id dans un chemin de creation - desormais
+   * refuse par {@code CreationIdGuard} - et c'est exactement le motif de bug corrige en Phase 4c
+   * sur {@code UserServiceImpl.updatePhoto} (le save() de l'epoque corrompait le mot de passe).
+   * Voir docs/phase-5b2g-report.md.
+   */
   public ArticleDto updatePhoto(Long id, String url) {
-    ArticleDto article = findById(id);
-    article.setPhoto(url);
-    return save(article);
+    Article existing = articleRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND));
+    existing.setPhoto(url);
+    return ArticleDto.fromEntity(articleRepository.save(existing));
+  }
+
+  // Phase 5b-2g : voir docs/phase-5b2g-report.md.
+  @Override
+  public ArticleDto update(Long id, ArticleDto dto, Long organizationId) {
+    Article existing = articleRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND));
+    if (organizationId == null || existing.getOrganization() == null
+        || !organizationId.equals(existing.getOrganization().getId())) {
+      log.warn("Article {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND);
+    }
+    // L'organisation de l'entite existante est reinjectee dans le DTO avant validation : le corps
+    // de la requete ne peut donc ni la changer, ni la supprimer.
+    dto.setId(id);
+    dto.setOrganization(OrganizationDto.fromEntity(existing.getOrganization()));
+    List<String> errors = ArticleValidator.validate(dto);
+    if (!errors.isEmpty()) {
+      log.error("Article is not valid {}", dto);
+      throw new InvalidEntityException("L'article n'est pas valide", ErrorCodes.ARTICLE_NOT_VALID, errors);
+    }
+    existing.setCodeArticle(dto.getCodeArticle());
+    existing.setDesignation(dto.getDesignation());
+    existing.setPrixUnitaireHt(dto.getPrixUnitaireHt());
+    existing.setTauxTva(dto.getTauxTva());
+    existing.setPrixUnitaireTtc(dto.getPrixUnitaireTtc());
+    existing.setCategory(CategoryDto.toEntity(dto.getCategory()));
+    return ArticleDto.fromEntity(articleRepository.save(existing));
   }
 }

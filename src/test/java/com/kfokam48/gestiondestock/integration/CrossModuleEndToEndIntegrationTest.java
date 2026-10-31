@@ -128,7 +128,7 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     SiteDto entrepotCentral = siteService.save(SiteDto.builder().code(uniqueCode("ENT-DLA")).name("Entrepot Central Douala")
         .type(SiteType.ENTREPOT).active(true).city(douala).build(), organizationId);
     WarehouseDto warehouse = warehouseService.save(WarehouseDto.builder().code(uniqueCode("WH-DLA")).name("Entrepot Central Douala")
-        .site(entrepotCentral).build());
+        .site(entrepotCentral).build(), organizationId);
     assertEquals(entrepotCentral.getId(), warehouse.getSite().getId());
 
     SiteDto boutiqueAkwa = siteService.save(SiteDto.builder().code(uniqueCode("BTQ-AKW")).name("Boutique Akwa")

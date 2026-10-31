@@ -2,6 +2,7 @@ package com.kfokam48.gestiondestock.sales.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
@@ -65,6 +66,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
   @Override
   public CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines, Long organizationId) {
+    // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
+    // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'une commande client");
     List<String> errors = CustomerOrderValidator.validate(dto, lines);
     if (!errors.isEmpty()) {
       log.error("CustomerOrder is not valid {}", dto);

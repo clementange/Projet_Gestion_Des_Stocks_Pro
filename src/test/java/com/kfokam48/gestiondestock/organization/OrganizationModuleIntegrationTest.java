@@ -61,7 +61,8 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     assertNotNull(entrepot.getId());
 
     WarehouseDto warehouse = warehouseService.save(
-        WarehouseDto.builder().code(uniqueCode("WH-DLA")).name("Entrepot Central Douala").site(entrepot).build());
+        WarehouseDto.builder().code(uniqueCode("WH-DLA")).name("Entrepot Central Douala").site(entrepot).build(),
+        organization.getId());
 
     assertNotNull(warehouse.getId());
     assertEquals(entrepot.getId(), warehouse.getSite().getId());
@@ -80,7 +81,8 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
             .type(SiteType.BOUTIQUE).active(true).city(city).build(), organization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> warehouseService.save(
-        WarehouseDto.builder().code(uniqueCode("WH-YAO")).name("Entrepot invalide").site(boutique).build()));
+        WarehouseDto.builder().code(uniqueCode("WH-YAO")).name("Entrepot invalide").site(boutique).build(),
+        organization.getId()));
 
     assertEquals(1, exception.getErrors().size());
   }
@@ -102,7 +104,8 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     SiteDto entrepot = siteService.save(
         SiteDto.builder().code(uniqueCode("GAR-ENT")).name("Entrepot Garoua")
             .type(SiteType.ENTREPOT).active(true).city(city).build(), organization.getId());
-    warehouseService.save(WarehouseDto.builder().code(uniqueCode("WH-GAR")).name("Entrepot Garoua").site(entrepot).build());
+    warehouseService.save(WarehouseDto.builder().code(uniqueCode("WH-GAR")).name("Entrepot Garoua").site(entrepot).build(),
+        organization.getId());
 
     assertThrows(InvalidOperationException.class, () -> siteService.delete(entrepot.getId()));
   }

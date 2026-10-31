@@ -2,6 +2,7 @@ package com.kfokam48.gestiondestock.sales.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
@@ -51,6 +52,9 @@ public class SaleServiceImpl implements SaleService {
 
   @Override
   public SaleDto create(SaleDto dto, List<SaleLineDto> lines, Long userId, Long organizationId) {
+    // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
+    // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'une vente");
     List<String> errors = SaleValidator.validate(dto, lines);
     if (!errors.isEmpty()) {
       log.error("Sale is not valid {}", dto);

@@ -2,6 +2,7 @@ package com.kfokam48.gestiondestock.purchasing.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
@@ -53,6 +54,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
   @Override
   public PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines, Long organizationId) {
+    // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
+    // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'une commande fournisseur");
     List<String> errors = PurchaseOrderValidator.validate(dto, lines);
     if (!errors.isEmpty()) {
       log.error("PurchaseOrder is not valid {}", dto);

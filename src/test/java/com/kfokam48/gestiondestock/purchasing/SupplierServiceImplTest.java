@@ -84,9 +84,14 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
   @Test
   public void shouldAllowUpdatingSameSupplierWithoutMailConflict() {
     String mail = "self-" + UUID.randomUUID() + "@test.local";
-    SupplierDto saved = service.save(SupplierDto.builder().nom("Fournisseur").mail(mail).build());
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Fournisseur Update").active(true).build());
+    SupplierDto saved = service.save(SupplierDto.builder().nom("Fournisseur").mail(mail)
+        .organizationId(organization.getId()).build());
 
-    SupplierDto updated = service.save(SupplierDto.builder().id(saved.getId()).nom("Fournisseur Renomme").mail(mail).build());
+    // Phase 5b-2g : voir le commentaire equivalent dans CustomerServiceImplTest.
+    SupplierDto updated = service.update(saved.getId(),
+        SupplierDto.builder().nom("Fournisseur Renomme").mail(mail).build(), organization.getId());
 
     assertEquals("Fournisseur Renomme", updated.getNom());
   }

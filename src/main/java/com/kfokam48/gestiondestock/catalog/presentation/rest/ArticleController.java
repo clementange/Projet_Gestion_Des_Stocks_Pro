@@ -7,6 +7,7 @@ import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 import com.kfokam48.gestiondestock.media.application.dto.PhotoUrlRequest;
 import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
+import org.springframework.web.bind.annotation.PutMapping;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,5 +75,15 @@ public class ArticleController {
   @PostMapping(value = APP_ROOT + "/articles/{idArticle}/photo", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public ArticleDto updatePhoto(@PathVariable("idArticle") Long id, @RequestBody PhotoUrlRequest request) {
     return articleService.updatePhoto(id, request.url());
+  }
+
+  /**
+   * Phase 5b-2g : seul chemin de mise a jour. L'id vient du CHEMIN ; le service verifie
+   * l'appartenance a l'organisation de l'appelant avant toute ecriture et interdit tout
+   * changement d'organisation - voir docs/phase-5b2g-report.md.
+   */
+  @PutMapping(value = APP_ROOT + "/articles/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  public ArticleDto update(@PathVariable("id") Long id, @RequestBody ArticleDto dto, @AuthenticationPrincipal ExtendedUser principal) {
+    return articleService.update(id, dto, principal.getOrganizationId());
   }
 }

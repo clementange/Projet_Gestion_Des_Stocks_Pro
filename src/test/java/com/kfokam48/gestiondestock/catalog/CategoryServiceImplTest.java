@@ -58,12 +58,18 @@ public class CategoryServiceImplTest extends AbstractIntegrationTest {
         .idEntreprise(1L)
         .build();
 
+    // Phase 5b-2g : save() n'est plus un upsert. La mise a jour passe par
+    // update(id, dto, organizationId), qui exige l'appartenance : la categorie est donc creee
+    // avec une organisation reelle - voir docs/phase-5b2g-report.md.
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Cat Update").active(true).build());
+    expectedCategory.setOrganization(organization);
     CategoryDto savedCategory = service.save(expectedCategory);
 
     CategoryDto categoryToUpdate = savedCategory;
     categoryToUpdate.setCode("Cat update");
 
-    savedCategory = service.save(categoryToUpdate);
+    savedCategory = service.update(categoryToUpdate.getId(), categoryToUpdate, organization.getId());
 
     assertNotNull(categoryToUpdate);
     assertNotNull(categoryToUpdate.getId());

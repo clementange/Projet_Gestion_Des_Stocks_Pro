@@ -1,7 +1,10 @@
 package com.kfokam48.gestiondestock.organization.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.organization.domain.model.City;
+import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.organization.application.CityService;
@@ -31,6 +34,9 @@ public class CityServiceImpl implements CityService {
 
   @Override
   public CityDto save(CityDto dto) {
+    // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
+    // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'une ville");
     List<String> errors = CityValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("City is not valid {}", dto);
@@ -78,5 +84,29 @@ public class CityServiceImpl implements CityService {
           ErrorCodes.CITY_ALREADY_IN_USE);
     }
     cityRepository.deleteById(id);
+  }
+
+  // Phase 5b-2g : voir docs/phase-5b2g-report.md.
+  @Override
+  public CityDto update(Long id, CityDto dto, Long organizationId) {
+    City existing = cityRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucune ville avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.CITY_NOT_FOUND));
+    if (organizationId == null || existing.getOrganization() == null
+        || !organizationId.equals(existing.getOrganization().getId())) {
+      log.warn("City {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucune ville avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.CITY_NOT_FOUND);
+    }
+    dto.setId(id);
+    dto.setOrganization(OrganizationDto.fromEntity(existing.getOrganization()));
+    List<String> errors = CityValidator.validate(dto);
+    if (!errors.isEmpty()) {
+      log.error("City is not valid {}", dto);
+      throw new InvalidEntityException("La ville n'est pas valide", ErrorCodes.CITY_NOT_VALID, errors);
+    }
+    existing.setName(dto.getName());
+    existing.setCountry(dto.getCountry());
+    return CityDto.fromEntity(cityRepository.save(existing));
   }
 }

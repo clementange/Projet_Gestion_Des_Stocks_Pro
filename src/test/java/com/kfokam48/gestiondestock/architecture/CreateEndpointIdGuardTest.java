@@ -51,18 +51,6 @@ public class CreateEndpointIdGuardTest extends AbstractIntegrationTest {
 
   /** Endpoints de creation dont le service rejette explicitement un id fourni par le client. */
   private static final Set<String> GUARDED = new TreeSet<>(List.of(
-      "/gestiondestock/v1/sites/create",
-      "/gestiondestock/v1/users/create",
-      // Adaptateur legacy : delegue a UserServiceImpl.save, donc couvert par le meme garde-fou.
-      "/gestiondestock/v1/utilisateurs/create",
-      "/gestiondestock/v1/user-role-assignments/create"));
-
-  /**
-   * Endpoints encore vulnerables au meme vecteur, hors perimetre de 5b-2f, audites et documentes
-   * dans docs/phase-5b2f-report.md §3. Cette liste est une DETTE assumee, pas une absolution :
-   * elle doit diminuer, jamais grandir.
-   */
-  private static final Set<String> KNOWN_UNGUARDED_DEBT = new TreeSet<>(List.of(
       "/gestiondestock/v1/articles/create",
       "/gestiondestock/v1/categories/create",
       "/gestiondestock/v1/cities/create",
@@ -70,13 +58,35 @@ public class CreateEndpointIdGuardTest extends AbstractIntegrationTest {
       "/gestiondestock/v1/customers/create",
       "/gestiondestock/v1/purchase-orders/create",
       "/gestiondestock/v1/sales/create",
+      "/gestiondestock/v1/sites/create",
       "/gestiondestock/v1/stock-transfers/create",
       "/gestiondestock/v1/suppliers/create",
+      "/gestiondestock/v1/users/create",
+      // Adaptateur legacy : delegue a UserServiceImpl.save, donc couvert par le meme garde-fou.
+      "/gestiondestock/v1/utilisateurs/create",
+      "/gestiondestock/v1/user-role-assignments/create",
       "/gestiondestock/v1/warehouses/create"));
+
+  /**
+   * Phase 5b-2g : la dette est VIDE et doit le rester. {@link #theDebtListMustStayEmpty()} fait
+   * echouer le build si un endpoint y est reintroduit : un nouvel endpoint de creation doit etre
+   * garde, pas classe en dette - voir docs/phase-5b2g-report.md.
+   */
+  private static final Set<String> KNOWN_UNGUARDED_DEBT = new TreeSet<>(List.of());
 
   /** Services declares proteges, verifies un par un sur le bytecode (partie 2). */
   private static final List<String> GUARDED_SERVICES = List.of(
       "com.kfokam48.gestiondestock.organization.application.impl.SiteServiceImpl",
+      "com.kfokam48.gestiondestock.organization.application.impl.CityServiceImpl",
+      "com.kfokam48.gestiondestock.organization.application.impl.WarehouseServiceImpl",
+      "com.kfokam48.gestiondestock.catalog.application.impl.ArticleServiceImpl",
+      "com.kfokam48.gestiondestock.catalog.application.impl.CategoryServiceImpl",
+      "com.kfokam48.gestiondestock.sales.application.impl.CustomerServiceImpl",
+      "com.kfokam48.gestiondestock.sales.application.impl.SaleServiceImpl",
+      "com.kfokam48.gestiondestock.sales.application.impl.CustomerOrderServiceImpl",
+      "com.kfokam48.gestiondestock.purchasing.application.impl.SupplierServiceImpl",
+      "com.kfokam48.gestiondestock.purchasing.application.impl.PurchaseOrderServiceImpl",
+      "com.kfokam48.gestiondestock.transfers.application.impl.StockTransferServiceImpl",
       "com.kfokam48.gestiondestock.identity.application.impl.UserServiceImpl",
       "com.kfokam48.gestiondestock.identity.application.impl.UserRoleAssignmentServiceImpl");
 
@@ -124,5 +134,14 @@ public class CreateEndpointIdGuardTest extends AbstractIntegrationTest {
               + "soit le garde-fou a ete retire, soit l'inventaire GUARDED est faux.",
           callsGuard);
     }
+  }
+
+  @Test
+  public void theDebtListMustStayEmpty() {
+    assertTrue(
+        "La dette d'endpoints de creation non gardes doit rester vide (Phase 5b-2g l'a ramenee a "
+            + "zero). Un nouvel endpoint de creation doit appeler CreationIdGuard.requireNoId, pas "
+            + "rejoindre KNOWN_UNGUARDED_DEBT : " + KNOWN_UNGUARDED_DEBT,
+        KNOWN_UNGUARDED_DEBT.isEmpty());
   }
 }

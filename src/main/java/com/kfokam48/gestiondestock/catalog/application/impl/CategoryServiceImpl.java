@@ -7,7 +7,10 @@ import com.kfokam48.gestiondestock.catalog.domain.model.Article;
 import com.kfokam48.gestiondestock.catalog.infrastructure.persistence.ArticleRepository;
 import com.kfokam48.gestiondestock.catalog.infrastructure.persistence.CategoryRepository;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.catalog.domain.model.Category;
+import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.organization.domain.model.Organization;
@@ -33,6 +36,9 @@ public class CategoryServiceImpl implements CategoryService {
 
   @Override
   public CategoryDto save(CategoryDto dto) {
+    // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
+    // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
+    CreationIdGuard.requireNoId(dto.getId(), "d'une categorie");
     List<String> errors = CategoryValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("Article is not valid {}", dto);
@@ -98,5 +104,29 @@ public class CategoryServiceImpl implements CategoryService {
           ErrorCodes.CATEGORY_ALREADY_IN_USE);
     }
     categoryRepository.deleteById(id);
+  }
+
+  // Phase 5b-2g : voir docs/phase-5b2g-report.md.
+  @Override
+  public CategoryDto update(Long id, CategoryDto dto, Long organizationId) {
+    Category existing = categoryRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucune categorie avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.CATEGORY_NOT_FOUND));
+    if (organizationId == null || existing.getOrganization() == null
+        || !organizationId.equals(existing.getOrganization().getId())) {
+      log.warn("Category {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucune categorie avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.CATEGORY_NOT_FOUND);
+    }
+    dto.setId(id);
+    dto.setOrganization(OrganizationDto.fromEntity(existing.getOrganization()));
+    List<String> errors = CategoryValidator.validate(dto);
+    if (!errors.isEmpty()) {
+      log.error("Category is not valid {}", dto);
+      throw new InvalidEntityException("La category n'est pas valide", ErrorCodes.CATEGORY_NOT_VALID, errors);
+    }
+    existing.setCode(dto.getCode());
+    existing.setDesignation(dto.getDesignation());
+    return CategoryDto.fromEntity(categoryRepository.save(existing));
   }
 }

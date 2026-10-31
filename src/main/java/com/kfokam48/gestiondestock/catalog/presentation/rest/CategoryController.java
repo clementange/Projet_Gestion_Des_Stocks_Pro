@@ -6,6 +6,7 @@ import com.kfokam48.gestiondestock.catalog.application.CategoryService;
 import com.kfokam48.gestiondestock.catalog.application.dto.CategoryDto;
 import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
+import org.springframework.web.bind.annotation.PutMapping;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,5 +56,15 @@ public class CategoryController {
   @DeleteMapping(value = APP_ROOT + "/categories/delete/{idCategory}")
   public void delete(@PathVariable("idCategory") Long id) {
     categoryService.delete(id);
+  }
+
+  /**
+   * Phase 5b-2g : seul chemin de mise a jour. L'id vient du CHEMIN ; le service verifie
+   * l'appartenance a l'organisation de l'appelant avant toute ecriture et interdit tout
+   * changement d'organisation - voir docs/phase-5b2g-report.md.
+   */
+  @PutMapping(value = APP_ROOT + "/categories/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  public CategoryDto update(@PathVariable("id") Long id, @RequestBody CategoryDto dto, @AuthenticationPrincipal ExtendedUser principal) {
+    return categoryService.update(id, dto, principal.getOrganizationId());
   }
 }

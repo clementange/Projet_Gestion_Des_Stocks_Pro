@@ -85,9 +85,16 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
   @Test
   public void shouldAllowUpdatingSameCustomerWithoutMailConflict() {
     String mail = "self-" + UUID.randomUUID() + "@test.local";
-    CustomerDto saved = service.save(CustomerDto.builder().nom("Client").mail(mail).build());
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Client Update").active(true).build());
+    CustomerDto saved = service.save(CustomerDto.builder().nom("Client").mail(mail)
+        .organizationId(organization.getId()).build());
 
-    CustomerDto updated = service.save(CustomerDto.builder().id(saved.getId()).nom("Client Renomme").mail(mail).build());
+    // Phase 5b-2g : save() n'est plus un upsert (un create n'est jamais un update) ; la mise a
+    // jour passe par update(id, dto, organizationId). L'assertion testee est inchangee : garder
+    // son propre mail ne doit pas etre rejete comme un doublon - voir docs/phase-5b2g-report.md.
+    CustomerDto updated = service.update(saved.getId(),
+        CustomerDto.builder().nom("Client Renomme").mail(mail).build(), organization.getId());
 
     assertEquals("Client Renomme", updated.getNom());
   }

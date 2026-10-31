@@ -5,6 +5,7 @@ import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
 import com.kfokam48.gestiondestock.purchasing.application.SupplierService;
 import com.kfokam48.gestiondestock.purchasing.application.dto.SupplierDto;
+import org.springframework.web.bind.annotation.PutMapping;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,5 +56,15 @@ public class SupplierController {
   @DeleteMapping(value = APP_ROOT + "/suppliers/delete/{id}")
   public void delete(@PathVariable("id") Long id) {
     supplierService.delete(id);
+  }
+
+  /**
+   * Phase 5b-2g : seul chemin de mise a jour. L'id vient du CHEMIN ; le service verifie
+   * l'appartenance a l'organisation de l'appelant avant toute ecriture et interdit tout
+   * changement d'organisation - voir docs/phase-5b2g-report.md.
+   */
+  @PutMapping(value = APP_ROOT + "/suppliers/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  public SupplierDto update(@PathVariable("id") Long id, @RequestBody SupplierDto dto, @AuthenticationPrincipal ExtendedUser principal) {
+    return supplierService.update(id, dto, principal.getOrganizationId());
   }
 }

@@ -266,7 +266,11 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.12</version>
+        <!-- L0 (correctif) : 0.8.12 ne sait pas instrumenter le bytecode Java 25
+             ("Unsupported class file major version 69" sur java/sql/Date), ce qui faisait echouer
+             le demarrage du contexte Spring de facon non deterministe selon l'ordre de chargement
+             des classes. Voir docs/phase-L0-report.md §7. -->
+        <version>0.8.16</version>
         <executions>
           <execution>
             <id>prepare-agent</id>

@@ -59,8 +59,41 @@ Après correctif, `grep TypeTag` sur le log du build JDK 25 : **0 occurrence**.
 | JDK 21.0.10 + Maven 3.9.12 — `./mvnw clean verify` | **vert**, 244 tests, 0 échec, 0 erreur |
 | JDK 25.0.2 + Maven 3.9.12 — `./mvnw clean verify` | **vert**, 244 tests, 0 échec, 0 erreur |
 
-Le projet compile et passe donc sur les deux JDK, ce qui lève la contrainte
-`JAVA_HOME=~/.jdks/ms-21.0.10` imposée depuis 5b-2e.
+### CORRECTION apportée après coup (à lire — ma première conclusion était fragile)
+
+La ligne « JDK 25 : vert » ci-dessus était **vraie pour ce run mais pas robuste**. En lançant la
+suite au début de la Phase 5b-2g, le démarrage du contexte Spring a échoué sur :
+
+```
+Caused by: java.io.IOException: Error while instrumenting java/sql/Date with JaCoCo 0.8.12
+Caused by: java.lang.IllegalArgumentException: Unsupported class file major version 69
+```
+
+Cause : **JaCoCo 0.8.12 ne sait pas instrumenter le bytecode Java 25** (major 69). L'échec est
+**non déterministe** — il dépend de la classe du JDK que l'agent rencontre selon l'ordre de
+chargement, ce qui explique qu'un premier run ait pu passer. Mon critère « vert sous JDK 25 »
+était donc un faux positif de mesure, pas une propriété du projet.
+
+Correctif : **JaCoCo 0.8.12 → 0.8.16**. Après correctif, les deux chaînes repassent vertes avec les
+255 tests de la Phase 5b-2g, et le rapport JaCoCo est bien produit sous JDK 25.
+
+### État réel des deux chaînes, mesuré après correctif
+
+| Chaîne | Build | Tests | Rapport JaCoCo | Analyse ArchUnit |
+|---|---|---|---|---|
+| **JDK 21** | vert | 255 | produit | **pleine fidélité** — 0 avertissement |
+| JDK 25 | vert | 255 | produit | **dégradée** — 342 × `falling back to simple import` |
+
+Sous JDK 25, ArchUnit 1.3.1 ne sait pas lire les classes du JDK (`java/lang/Integer`,
+`java/lang/String`, `java/io/Serializable`…) : il émet
+`Error during import from jrt:/java.base/... falling back to simple import` et poursuit en mode
+dégradé. Les règles **passent**, mais leur analyse des types du JDK est moins fiable.
+
+**Conclusion : JDK 21 reste la chaîne de référence du projet** — c'est la seule sur laquelle la
+vérification d'architecture est de pleine fidélité. JDK 25 est « utilisable » (build et tests
+verts) mais ne doit pas servir de référence pour valider les règles ArchUnit. L'enforcer accepte
+`[21,)` donc n'interdit pas JDK 25 : c'est délibéré (ne pas bloquer un poste déjà en 25), mais la
+chaîne de référence est documentée ici et dans CLAUDE.md.
 
 ## 5. Critères de sortie
 
@@ -77,8 +110,8 @@ Le projet compile et passe donc sur les deux JDK, ce qui lève la contrainte
 
 ## 6. Fichiers modifiés
 
-- `pom.xml` — `java.version` 17→21, `lombok.version` 1.18.30→1.18.46, ajout de
-  `maven-enforcer-plugin`.
+- `pom.xml` — `java.version` 17→21, `lombok.version` 1.18.30→1.18.46, `jacoco-maven-plugin`
+  0.8.12→0.8.16 (correctif, voir §4), ajout de `maven-enforcer-plugin`.
 - `.mvn/wrapper/maven-wrapper.properties` — Maven 3.6.3→3.9.12.
 - `docs/phase-L0-report.md`, `docs/migration-notes.md`.
 - *(hors dépôt, voir §7)* `CLAUDE.md` — section Conventions passée à Java 21 + règles d'outillage.
@@ -98,6 +131,9 @@ Le projet compile et passe donc sur les deux JDK, ce qui lève la contrainte
   `JAVA_HOME` et rétrograder le wrapper pour le prouver aurait été un aller-retour sans valeur.
   La règle est donc **déclarée mais non vérifiée en conditions d'échec** — c'est une limite réelle,
   pas une omission.
+- **La première conclusion « vert sous JDK 25 » était un faux positif** (voir §4) : un seul run
+  vert a été pris pour une garantie, alors que l'échec JaCoCo était non déterministe. Leçon :
+  pour une propriété d'outillage, un run vert ne suffit pas — il faut identifier le mécanisme.
 - **Pas de banc d'essai sur JDK 17.** Le projet n'est plus garanti compatible 17 (c'était l'objet de
   l'incrément) ; aucune vérification n'a été faite dans ce sens, et l'enforcer l'interdit désormais.
 

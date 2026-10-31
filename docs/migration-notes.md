@@ -1309,3 +1309,57 @@ secrets ne sont plus fournis par defaut, il faut ce fichier (ou des `properties`
 Cet increment AJOUTE une protection, il ne corrige pas un comportement observable. Les tests
 echoueraient sans `RequiredSecretsValidator` (classe inexistante avant), mais je ne les ai pas
 executes contre un arbre sans elle - signale comme limite plutot que presente comme un rouge.
+
+## Phase 5c — RBAC sur les ecritures
+
+### La permission ne remplace pas l'appartenance : elle s'y ajoute, APRES
+
+Jusqu'ici, l'appartenance au tenant etait verifiee partout (5b-2a a 5b-2h) mais pas le DROIT
+METIER : **tout membre d'une organisation pouvait y creer, modifier et supprimer n'importe quoi**.
+5c ajoute 34 permissions, verifiees dans les services (jamais dans le seul controleur, jamais via
+`SecurityContextHolder` : `userId` et `organizationId` arrivent en parametres).
+
+**L'ordre est : appartenance -> permission -> ecriture.** Inverse, il fait fuiter l'existence d'une
+ressource d'autrui par le code d'erreur, et surtout il reintroduit le contournement de 5b-2b : une
+affectation de portee `GLOBAL` matche n'importe quel `scopeId`, donc `hasPermission` seul ne prouve
+jamais l'isolation inter-tenant. Convention de codes conservee : appartenance -> `*_NOT_FOUND`
+masque (404), permission -> `*_ACCESS_DENIED` (400).
+
+J'avais place le controle de permission AVANT la verification d'appartenance dans les 7 `delete`
+avant de m'en apercevoir ; corrige, et c'est exactement l'erreur que cet ordre doit empecher.
+
+### 9 transitions d'agregat n'etaient gardees que par l'appartenance
+
+`valider`, `preparer`, `expedier` (commande client), `valider`, `annuler` (commande fournisseur),
+`demander`, `approuver`, `preparer`, `annuler` (transfert) ne verifiaient AUCUNE permission : seules
+`reserve`, `deliver`, `cancel`, `ship`, `receive`, `receiveLine` en avaient une. Elles sont
+desormais toutes gardees. Les transferts sont evalues sur le site d'**origine**, sauf
+`STOCK_TRANSFER_RECEIVE` (destination) : le site evalue est celui qui porte la consequence sur le
+stock.
+
+Consequence pour `approve` : **l'approbateur est le sujet de la permission**. Un test qui appelle
+`approve(id, 2L, orgId)` doit accorder `STOCK_TRANSFER_APPROVE` a l'utilisateur 2.
+
+### L'amorcage d'un tenant ne peut pas etre garde
+
+`TenantRegistrationServiceImpl` cree l'admin **avant** qu'aucune affectation RBAC n'existe : aucune
+permission n'y est verifiable. `UserService.save(dto)` reste donc sans garde et
+`save(dto, userId, organizationId)` (gardee par `USER_CREATE`) est la variante du point d'entree
+HTTP. Meme logique pour `delete(id, callerTenantId)` (appartenance seule), conservee pour
+l'adaptateur legacy `/utilisateurs/delete` qui n'a pas de `userId` sous la main.
+
+### Les decors de test ont besoin d'un utilisateur autorise
+
+`AbstractIntegrationTest.userWithAllWritePermissions(organizationId)` (nouveau) forge un
+utilisateur portant les 34 permissions via une affectation `GLOBAL` **dans cette organisation**
+- exactement la forme de l'affectation d'amorcage, donc incapable de masquer une faille
+inter-tenant. Memoise par organisation. Les tests qui verifient un REFUS continuent de se forger un
+utilisateur aux permissions precises (`grantOrderPermissions`, `grantTransferPermission`...).
+
+### Rien n'est accorde en dehors d'ADMINISTRATEUR
+
+`V8__seed_write_permissions.sql` n'accorde les 34 permissions qu'au role `ADMINISTRATEUR`. **Les
+utilisateurs non-admin existants perdent l'acces en ecriture tant qu'aucun role ne leur est
+attribue** - changement de comportement assume et signale. Les quatre roles metier standards
+(magasinier, commercial, acheteur, lecture seule) sont **proposes** dans `docs/rbac-matrix.md`,
+pas seedes.

@@ -99,14 +99,14 @@ chaîne de référence est documentée ici et dans CLAUDE.md.
 
 | Critère | Statut |
 |---|---|
-| `./mvnw clean verify` vert | **Vérifié** (JDK 21 et JDK 25) |
+| `./mvnw clean verify` vert | **Vérifié** (JDK 21 pleine fidélité ; JDK 25 vert avec réserve, §4) |
 | Build vert sous JDK 21 | **Vérifié** |
-| Build vert sous JDK 25 | **Vérifié** (le prompt ne l'exigeait que « si disponible ») |
+| Build vert sous JDK 25 | **Vérifié avec réserve** — vert après le correctif JaCoCo, mais analyse ArchUnit dégradée : JDK 21 reste la chaîne de référence (voir §4) |
 | Aucun changement fonctionnel | **Vérifié** — diff de production = `pom.xml` seul, aucun fichier `src/main` touché |
 | Diff limité à `pom.xml` (+ imports éventuels) | **Vérifié** — aucun import modifié, aucune réécriture de syntaxe |
 | `java.version` = 21 | **Vérifié** |
 | Enforcer JDK ≥ 21 et Maven ≥ 3.9 | **Vérifié** |
-| Nombre de tests ≥ précédent (244) | **Vérifié** — 244, inchangé (incrément d'outillage, aucun test ajouté) |
+| Nombre de tests ≥ précédent (244) | **Vérifié** — 244 à l'époque de L0 ; 255 après le correctif JaCoCo, mesuré sur la suite de 5b-2g |
 
 ## 6. Fichiers modifiés
 

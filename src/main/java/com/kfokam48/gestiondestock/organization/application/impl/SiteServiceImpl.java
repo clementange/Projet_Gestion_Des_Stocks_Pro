@@ -2,6 +2,8 @@ package com.kfokam48.gestiondestock.organization.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.organization.application.CityService;
@@ -27,16 +29,20 @@ public class SiteServiceImpl implements SiteService {
   private SiteRepository siteRepository;
   private WarehouseRepository warehouseRepository;
   private CityService cityService;
+  private AuthorizationService authorizationService;
 
   @Autowired
-  public SiteServiceImpl(SiteRepository siteRepository, WarehouseRepository warehouseRepository, CityService cityService) {
+  public SiteServiceImpl(SiteRepository siteRepository, WarehouseRepository warehouseRepository, CityService cityService,
+      AuthorizationService authorizationService) {
     this.siteRepository = siteRepository;
     this.warehouseRepository = warehouseRepository;
     this.cityService = cityService;
+    this.authorizationService = authorizationService;
   }
 
   @Override
-  public SiteDto save(SiteDto dto, Long organizationId) {
+  public SiteDto save(SiteDto dto, Long userId, Long organizationId) {
+    requireOrganizationPermission(userId, "SITE_CREATE", organizationId);
     // Phase 5b-2f : avant toute autre verification - un id fourni est une erreur de protocole
     // sans ambiguite, et la verification d'appartenance de City ne protege pas de ce vecteur
     // (elle ne regarde que la ville fournie, jamais l'entite ciblee par l'id).
@@ -152,7 +158,7 @@ public class SiteServiceImpl implements SiteService {
   }
   // Phase 5b-2h : voir docs/phase-5b2h-report.md.
   @Override
-  public void delete(Long id, Long organizationId) {
+  public void delete(Long id, Long userId, Long organizationId) {
     if (id == null) {
       log.error("Site ID is null");
       return;
@@ -166,6 +172,25 @@ public class SiteServiceImpl implements SiteService {
       throw new EntityNotFoundException(
           "Aucun site avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SITE_NOT_FOUND);
     }
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    requireSitePermission(userId, "SITE_DELETE", id, organizationId);
     delete(id);
+  }
+  // Phase 5c : voir docs/rbac-matrix.md. SITE_CREATE est verifie au perimetre ORGANIZATION (le
+  // site n'existe pas encore) ; SITE_DELETE au perimetre du SITE lui-meme.
+  private void requireOrganizationPermission(Long userId, String code, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, code, ScopeType.ORGANIZATION, organizationId, organizationId)) {
+      log.warn("User {} lacks {} in organization {}", userId, code, organizationId);
+      throw new InvalidOperationException("Vous n'avez pas la permission d'effectuer cette action",
+          ErrorCodes.SITE_ACCESS_DENIED);
+    }
+  }
+
+  private void requireSitePermission(Long userId, String code, Long siteId, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, code, ScopeType.SITE, siteId, organizationId)) {
+      log.warn("User {} lacks {} on site {}", userId, code, siteId);
+      throw new InvalidOperationException("Vous n'avez pas la permission d'effectuer cette action sur ce site",
+          ErrorCodes.SITE_ACCESS_DENIED);
+    }
   }
 }

@@ -103,33 +103,41 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
 
   private SiteDto createSite(CityDto city, String name) {
     return siteService.save(SiteDto.builder().code(uniqueCode("ENT")).name(name)
-        .type(SiteType.ENTREPOT).active(true).city(city).build(), city.getOrganization().getId());
+        .type(SiteType.ENTREPOT).active(true).city(city).build(), userWithAllWritePermissions(city.getOrganization().getId()), city.getOrganization().getId());
   }
 
+  // Phase 5c : aucune organisation n'etait en portee dans ce helper ; il en cree donc une,
+  // explicitement, avec un utilisateur autorise.
   private ArticleDto createArticle() {
-    CategoryDto category = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build());
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Article Transfer").active(true).build());
+    CategoryDto category = categoryService.save(
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
+        userWithAllWritePermissions(organization.getId()), organization.getId());
     return articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
-        .category(category).build());
+        .category(category).build(),
+        userWithAllWritePermissions(organization.getId()), organization.getId());
   }
 
   private StockTransferDto createTransfer(SiteDto origin, SiteDto destination, ArticleDto article, BigDecimal quantity, Long organizationId) {
     return stockTransferService.create(
         StockTransferDto.builder().code(uniqueCode("TR")).originSite(origin).destinationSite(destination).requestedByUserId(1L).build(),
-        List.of(StockTransferLineDto.builder().article(article).quantite(quantity).build()),
-        organizationId);
+        List.of(StockTransferLineDto.builder().article(article).quantite(quantity).build()), userWithAllWritePermissions(organizationId), organizationId);
   }
 
   private StockTransferDto runToShippable(StockTransferDto transfer, Long organizationId) {
-    stockTransferService.submit(transfer.getId(), organizationId);
+    stockTransferService.submit(transfer.getId(), userWithAllWritePermissions(organizationId), organizationId);
+    // Phase 5c : l'approbateur est le sujet de la permission - il doit la detenir.
+    grantTransferPermission("STOCK_TRANSFER_APPROVE", transfer.getOriginSite(), 2L, organizationId);
     stockTransferService.approve(transfer.getId(), 2L, organizationId);
-    return stockTransferService.startPreparation(transfer.getId(), organizationId);
+    return stockTransferService.startPreparation(transfer.getId(), userWithAllWritePermissions(organizationId), organizationId);
   }
 
   @Test
   public void fullTransferShouldMoveStockFromOriginToDestination() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Transfer").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepotA = createSite(douala, "Entrepot A");
     SiteDto entrepotB = createSite(douala, "Entrepot B");
     ArticleDto article = createArticle();
@@ -154,7 +162,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void originAndDestinationMustDiffer() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Bad").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto site = createSite(douala, "Entrepot Unique");
     ArticleDto article = createArticle();
 
@@ -164,7 +172,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void shippingBeforePreparationShouldBeRejected() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Seq").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepotA = createSite(douala, "Entrepot A");
     SiteDto entrepotB = createSite(douala, "Entrepot B");
     ArticleDto article = createArticle();
@@ -181,7 +189,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void shippingMoreThanAvailableAtOriginShouldBeRejected() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Insuff").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepotA = createSite(douala, "Entrepot A");
     SiteDto entrepotB = createSite(douala, "Entrepot B");
     ArticleDto article = createArticle();
@@ -202,7 +210,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void cancelAfterShippingShouldBeRejected() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Cancel").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepotA = createSite(douala, "Entrepot A");
     SiteDto entrepotB = createSite(douala, "Entrepot B");
     ArticleDto article = createArticle();
@@ -215,7 +223,8 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
     stockTransferService.ship(transfer.getId(), userId, organization.getId());
 
-    assertThrows(InvalidOperationException.class, () -> stockTransferService.cancel(transfer.getId(), organization.getId()));
+    assertThrows(InvalidOperationException.class, () -> stockTransferService.cancel(transfer.getId(),
+        userWithAllWritePermissions(organization.getId()), organization.getId()));
   }
 
   // Phase 5b-2b : voir docs/phase-5b2b-report.md.
@@ -223,7 +232,8 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
   public void crossOrganizationReadsAreScoped() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Transfer Read A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Transfer Read B").active(true).build());
-    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
+    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
     SiteDto entrepotA = createSite(doualaA, "Entrepot A");
     SiteDto entrepotB = createSite(doualaA, "Entrepot B");
     ArticleDto article = createArticle();
@@ -247,8 +257,10 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
   public void createShouldRejectOriginSiteFromAnotherOrganization() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Transfer Origin Caller").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Transfer Origin Foreign").active(true).build());
-    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
-    CityDto doualaB = cityService.save(CityDto.builder().name("Douala").organization(orgB).build());
+    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
+    CityDto doualaB = cityService.save(CityDto.builder().name("Douala").organization(orgB).build(),
+        userWithAllWritePermissions(orgB.getId()), orgB.getId());
     SiteDto foreignOrigin = createSite(doualaB, "Entrepot etranger origine");
     SiteDto destination = createSite(doualaA, "Entrepot destination");
     ArticleDto article = createArticle();
@@ -268,8 +280,10 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
   public void createShouldRejectDestinationSiteFromAnotherOrganization() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Transfer Dest Caller").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Transfer Dest Foreign").active(true).build());
-    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
-    CityDto doualaB = cityService.save(CityDto.builder().name("Douala").organization(orgB).build());
+    CityDto doualaA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
+    CityDto doualaB = cityService.save(CityDto.builder().name("Douala").organization(orgB).build(),
+        userWithAllWritePermissions(orgB.getId()), orgB.getId());
     SiteDto origin = createSite(doualaA, "Entrepot origine");
     SiteDto foreignDestination = createSite(doualaB, "Entrepot etranger destination");
     ArticleDto article = createArticle();

@@ -46,9 +46,12 @@ public class ArticleServiceImplTest extends AbstractIntegrationTest {
   public void shouldSaveArticleAttachedToOrganizationAndCategory() {
     OrganizationDto organization = organizationService.save(
         OrganizationDto.builder().name("Societe Catalog").active(true).build());
+    // Phase 5c : les creations exigent CATEGORY_CREATE / ARTICLE_CREATE dans cette organisation.
+    Long userId = userWithAllWritePermissions(organization.getId());
 
     CategoryDto category = categoryService.save(
-        CategoryDto.builder().code(uniqueCode("CAT")).designation("Informatique").organization(organization).build());
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Informatique").organization(organization).build(),
+        userId, organization.getId());
 
     ArticleDto article = articleService.save(
         ArticleDto.builder()
@@ -59,7 +62,7 @@ public class ArticleServiceImplTest extends AbstractIntegrationTest {
             .prixUnitaireTtc(BigDecimal.valueOf(596.25))
             .category(category)
             .organization(organization)
-            .build());
+            .build(), userId, organization.getId());
 
     assertNotNull(article.getId());
     assertEquals(category.getId(), article.getCategory().getId());
@@ -74,6 +77,11 @@ public class ArticleServiceImplTest extends AbstractIntegrationTest {
 
   @Test
   public void shouldRejectArticleWithoutCategory() {
+    // Phase 5c : utilisateur autorise, pour que l'echec vienne de la VALIDATION et non de la
+    // permission - sinon ce test ne verifierait plus ce qu'il annonce.
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Art Invalid").active(true).build());
+    Long userId = userWithAllWritePermissions(organization.getId());
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> articleService.save(
         ArticleDto.builder()
             .codeArticle(uniqueCode("ART"))
@@ -81,7 +89,7 @@ public class ArticleServiceImplTest extends AbstractIntegrationTest {
             .prixUnitaireHt(BigDecimal.TEN)
             .tauxTva(BigDecimal.ONE)
             .prixUnitaireTtc(BigDecimal.TEN)
-            .build()));
+            .build(), userId, organization.getId()));
 
     assertEquals(1, exception.getErrors().size());
   }
@@ -96,12 +104,14 @@ public class ArticleServiceImplTest extends AbstractIntegrationTest {
   public void crossOrganizationReadsAreScoped() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe B").active(true).build());
+    Long userA = userWithAllWritePermissions(orgA.getId());
     CategoryDto categoryA = categoryService.save(
-        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat A").organization(orgA).build());
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat A").organization(orgA).build(),
+        userA, orgA.getId());
     ArticleDto articleA = articleService.save(
         ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article A")
             .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
-            .category(categoryA).organization(orgA).build());
+            .category(categoryA).organization(orgA).build(), userA, orgA.getId());
 
     // Meme organisation : lecture normale.
     assertEquals(articleA.getId(), articleService.findById(articleA.getId(), orgA.getId()).getId());

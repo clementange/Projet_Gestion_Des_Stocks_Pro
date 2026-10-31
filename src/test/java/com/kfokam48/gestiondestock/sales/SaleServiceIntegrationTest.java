@@ -107,20 +107,27 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
 
   private SiteDto createBoutique(CityDto city, String name) {
     return siteService.save(SiteDto.builder().code(uniqueCode("BTQ")).name(name)
-        .type(SiteType.BOUTIQUE).active(true).city(city).build(), city.getOrganization().getId());
+        .type(SiteType.BOUTIQUE).active(true).city(city).build(), userWithAllWritePermissions(city.getOrganization().getId()), city.getOrganization().getId());
   }
 
+  // Phase 5c : categorie et article sont desormais crees dans une organisation explicite, avec un
+  // utilisateur autorise - aucune organisation n'etait en portee dans ce helper.
   private ArticleDto createArticle() {
-    CategoryDto category = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build());
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Article Sale").active(true).build());
+    CategoryDto category = categoryService.save(
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
+        userWithAllWritePermissions(organization.getId()), organization.getId());
     return articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
-        .category(category).build());
+        .category(category).build(),
+        userWithAllWritePermissions(organization.getId()), organization.getId());
   }
 
   @Test
   public void saleShouldDecrementOnlyTheSellingSiteStock() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe X").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto akwa = createBoutique(douala, "Boutique Akwa");
     SiteDto bonamoussadi = createBoutique(douala, "Boutique Bonamoussadi");
     ArticleDto article = createArticle();
@@ -144,7 +151,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
   @Test
   public void saleShouldRejectDuplicateCodeWithCleanErrorInsteadOfRaw500() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Dup").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto akwa = createBoutique(douala, "Boutique Akwa");
     ArticleDto article = createArticle();
     inventoryFacade.receive(article.getId(), akwa.getId(), BigDecimal.valueOf(50), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
@@ -163,7 +170,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
   @Test
   public void saleShouldBeRejectedWhenLocalStockInsufficientEvenIfAnotherSiteIsWellStocked() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Y").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto akwa = createBoutique(douala, "Boutique Akwa");
     SiteDto entrepotCentral = createBoutique(douala, "Entrepot Central");
     ArticleDto article = createArticle();
@@ -188,7 +195,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
   @Test
   public void multiLineSaleShouldRollBackEntirelyIfOneLineFails() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Z").active(true).build());
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto site = createBoutique(douala, "Boutique Test");
     ArticleDto articleOk = createArticle();
     ArticleDto articleInsuffisant = createArticle();
@@ -215,7 +222,8 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
   public void crossOrganizationReadsAreScoped() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Sale A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Sale B").active(true).build());
-    CityDto cityA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
+    CityDto cityA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
     SiteDto siteA = createBoutique(cityA, "Boutique A");
     ArticleDto article = createArticle();
     inventoryFacade.receive(article.getId(), siteA.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
@@ -245,7 +253,8 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
   public void createShouldRejectSiteFromAnotherOrganizationEvenWithGlobalScope() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Global A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Global B").active(true).build());
-    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
+    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build(),
+        userWithAllWritePermissions(orgB.getId()), orgB.getId());
     SiteDto siteB = createBoutique(cityB, "Boutique B");
     ArticleDto article = createArticle();
     inventoryFacade.receive(article.getId(), siteB.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);

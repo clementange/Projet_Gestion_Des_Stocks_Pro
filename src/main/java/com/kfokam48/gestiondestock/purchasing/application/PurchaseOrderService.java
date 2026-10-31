@@ -9,7 +9,7 @@ public interface PurchaseOrderService {
 
   // Phase 5b-2b : organizationId verifie contre celui du site de la commande (derive via
   // Site -> City -> Organization) avant creation - voir docs/phase-5b2b-report.md.
-  PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines, Long organizationId);
+  PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines, Long userId, Long organizationId);
 
   PurchaseOrderDto findById(Long id, Long organizationId);
 
@@ -27,9 +27,9 @@ public interface PurchaseOrderService {
    */
   List<PurchaseOrderLineDto> findLinesByArticleId(Long articleId);
 
-  PurchaseOrderDto validate(Long id, Long organizationId);
+  PurchaseOrderDto validate(Long id, Long userId, Long organizationId);
 
-  PurchaseOrderDto cancel(Long id, Long organizationId);
+  PurchaseOrderDto cancel(Long id, Long userId, Long organizationId);
 
   /**
    * Reception explicite d'une ligne : c'est le SEUL point d'entree qui fait entrer du stock

@@ -31,7 +31,7 @@ public class WarehouseController {
 
   @PostMapping(value = APP_ROOT + "/warehouses/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public WarehouseDto save(@RequestBody WarehouseDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return warehouseService.save(dto, principal.getOrganizationId());
+    return warehouseService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/warehouses/{idWarehouse}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -51,7 +51,7 @@ public class WarehouseController {
 
   @DeleteMapping(value = APP_ROOT + "/warehouses/delete/{idWarehouse}")
   public void delete(@PathVariable("idWarehouse") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    warehouseService.delete(id, principal.getOrganizationId());
+    warehouseService.delete(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   /**
@@ -61,6 +61,6 @@ public class WarehouseController {
    */
   @PutMapping(value = APP_ROOT + "/warehouses/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public WarehouseDto update(@PathVariable("id") Long id, @RequestBody WarehouseDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return warehouseService.update(id, dto, principal.getOrganizationId());
+    return warehouseService.update(id, dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

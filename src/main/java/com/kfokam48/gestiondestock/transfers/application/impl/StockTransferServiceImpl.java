@@ -33,6 +33,12 @@ public class StockTransferServiceImpl implements StockTransferService {
 
   private static final String STOCK_TRANSFER_SHIP = "STOCK_TRANSFER_SHIP";
   private static final String STOCK_TRANSFER_RECEIVE = "STOCK_TRANSFER_RECEIVE";
+  // Phase 5c : voir docs/rbac-matrix.md. Portee = site d'ORIGINE pour ces quatre transitions
+  // (c'est lui qui se desengage du stock), comme pour l'expedition.
+  private static final String STOCK_TRANSFER_REQUEST = "STOCK_TRANSFER_REQUEST";
+  private static final String STOCK_TRANSFER_APPROVE = "STOCK_TRANSFER_APPROVE";
+  private static final String STOCK_TRANSFER_PREPARE = "STOCK_TRANSFER_PREPARE";
+  private static final String STOCK_TRANSFER_CANCEL = "STOCK_TRANSFER_CANCEL";
 
   private StockTransferRepository stockTransferRepository;
   private StockTransferLineRepository stockTransferLineRepository;
@@ -52,7 +58,7 @@ public class StockTransferServiceImpl implements StockTransferService {
   }
 
   @Override
-  public StockTransferDto create(StockTransferDto dto, List<StockTransferLineDto> lines, Long organizationId) {
+  public StockTransferDto create(StockTransferDto dto, List<StockTransferLineDto> lines, Long userId, Long organizationId) {
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'un transfert");
@@ -65,6 +71,13 @@ public class StockTransferServiceImpl implements StockTransferService {
     // d'appartenance des sites (origine ET destination) a l'organisation de l'appelant - voir
     // docs/phase-5b2b-report.md.
     requireSiteInOrganization(dto.getOriginSite().getId(), organizationId);
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    if (!authorizationService.hasPermission(userId, "STOCK_TRANSFER_CREATE", ScopeType.SITE, dto.getOriginSite().getId(), organizationId)) {
+      log.warn("User {} lacks STOCK_TRANSFER_CREATE on site {}", userId, dto.getOriginSite().getId());
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action sur ce site",
+          ErrorCodes.STOCK_TRANSFER_ACCESS_DENIED);
+    }
     requireSiteInOrganization(dto.getDestinationSite().getId(), organizationId);
 
     StockTransfer transfer = StockTransferDto.toEntity(dto);
@@ -157,9 +170,11 @@ public class StockTransferServiceImpl implements StockTransferService {
   }
 
   @Override
-  public StockTransferDto submit(Long id, Long organizationId) {
+  public StockTransferDto submit(Long id, Long userId, Long organizationId) {
     findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOriginSitePermission(STOCK_TRANSFER_REQUEST, transfer, userId, organizationId);
     transfer.submit();
     return StockTransferDto.fromEntity(stockTransferRepository.save(transfer));
   }
@@ -168,14 +183,18 @@ public class StockTransferServiceImpl implements StockTransferService {
   public StockTransferDto approve(Long id, Long approverUserId, Long organizationId) {
     findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOriginSitePermission(STOCK_TRANSFER_APPROVE, transfer, approverUserId, organizationId);
     transfer.approve(approverUserId);
     return StockTransferDto.fromEntity(stockTransferRepository.save(transfer));
   }
 
   @Override
-  public StockTransferDto startPreparation(Long id, Long organizationId) {
+  public StockTransferDto startPreparation(Long id, Long userId, Long organizationId) {
     findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOriginSitePermission(STOCK_TRANSFER_PREPARE, transfer, userId, organizationId);
     transfer.requirePreparable();
     transfer.markInPreparation();
     return StockTransferDto.fromEntity(stockTransferRepository.save(transfer));
@@ -228,9 +247,11 @@ public class StockTransferServiceImpl implements StockTransferService {
   }
 
   @Override
-  public StockTransferDto cancel(Long id, Long organizationId) {
+  public StockTransferDto cancel(Long id, Long userId, Long organizationId) {
     findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOriginSitePermission(STOCK_TRANSFER_CANCEL, transfer, userId, organizationId);
     transfer.cancel();
     return StockTransferDto.fromEntity(stockTransferRepository.save(transfer));
   }
@@ -245,5 +266,15 @@ public class StockTransferServiceImpl implements StockTransferService {
             "Aucun transfert avec l'ID = " + id + " n'a ete trouve dans la BDD",
             ErrorCodes.STOCK_TRANSFER_NOT_FOUND)
         );
+  }
+  // Phase 5c : meme forme que les controles de ship/receive, extrait pour etre partage.
+  private void requireOriginSitePermission(String permissionCode, StockTransfer transfer, Long userId, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.SITE, transfer.getOriginSite().getId(), organizationId)) {
+      log.warn("User {} tried to {} on transfer {} (origin site {}) without permission",
+          userId, permissionCode, transfer.getId(), transfer.getOriginSite().getId());
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action sur ce transfert",
+          ErrorCodes.STOCK_TRANSFER_ACCESS_DENIED);
+    }
   }
 }

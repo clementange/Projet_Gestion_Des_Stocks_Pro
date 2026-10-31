@@ -5,6 +5,8 @@ import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.organization.application.dto.SiteDto;
 import com.kfokam48.gestiondestock.organization.domain.model.Warehouse;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.organization.application.WarehouseService;
@@ -26,16 +28,20 @@ import org.springframework.util.StringUtils;
 public class WarehouseServiceImpl implements WarehouseService {
 
   private WarehouseRepository warehouseRepository;
+  private AuthorizationService authorizationService;
   private SiteRepository siteRepository;
 
   @Autowired
-  public WarehouseServiceImpl(WarehouseRepository warehouseRepository, SiteRepository siteRepository) {
+  public WarehouseServiceImpl(WarehouseRepository warehouseRepository, SiteRepository siteRepository,
+      AuthorizationService authorizationService) {
     this.warehouseRepository = warehouseRepository;
     this.siteRepository = siteRepository;
+    this.authorizationService = authorizationService;
   }
 
   @Override
-  public WarehouseDto save(WarehouseDto dto, Long organizationId) {
+  public WarehouseDto save(WarehouseDto dto, Long userId, Long organizationId) {
+    requirePermission(userId, "WAREHOUSE_CREATE", organizationId);
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'un entrepot");
@@ -122,7 +128,7 @@ public class WarehouseServiceImpl implements WarehouseService {
    * l'appartenance du site cible). Voir docs/phase-5b2g-report.md.
    */
   @Override
-  public WarehouseDto update(Long id, WarehouseDto dto, Long organizationId) {
+  public WarehouseDto update(Long id, WarehouseDto dto, Long userId, Long organizationId) {
     Warehouse existing = warehouseRepository.findById(id)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucun entrepot avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.WAREHOUSE_NOT_FOUND));
@@ -134,6 +140,7 @@ public class WarehouseServiceImpl implements WarehouseService {
       throw new EntityNotFoundException(
           "Aucun entrepot avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.WAREHOUSE_NOT_FOUND);
     }
+    requirePermission(userId, "WAREHOUSE_UPDATE", organizationId);
     dto.setId(id);
     dto.setSite(SiteDto.fromEntity(existing.getSite()));
     List<String> errors = WarehouseValidator.validate(dto);
@@ -149,7 +156,7 @@ public class WarehouseServiceImpl implements WarehouseService {
   }
   // Phase 5b-2h : voir docs/phase-5b2h-report.md.
   @Override
-  public void delete(Long id, Long organizationId) {
+  public void delete(Long id, Long userId, Long organizationId) {
     if (id == null) {
       log.error("Warehouse ID is null");
       return;
@@ -163,6 +170,8 @@ public class WarehouseServiceImpl implements WarehouseService {
       throw new EntityNotFoundException(
           "Aucun entrepot avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.WAREHOUSE_NOT_FOUND);
     }
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    requirePermission(userId, "WAREHOUSE_DELETE", organizationId);
     delete(id);
   }
   // Phase 5b-2h : voir docs/phase-5b2h-report.md.
@@ -184,5 +193,19 @@ public class WarehouseServiceImpl implements WarehouseService {
           "Aucun entrepot avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.WAREHOUSE_NOT_FOUND);
     }
     return WarehouseDto.fromEntity(existing);
+  }
+  /**
+   * Phase 5c : ordre strict appartenance -> permission -> ecriture. L'appartenance est verifiee
+   * en amont (5b-2g/2h) et renvoie un *_NOT_FOUND masque ; ici on repond a la question distincte
+   * « qui, DANS l'organisation, a le droit de faire cela » - voir docs/rbac-matrix.md.
+   */
+  private void requirePermission(Long userId, String permissionCode, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.ORGANIZATION,
+        organizationId, organizationId)) {
+      log.warn("User {} lacks {} in organization {}", userId, permissionCode, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action",
+          ErrorCodes.WAREHOUSE_ACCESS_DENIED);
+    }
   }
 }

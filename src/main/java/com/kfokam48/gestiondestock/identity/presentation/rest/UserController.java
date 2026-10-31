@@ -49,8 +49,8 @@ public class UserController {
   }
 
   @PostMapping(value = APP_ROOT + "/users/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public UserDto save(@RequestBody UserDto dto) {
-    return userService.save(dto);
+  public UserDto save(@RequestBody UserDto dto, @AuthenticationPrincipal ExtendedUser principal) {
+    return userService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/users/{id}/password", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -99,7 +99,7 @@ public class UserController {
 
   @DeleteMapping(value = APP_ROOT + "/users/delete/{id}")
   public void delete(@PathVariable("id") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    userService.delete(id, principal.getIdEntreprise());
+    userService.delete(id, principal.getIdEntreprise(), principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   // Phase 4c : remplace /save/{id}/{title}/utilisateur (StrategyPhotoContext, supprime).

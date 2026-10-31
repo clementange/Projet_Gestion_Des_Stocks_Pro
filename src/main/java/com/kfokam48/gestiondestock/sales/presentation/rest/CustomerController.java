@@ -41,7 +41,7 @@ public class CustomerController {
   @PostMapping(value = APP_ROOT + "/customers/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerDto create(@RequestBody CustomerDto dto, @AuthenticationPrincipal ExtendedUser principal) {
     dto.setOrganizationId(principal.getOrganizationId());
-    return customerService.save(dto);
+    return customerService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/customers/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -56,7 +56,7 @@ public class CustomerController {
 
   @DeleteMapping(value = APP_ROOT + "/customers/delete/{id}")
   public void delete(@PathVariable("id") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    customerService.delete(id, principal.getOrganizationId());
+    customerService.delete(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   /**
@@ -66,6 +66,6 @@ public class CustomerController {
    */
   @PutMapping(value = APP_ROOT + "/customers/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerDto update(@PathVariable("id") Long id, @RequestBody CustomerDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return customerService.update(id, dto, principal.getOrganizationId());
+    return customerService.update(id, dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

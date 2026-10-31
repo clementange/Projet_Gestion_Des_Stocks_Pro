@@ -111,13 +111,13 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
   @Test
   public void saleAndCustomerOrderReservationRacingOnSameStockNeverOversell() throws Exception {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Concurrence").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto site = siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Boutique concurrence")
-        .type(SiteType.BOUTIQUE).active(true).city(city).build(), organization.getId());
-    CategoryDto category = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build());
+        .type(SiteType.BOUTIQUE).active(true).city(city).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
+    CategoryDto category = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     ArticleDto article = articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
-        .category(category).build());
+        .category(category).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
 
     // Stock = 10. Une vente directe de 8 (module sales.Sale, InventoryFacade.issue) et une
     // reservation de commande client de 7 (module sales.CustomerOrder, InventoryFacade.reserve)
@@ -127,8 +127,8 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
     CustomerOrderDto order = customerOrderService.create(
         CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(1L).site(site).build(),
         List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.valueOf(7)).prixUnitaire(BigDecimal.TEN).build()),
-        organization.getId());
-    customerOrderService.validate(order.getId(), organization.getId());
+        userWithAllWritePermissions(organization.getId()), organization.getId());
+    customerOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
 
     Long saleUserId = grantPermission("SALE_CREATE", site, organization.getId());
     Long reserveUserId = grantPermission("CUSTOMER_ORDER_RESERVE", site, organization.getId());

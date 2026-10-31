@@ -36,7 +36,7 @@ public class CityController {
     // rattacher une ville a l'organisation d'un autre tenant. TOUJOURS ecrasee - voir
     // docs/phase-5b2g-report.md.
     dto.setOrganization(OrganizationDto.builder().id(principal.getOrganizationId()).build());
-    return cityService.save(dto);
+    return cityService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/cities/{idCity}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -57,7 +57,7 @@ public class CityController {
 
   @DeleteMapping(value = APP_ROOT + "/cities/delete/{idCity}")
   public void delete(@PathVariable("idCity") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    cityService.delete(id, principal.getOrganizationId());
+    cityService.delete(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   /**
@@ -67,6 +67,6 @@ public class CityController {
    */
   @PutMapping(value = APP_ROOT + "/cities/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public CityDto update(@PathVariable("id") Long id, @RequestBody CityDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return cityService.update(id, dto, principal.getOrganizationId());
+    return cityService.update(id, dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

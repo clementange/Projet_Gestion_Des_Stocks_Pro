@@ -9,7 +9,7 @@ public interface StockTransferService {
   // Phase 5b-2b : organizationId verifie contre celui des DEUX sites du transfert (origine et
   // destination, derives via Site -> City -> Organization) avant creation - voir
   // docs/phase-5b2b-report.md.
-  StockTransferDto create(StockTransferDto dto, List<StockTransferLineDto> lines, Long organizationId);
+  StockTransferDto create(StockTransferDto dto, List<StockTransferLineDto> lines, Long userId, Long organizationId);
 
   StockTransferDto findById(Long id, Long organizationId);
 
@@ -19,11 +19,11 @@ public interface StockTransferService {
 
   List<StockTransferLineDto> findLines(Long stockTransferId, Long organizationId);
 
-  StockTransferDto submit(Long id, Long organizationId);
+  StockTransferDto submit(Long id, Long userId, Long organizationId);
 
   StockTransferDto approve(Long id, Long approverUserId, Long organizationId);
 
-  StockTransferDto startPreparation(Long id, Long organizationId);
+  StockTransferDto startPreparation(Long id, Long userId, Long organizationId);
 
   /**
    * EN_PREPARATION -> EXPEDIE : sort physiquement le stock du site d'origine, ligne par ligne
@@ -38,6 +38,6 @@ public interface StockTransferService {
    */
   StockTransferDto receive(Long id, Long userId, Long organizationId);
 
-  StockTransferDto cancel(Long id, Long organizationId);
+  StockTransferDto cancel(Long id, Long userId, Long organizationId);
 
 }

@@ -76,6 +76,8 @@ public class UtilisateurServiceImpl implements UtilisateurService {
   }
 
   @Override
+  // Phase 5c : ce chemin legacy reste SANS verification de permission (userId/organizationId
+  // null) - gap assume et documente, la route /utilisateurs/** devant disparaitre en 4e.
   public void delete(Long id, Long callerTenantId) {
     if (id == null) {
       log.error("Utilisateur ID is null");

@@ -35,7 +35,7 @@ public class CategoryController {
   @PostMapping(value = APP_ROOT + "/categories/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public CategoryDto save(@RequestBody CategoryDto dto, @AuthenticationPrincipal ExtendedUser principal) {
     dto.setOrganization(OrganizationDto.builder().id(principal.getOrganizationId()).build());
-    return categoryService.save(dto);
+    return categoryService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/categories/{idCategory}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -55,7 +55,7 @@ public class CategoryController {
 
   @DeleteMapping(value = APP_ROOT + "/categories/delete/{idCategory}")
   public void delete(@PathVariable("idCategory") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    categoryService.delete(id, principal.getOrganizationId());
+    categoryService.delete(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   /**
@@ -65,6 +65,6 @@ public class CategoryController {
    */
   @PutMapping(value = APP_ROOT + "/categories/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public CategoryDto update(@PathVariable("id") Long id, @RequestBody CategoryDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return categoryService.update(id, dto, principal.getOrganizationId());
+    return categoryService.update(id, dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

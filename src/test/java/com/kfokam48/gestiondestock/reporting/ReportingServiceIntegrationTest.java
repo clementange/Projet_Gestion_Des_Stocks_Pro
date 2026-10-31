@@ -84,14 +84,21 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
 
   private SiteDto createSite(CityDto city, String name) {
     return siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name(name)
-        .type(SiteType.ENTREPOT).active(true).city(city).build(), city.getOrganization().getId());
+        .type(SiteType.ENTREPOT).active(true).city(city).build(), userWithAllWritePermissions(city.getOrganization().getId()), city.getOrganization().getId());
   }
 
+  // Phase 5c : categorie et article sont desormais crees dans une organisation explicite, avec un
+  // utilisateur autorise - aucune organisation n'etait en portee dans ce helper.
   private ArticleDto createArticle() {
-    CategoryDto category = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build());
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Article Report").active(true).build());
+    CategoryDto category = categoryService.save(
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
+        userWithAllWritePermissions(organization.getId()), organization.getId());
     return articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
-        .category(category).build());
+        .category(category).build(),
+        userWithAllWritePermissions(organization.getId()), organization.getId());
   }
 
   /**
@@ -111,7 +118,7 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
   @Test
   public void warehouseManagerCanSeeOwnSiteButNotGlobalOrOtherSites() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Report").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto mySite = createSite(city, "Entrepot A");
     SiteDto otherSite = createSite(city, "Entrepot B");
     ArticleDto article = createArticle();
@@ -136,7 +143,7 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
   @Test
   public void directeurGeneralCanSeeGlobalSummaryAcrossSites() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe DG").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto siteA = createSite(city, "Entrepot A");
     SiteDto siteB = createSite(city, "Entrepot B");
     ArticleDto article = createArticle();
@@ -159,7 +166,7 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
   @Test
   public void warehouseScopeConventionGrantsAccessToItsSite() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe WH").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto site = createSite(city, "Entrepot WH");
     ArticleDto article = createArticle();
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.valueOf(15), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
@@ -178,7 +185,7 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
   @Test
   public void userWithoutAnyAssignmentIsDeniedEverything() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe None").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto site = createSite(city, "Entrepot Isole");
 
     Long userId = 8001L;

@@ -52,17 +52,17 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     assertNotNull(organization.getId());
 
     CityDto city = cityService.save(
-        CityDto.builder().name("Douala").country("Cameroun").organization(organization).build());
+        CityDto.builder().name("Douala").country("Cameroun").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     assertNotNull(city.getId());
 
     SiteDto entrepot = siteService.save(
         SiteDto.builder().code(uniqueCode("DLA-ENT")).name("Entrepot Central Douala")
-            .type(SiteType.ENTREPOT).active(true).city(city).build(), organization.getId());
+            .type(SiteType.ENTREPOT).active(true).city(city).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     assertNotNull(entrepot.getId());
 
     WarehouseDto warehouse = warehouseService.save(
         WarehouseDto.builder().code(uniqueCode("WH-DLA")).name("Entrepot Central Douala").site(entrepot).build(),
-        organization.getId());
+        userWithAllWritePermissions(organization.getId()), organization.getId());
 
     assertNotNull(warehouse.getId());
     assertEquals(entrepot.getId(), warehouse.getSite().getId());
@@ -75,14 +75,14 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
     OrganizationDto organization = organizationService.save(
         OrganizationDto.builder().name("Societe Y").active(true).build());
     CityDto city = cityService.save(
-        CityDto.builder().name("Yaounde").organization(organization).build());
+        CityDto.builder().name("Yaounde").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto boutique = siteService.save(
         SiteDto.builder().code(uniqueCode("YAO-BTQ")).name("Boutique Bastos")
-            .type(SiteType.BOUTIQUE).active(true).city(city).build(), organization.getId());
+            .type(SiteType.BOUTIQUE).active(true).city(city).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> warehouseService.save(
         WarehouseDto.builder().code(uniqueCode("WH-YAO")).name("Entrepot invalide").site(boutique).build(),
-        organization.getId()));
+        userWithAllWritePermissions(organization.getId()), organization.getId()));
 
     assertEquals(1, exception.getErrors().size());
   }
@@ -91,7 +91,7 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
   public void shouldRejectOrganizationDeletionWhenCitiesExist() {
     OrganizationDto organization = organizationService.save(
         OrganizationDto.builder().name("Societe Z").active(true).build());
-    cityService.save(CityDto.builder().name("Bafoussam").organization(organization).build());
+    cityService.save(CityDto.builder().name("Bafoussam").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
 
     assertThrows(InvalidOperationException.class, () -> organizationService.delete(organization.getId(), organization.getId()));
   }
@@ -100,12 +100,12 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
   public void shouldRejectSiteDeletionWhenWarehouseExists() {
     OrganizationDto organization = organizationService.save(
         OrganizationDto.builder().name("Societe W").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Garoua").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Garoua").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepot = siteService.save(
         SiteDto.builder().code(uniqueCode("GAR-ENT")).name("Entrepot Garoua")
-            .type(SiteType.ENTREPOT).active(true).city(city).build(), organization.getId());
+            .type(SiteType.ENTREPOT).active(true).city(city).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     warehouseService.save(WarehouseDto.builder().code(uniqueCode("WH-GAR")).name("Entrepot Garoua").site(entrepot).build(),
-        organization.getId());
+        userWithAllWritePermissions(organization.getId()), organization.getId());
 
     assertThrows(InvalidOperationException.class, () -> siteService.delete(entrepot.getId()));
   }
@@ -115,9 +115,11 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
   public void crossOrganizationSiteReadsAreScoped() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Site A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Site B").active(true).build());
-    CityDto cityA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build());
+    CityDto cityA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
     SiteDto siteA = siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Site A")
-        .type(SiteType.ENTREPOT).active(true).city(cityA).build(), orgA.getId());
+        .type(SiteType.ENTREPOT).active(true).city(cityA).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
 
     assertEquals(siteA.getId(), siteService.findById(siteA.getId(), orgA.getId()).getId());
     assertEquals(siteA.getId(), siteService.findByCode(siteA.getCode(), orgA.getId()).getId());
@@ -159,12 +161,13 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
   public void createSiteShouldRejectCityFromAnotherOrganization() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe Site Create A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe Site Create B").active(true).build());
-    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
+    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build(),
+        userWithAllWritePermissions(orgB.getId()), orgB.getId());
 
     InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> siteService.save(
         SiteDto.builder().code(uniqueCode("SITE")).name("Site etranger")
             .type(SiteType.ENTREPOT).active(true).city(cityB).build(),
-        orgA.getId()));
+        userWithAllWritePermissions(orgA.getId()), orgA.getId()));
 
     assertEquals(ErrorCodes.SITE_ACCESS_DENIED, exception.getErrorCode());
   }
@@ -172,12 +175,12 @@ public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
   @Test
   public void createSiteSucceedsWhenCityBelongsToCallerOrganization() {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Site Create Own").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
 
     SiteDto site = siteService.save(
         SiteDto.builder().code(uniqueCode("SITE")).name("Site propre")
             .type(SiteType.ENTREPOT).active(true).city(city).build(),
-        organization.getId());
+        userWithAllWritePermissions(organization.getId()), organization.getId());
 
     assertNotNull(site.getId());
   }

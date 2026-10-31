@@ -143,7 +143,18 @@ public enum ErrorCodes {
   // Phase 5b-2f : code transverse, partage par tous les endpoints de creation - un id fourni par
   // le client transformerait repository.save() en MERGE JPA, donc en mise a jour d'une ressource
   // existante, potentiellement celle d'un autre tenant - voir docs/phase-5b2f-report.md.
-  CREATION_ID_FORBIDDEN(32000)
+  CREATION_ID_FORBIDDEN(32000),
+
+  // Phase 5c : refus de permission metier (« qui, dans l'organisation, a le droit de... »),
+  // distinct d'un refus d'appartenance qui, lui, renvoie un *_NOT_FOUND masque. Convention
+  // existante conservee : InvalidOperationException -> HTTP 400, comme STOCK_ACCESS_DENIED.
+  ARTICLE_ACCESS_DENIED(33000),
+  CATEGORY_ACCESS_DENIED(33001),
+  CUSTOMER_ACCESS_DENIED(33002),
+  SUPPLIER_ACCESS_DENIED(33003),
+  CITY_ACCESS_DENIED(33004),
+  WAREHOUSE_ACCESS_DENIED(33005),
+  USER_ACCESS_DENIED(33006)
   ;
 
   private int code;

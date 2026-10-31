@@ -8,7 +8,7 @@ public interface SiteService {
   // Phase 5b-2d : verifie que la City referencee appartient bien a l'organisation de l'appelant,
   // recuperee fraiche depuis la base (jamais depuis les donnees imbriquees fournies par le
   // client) - meme principe que requireSiteInOrganization en 5b-2b - voir docs/phase-5b2d-report.md.
-  SiteDto save(SiteDto dto, Long organizationId);
+  SiteDto save(SiteDto dto, Long userId, Long organizationId);
 
   SiteDto findById(Long id);
 
@@ -32,6 +32,6 @@ public interface SiteService {
    * l'organisation de l'appelant AVANT de supprimer (404 fail-closed sinon) - voir
    * docs/phase-5b2h-report.md.
    */
-  void delete(Long id, Long organizationId);
+  void delete(Long id, Long userId, Long organizationId);
 
 }

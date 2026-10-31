@@ -10,6 +10,8 @@ import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.catalog.domain.model.Category;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
@@ -26,16 +28,20 @@ import org.springframework.util.StringUtils;
 public class CategoryServiceImpl implements CategoryService {
 
   private CategoryRepository categoryRepository;
+  private AuthorizationService authorizationService;
   private ArticleRepository articleRepository;
 
   @Autowired
-  public CategoryServiceImpl(CategoryRepository categoryRepository, ArticleRepository articleRepository) {
+  public CategoryServiceImpl(CategoryRepository categoryRepository, ArticleRepository articleRepository,
+      AuthorizationService authorizationService) {
     this.categoryRepository = categoryRepository;
     this.articleRepository = articleRepository;
+    this.authorizationService = authorizationService;
   }
 
   @Override
-  public CategoryDto save(CategoryDto dto) {
+  public CategoryDto save(CategoryDto dto, Long userId, Long organizationId) {
+    requirePermission(userId, "CATEGORY_CREATE", organizationId);
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'une categorie");
@@ -108,7 +114,7 @@ public class CategoryServiceImpl implements CategoryService {
 
   // Phase 5b-2g : voir docs/phase-5b2g-report.md.
   @Override
-  public CategoryDto update(Long id, CategoryDto dto, Long organizationId) {
+  public CategoryDto update(Long id, CategoryDto dto, Long userId, Long organizationId) {
     Category existing = categoryRepository.findById(id)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucune categorie avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.CATEGORY_NOT_FOUND));
@@ -118,6 +124,7 @@ public class CategoryServiceImpl implements CategoryService {
       throw new EntityNotFoundException(
           "Aucune categorie avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.CATEGORY_NOT_FOUND);
     }
+    requirePermission(userId, "CATEGORY_UPDATE", organizationId);
     dto.setId(id);
     dto.setOrganization(OrganizationDto.fromEntity(existing.getOrganization()));
     List<String> errors = CategoryValidator.validate(dto);
@@ -131,7 +138,7 @@ public class CategoryServiceImpl implements CategoryService {
   }
   // Phase 5b-2h : voir docs/phase-5b2h-report.md.
   @Override
-  public void delete(Long id, Long organizationId) {
+  public void delete(Long id, Long userId, Long organizationId) {
     if (id == null) {
       log.error("Category ID is null");
       return;
@@ -145,6 +152,22 @@ public class CategoryServiceImpl implements CategoryService {
       throw new EntityNotFoundException(
           "Aucune categorie avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CATEGORY_NOT_FOUND);
     }
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    requirePermission(userId, "CATEGORY_DELETE", organizationId);
     delete(id);
+  }
+  /**
+   * Phase 5c : ordre strict appartenance -> permission -> ecriture. L'appartenance est verifiee
+   * en amont (5b-2g/2h) et renvoie un *_NOT_FOUND masque ; ici on repond a la question distincte
+   * « qui, DANS l'organisation, a le droit de faire cela » - voir docs/rbac-matrix.md.
+   */
+  private void requirePermission(Long userId, String permissionCode, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.ORGANIZATION,
+        organizationId, organizationId)) {
+      log.warn("User {} lacks {} in organization {}", userId, permissionCode, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action",
+          ErrorCodes.CATEGORY_ACCESS_DENIED);
+    }
   }
 }

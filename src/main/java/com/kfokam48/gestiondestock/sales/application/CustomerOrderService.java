@@ -8,7 +8,7 @@ public interface CustomerOrderService {
 
   // Phase 5b-2b : organizationId verifie contre celui du site de la commande (derive via
   // Site -> City -> Organization) avant creation - voir docs/phase-5b2b-report.md.
-  CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines, Long organizationId);
+  CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines, Long userId, Long organizationId);
 
   CustomerOrderDto findById(Long id, Long organizationId);
 
@@ -26,7 +26,7 @@ public interface CustomerOrderService {
    */
   List<CustomerOrderLineDto> findLinesByArticleId(Long articleId);
 
-  CustomerOrderDto validate(Long id, Long organizationId);
+  CustomerOrderDto validate(Long id, Long userId, Long organizationId);
 
   /**
    * VALIDEE -> RESERVEE : reserve le stock disponible de chaque ligne (StockMovement
@@ -34,9 +34,9 @@ public interface CustomerOrderService {
    */
   CustomerOrderDto reserve(Long id, Long userId, Long organizationId);
 
-  CustomerOrderDto prepare(Long id, Long organizationId);
+  CustomerOrderDto prepare(Long id, Long userId, Long organizationId);
 
-  CustomerOrderDto ship(Long id, Long organizationId);
+  CustomerOrderDto ship(Long id, Long userId, Long organizationId);
 
   /**
    * EXPEDIEE -> LIVREE : sortie physique + liberation de la reservation de chaque ligne.

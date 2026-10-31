@@ -9,6 +9,8 @@ import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.catalog.application.dto.CategoryDto;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
@@ -72,6 +74,7 @@ import org.springframework.util.StringUtils;
 public class ArticleServiceImpl implements ArticleService {
 
   private ArticleRepository articleRepository;
+  private AuthorizationService authorizationService;
   private LigneVenteRepository venteRepository;
   private LigneCommandeFournisseurRepository commandeFournisseurRepository;
   private LigneCommandeClientRepository commandeClientRepository;
@@ -80,15 +83,18 @@ public class ArticleServiceImpl implements ArticleService {
   public ArticleServiceImpl(
       ArticleRepository articleRepository,
       LigneVenteRepository venteRepository, LigneCommandeFournisseurRepository commandeFournisseurRepository,
-      LigneCommandeClientRepository commandeClientRepository) {
+      LigneCommandeClientRepository commandeClientRepository,
+      AuthorizationService authorizationService) {
     this.articleRepository = articleRepository;
     this.venteRepository = venteRepository;
     this.commandeFournisseurRepository = commandeFournisseurRepository;
     this.commandeClientRepository = commandeClientRepository;
+    this.authorizationService = authorizationService;
   }
 
   @Override
-  public ArticleDto save(ArticleDto dto) {
+  public ArticleDto save(ArticleDto dto, Long userId, Long organizationId) {
+    requirePermission(userId, "ARTICLE_CREATE", organizationId);
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'un article");
@@ -225,7 +231,7 @@ public class ArticleServiceImpl implements ArticleService {
 
   // Phase 5b-2g : voir docs/phase-5b2g-report.md.
   @Override
-  public ArticleDto update(Long id, ArticleDto dto, Long organizationId) {
+  public ArticleDto update(Long id, ArticleDto dto, Long userId, Long organizationId) {
     Article existing = articleRepository.findById(id)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND));
@@ -235,6 +241,7 @@ public class ArticleServiceImpl implements ArticleService {
       throw new EntityNotFoundException(
           "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND);
     }
+    requirePermission(userId, "ARTICLE_UPDATE", organizationId);
     // L'organisation de l'entite existante est reinjectee dans le DTO avant validation : le corps
     // de la requete ne peut donc ni la changer, ni la supprimer.
     dto.setId(id);
@@ -254,7 +261,7 @@ public class ArticleServiceImpl implements ArticleService {
   }
   // Phase 5b-2h : voir docs/phase-5b2h-report.md.
   @Override
-  public void delete(Long id, Long organizationId) {
+  public void delete(Long id, Long userId, Long organizationId) {
     if (id == null) {
       log.error("Article ID is null");
       return;
@@ -268,6 +275,22 @@ public class ArticleServiceImpl implements ArticleService {
       throw new EntityNotFoundException(
           "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND);
     }
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    requirePermission(userId, "ARTICLE_DELETE", organizationId);
     delete(id);
+  }
+  /**
+   * Phase 5c : ordre strict appartenance -> permission -> ecriture. L'appartenance est verifiee
+   * en amont (5b-2g/2h) et renvoie un *_NOT_FOUND masque ; ici on repond a la question distincte
+   * « qui, DANS l'organisation, a le droit de faire cela » - voir docs/rbac-matrix.md.
+   */
+  private void requirePermission(Long userId, String permissionCode, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.ORGANIZATION,
+        organizationId, organizationId)) {
+      log.warn("User {} lacks {} in organization {}", userId, permissionCode, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action",
+          ErrorCodes.ARTICLE_ACCESS_DENIED);
+    }
   }
 }

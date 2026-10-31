@@ -29,6 +29,17 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
   @Autowired
   private OrganizationService organizationService;
 
+  // Phase 5c : voir le commentaire equivalent dans CustomerServiceImplTest.
+  private OrganizationDto fixtureOrganization;
+  private Long fixtureUser;
+
+  @org.junit.Before
+  public void grantWritePermissions() {
+    fixtureOrganization = organizationService.save(
+        OrganizationDto.builder().name("Societe Fournisseur Test").active(true).build());
+    fixtureUser = userWithAllWritePermissions(fixtureOrganization.getId());
+  }
+
   @Test
   public void shouldSaveSupplierWithSuccess() {
     SupplierDto expected = SupplierDto.builder()
@@ -36,9 +47,10 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
         .prenom("Prenom Test")
         .mail("fournisseur.test@example.com")
         .numTel("+237600000002")
+        .organizationId(fixtureOrganization.getId())
         .build();
 
-    SupplierDto saved = service.save(expected);
+    SupplierDto saved = service.save(expected, fixtureUser, fixtureOrganization.getId());
 
     assertNotNull(saved);
     assertNotNull(saved.getId());
@@ -50,7 +62,7 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
   public void shouldThrowInvalidEntityException() {
     SupplierDto invalid = SupplierDto.builder().build();
 
-    InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> service.save(invalid));
+    InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> service.save(invalid, fixtureUser, fixtureOrganization.getId()));
 
     assertEquals(ErrorCodes.SUPPLIER_NOT_VALID, exception.getErrorCode());
   }
@@ -62,7 +74,8 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
 
   @Test
   public void shouldDeleteSupplierWithSuccess() {
-    SupplierDto saved = service.save(SupplierDto.builder().nom("Fournisseur A Supprimer").build());
+    SupplierDto saved = service.save(SupplierDto.builder().nom("Fournisseur A Supprimer")
+        .organizationId(fixtureOrganization.getId()).build(), fixtureUser, fixtureOrganization.getId());
 
     service.delete(saved.getId());
 
@@ -73,10 +86,12 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
   @Test
   public void shouldRejectDuplicateMailOnCreate() {
     String mail = "dup-" + UUID.randomUUID() + "@test.local";
-    service.save(SupplierDto.builder().nom("Premier").mail(mail).build());
+    service.save(SupplierDto.builder().nom("Premier").mail(mail)
+        .organizationId(fixtureOrganization.getId()).build(), fixtureUser, fixtureOrganization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class,
-        () -> service.save(SupplierDto.builder().nom("Second").mail(mail).build()));
+        () -> service.save(SupplierDto.builder().nom("Second").mail(mail)
+            .organizationId(fixtureOrganization.getId()).build(), fixtureUser, fixtureOrganization.getId()));
 
     assertEquals(ErrorCodes.SUPPLIER_ALREADY_EXISTS, exception.getErrorCode());
   }
@@ -86,12 +101,13 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
     String mail = "self-" + UUID.randomUUID() + "@test.local";
     OrganizationDto organization = organizationService.save(
         OrganizationDto.builder().name("Societe Fournisseur Update").active(true).build());
+    Long userId = userWithAllWritePermissions(organization.getId());
     SupplierDto saved = service.save(SupplierDto.builder().nom("Fournisseur").mail(mail)
-        .organizationId(organization.getId()).build());
+        .organizationId(organization.getId()).build(), userId, organization.getId());
 
     // Phase 5b-2g : voir le commentaire equivalent dans CustomerServiceImplTest.
     SupplierDto updated = service.update(saved.getId(),
-        SupplierDto.builder().nom("Fournisseur Renomme").mail(mail).build(), organization.getId());
+        SupplierDto.builder().nom("Fournisseur Renomme").mail(mail).build(), userId, organization.getId());
 
     assertEquals("Fournisseur Renomme", updated.getNom());
   }
@@ -101,7 +117,9 @@ public class SupplierServiceImplTest extends AbstractIntegrationTest {
   public void crossOrganizationReadsAreScoped() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe B").active(true).build());
-    SupplierDto supplierA = service.save(SupplierDto.builder().nom("Fournisseur A").organizationId(orgA.getId()).build());
+    SupplierDto supplierA = service.save(
+        SupplierDto.builder().nom("Fournisseur A").organizationId(orgA.getId()).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
 
     assertEquals(supplierA.getId(), service.findById(supplierA.getId(), orgA.getId()).getId());
     assertEquals(1, service.findAll(orgA.getId()).size());

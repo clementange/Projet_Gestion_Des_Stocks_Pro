@@ -29,6 +29,18 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
   @Autowired
   private OrganizationService organizationService;
 
+  // Phase 5c : chaque ecriture exige une permission dans l'organisation ciblee. Le decor fournit
+  // une organisation reelle et un utilisateur autorise - voir docs/phase-5c-report.md.
+  private OrganizationDto fixtureOrganization;
+  private Long fixtureUser;
+
+  @org.junit.Before
+  public void grantWritePermissions() {
+    fixtureOrganization = organizationService.save(
+        OrganizationDto.builder().name("Societe Client Test").active(true).build());
+    fixtureUser = userWithAllWritePermissions(fixtureOrganization.getId());
+  }
+
   @Test
   public void shouldSaveCustomerWithSuccess() {
     CustomerDto expected = CustomerDto.builder()
@@ -36,9 +48,10 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
         .prenom("Prenom Test")
         .mail("client.test@example.com")
         .numTel("+237600000001")
+        .organizationId(fixtureOrganization.getId())
         .build();
 
-    CustomerDto saved = service.save(expected);
+    CustomerDto saved = service.save(expected, fixtureUser, fixtureOrganization.getId());
 
     assertNotNull(saved);
     assertNotNull(saved.getId());
@@ -51,7 +64,7 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
   public void shouldThrowInvalidEntityException() {
     CustomerDto invalid = CustomerDto.builder().build();
 
-    InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> service.save(invalid));
+    InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> service.save(invalid, fixtureUser, fixtureOrganization.getId()));
 
     assertEquals(ErrorCodes.CUSTOMER_NOT_VALID, exception.getErrorCode());
   }
@@ -63,7 +76,8 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
 
   @Test
   public void shouldDeleteCustomerWithSuccess() {
-    CustomerDto saved = service.save(CustomerDto.builder().nom("Client A Supprimer").build());
+    CustomerDto saved = service.save(CustomerDto.builder().nom("Client A Supprimer")
+        .organizationId(fixtureOrganization.getId()).build(), fixtureUser, fixtureOrganization.getId());
 
     service.delete(saved.getId());
 
@@ -74,10 +88,12 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
   @Test
   public void shouldRejectDuplicateMailOnCreate() {
     String mail = "dup-" + UUID.randomUUID() + "@test.local";
-    service.save(CustomerDto.builder().nom("Premier").mail(mail).build());
+    service.save(CustomerDto.builder().nom("Premier").mail(mail)
+        .organizationId(fixtureOrganization.getId()).build(), fixtureUser, fixtureOrganization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class,
-        () -> service.save(CustomerDto.builder().nom("Second").mail(mail).build()));
+        () -> service.save(CustomerDto.builder().nom("Second").mail(mail)
+            .organizationId(fixtureOrganization.getId()).build(), fixtureUser, fixtureOrganization.getId()));
 
     assertEquals(ErrorCodes.CUSTOMER_ALREADY_EXISTS, exception.getErrorCode());
   }
@@ -87,14 +103,15 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
     String mail = "self-" + UUID.randomUUID() + "@test.local";
     OrganizationDto organization = organizationService.save(
         OrganizationDto.builder().name("Societe Client Update").active(true).build());
+    Long userId = userWithAllWritePermissions(organization.getId());
     CustomerDto saved = service.save(CustomerDto.builder().nom("Client").mail(mail)
-        .organizationId(organization.getId()).build());
+        .organizationId(organization.getId()).build(), userId, organization.getId());
 
     // Phase 5b-2g : save() n'est plus un upsert (un create n'est jamais un update) ; la mise a
     // jour passe par update(id, dto, organizationId). L'assertion testee est inchangee : garder
     // son propre mail ne doit pas etre rejete comme un doublon - voir docs/phase-5b2g-report.md.
     CustomerDto updated = service.update(saved.getId(),
-        CustomerDto.builder().nom("Client Renomme").mail(mail).build(), organization.getId());
+        CustomerDto.builder().nom("Client Renomme").mail(mail).build(), userId, organization.getId());
 
     assertEquals("Client Renomme", updated.getNom());
   }
@@ -104,7 +121,9 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
   public void crossOrganizationReadsAreScoped() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe B").active(true).build());
-    CustomerDto customerA = service.save(CustomerDto.builder().nom("Client A").organizationId(orgA.getId()).build());
+    CustomerDto customerA = service.save(
+        CustomerDto.builder().nom("Client A").organizationId(orgA.getId()).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
 
     assertEquals(customerA.getId(), service.findById(customerA.getId(), orgA.getId()).getId());
     assertEquals(1, service.findAll(orgA.getId()).size());

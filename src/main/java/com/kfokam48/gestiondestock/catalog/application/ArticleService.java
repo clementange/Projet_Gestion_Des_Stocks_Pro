@@ -5,7 +5,7 @@ import java.util.List;
 
 public interface ArticleService {
 
-  ArticleDto save(ArticleDto dto);
+  ArticleDto save(ArticleDto dto, Long userId, Long organizationId);
 
   /**
    * Phase 5b-2g : l'unique chemin de MISE A JOUR. L'id vient du CHEMIN, jamais du corps ;
@@ -13,7 +13,7 @@ public interface ArticleService {
    * verifiee AVANT toute ecriture (404 fail-closed sinon) ; l'organisation elle-meme n'est
    * jamais modifiable - voir docs/phase-5b2g-report.md.
    */
-  ArticleDto update(Long id, ArticleDto dto, Long organizationId);
+  ArticleDto update(Long id, ArticleDto dto, Long userId, Long organizationId);
 
   ArticleDto findById(Long id);
 
@@ -37,7 +37,7 @@ public interface ArticleService {
    * l'organisation de l'appelant AVANT de supprimer (404 fail-closed sinon) - voir
    * docs/phase-5b2h-report.md.
    */
-  void delete(Long id, Long organizationId);
+  void delete(Long id, Long userId, Long organizationId);
 
   ArticleDto updatePhoto(Long id, String url, Long organizationId);
 

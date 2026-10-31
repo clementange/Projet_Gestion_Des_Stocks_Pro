@@ -31,7 +31,7 @@ public class CustomerOrderController {
 
   @PostMapping(value = APP_ROOT + "/customer-orders/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerOrderDto create(@RequestBody CreateCustomerOrderRequest request, @AuthenticationPrincipal ExtendedUser principal) {
-    return customerOrderService.create(request.getOrder(), request.getLines(), principal.getOrganizationId());
+    return customerOrderService.create(request.getOrder(), request.getLines(), principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/customer-orders/{idCommande}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -56,7 +56,7 @@ public class CustomerOrderController {
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/valider", produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerOrderDto validate(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return customerOrderService.validate(id, principal.getOrganizationId());
+    return customerOrderService.validate(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/reserver", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -66,12 +66,12 @@ public class CustomerOrderController {
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/preparer", produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerOrderDto prepare(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return customerOrderService.prepare(id, principal.getOrganizationId());
+    return customerOrderService.prepare(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/expedier", produces = MediaType.APPLICATION_JSON_VALUE)
   public CustomerOrderDto ship(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return customerOrderService.ship(id, principal.getOrganizationId());
+    return customerOrderService.ship(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/livrer", produces = MediaType.APPLICATION_JSON_VALUE)

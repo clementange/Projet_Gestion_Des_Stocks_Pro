@@ -40,7 +40,7 @@ public class SupplierController {
   @PostMapping(value = APP_ROOT + "/suppliers/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public SupplierDto create(@RequestBody SupplierDto dto, @AuthenticationPrincipal ExtendedUser principal) {
     dto.setOrganizationId(principal.getOrganizationId());
-    return supplierService.save(dto);
+    return supplierService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/suppliers/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -55,7 +55,7 @@ public class SupplierController {
 
   @DeleteMapping(value = APP_ROOT + "/suppliers/delete/{id}")
   public void delete(@PathVariable("id") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    supplierService.delete(id, principal.getOrganizationId());
+    supplierService.delete(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   /**
@@ -65,6 +65,6 @@ public class SupplierController {
    */
   @PutMapping(value = APP_ROOT + "/suppliers/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public SupplierDto update(@PathVariable("id") Long id, @RequestBody SupplierDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return supplierService.update(id, dto, principal.getOrganizationId());
+    return supplierService.update(id, dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

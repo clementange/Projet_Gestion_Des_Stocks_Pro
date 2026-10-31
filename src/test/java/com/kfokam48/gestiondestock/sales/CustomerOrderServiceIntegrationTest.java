@@ -112,23 +112,31 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
 
   private SiteDto createSite() {
     organization = organizationService.save(OrganizationDto.builder().name("Societe Sales").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     return siteService.save(SiteDto.builder().code(uniqueCode("BTQ")).name("Boutique test")
-        .type(SiteType.BOUTIQUE).active(true).city(city).build(), organization.getId());
+        .type(SiteType.BOUTIQUE).active(true).city(city).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
   }
 
+  // Phase 5c : ce helper ne peut plus s'appuyer sur le champ `organization`, qui n'est renseigne
+  // que par createSite() - les tests d'appartenance ne l'appellent pas. Il cree donc sa propre
+  // organisation, avec un utilisateur autorise.
   private ArticleDto createArticle() {
-    CategoryDto category = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build());
+    OrganizationDto articleOrganization = organizationService.save(
+        OrganizationDto.builder().name("Societe Article CmdClient").active(true).build());
+    Long articleUserId = userWithAllWritePermissions(articleOrganization.getId());
+    CategoryDto category = categoryService.save(
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
+        articleUserId, articleOrganization.getId());
     return articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
-        .category(category).build());
+        .category(category).build(), articleUserId, articleOrganization.getId());
   }
 
   private CustomerOrderDto createOrder(SiteDto site, ArticleDto article, BigDecimal quantity, Long[] lineIdOut) {
     CustomerOrderDto order = customerOrderService.create(
         CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(1L).site(site).build(),
         List.of(CustomerOrderLineDto.builder().article(article).quantite(quantity).prixUnitaire(BigDecimal.TEN).build()),
-        organization.getId());
+        userWithAllWritePermissions(organization.getId()), organization.getId());
     lineIdOut[0] = customerOrderService.findLines(order.getId(), organization.getId()).get(0).getId();
     return order;
   }
@@ -141,12 +149,12 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     String code = uniqueCode("CMD");
     customerOrderService.create(CustomerOrderDto.builder().code(code).customerId(1L).site(site).build(),
         List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
-        organization.getId());
+        userWithAllWritePermissions(organization.getId()), organization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> customerOrderService.create(
         CustomerOrderDto.builder().code(code).customerId(1L).site(site).build(),
         List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
-        organization.getId()));
+        userWithAllWritePermissions(organization.getId()), organization.getId()));
 
     assertEquals(ErrorCodes.CUSTOMER_ORDER_ALREADY_EXISTS, exception.getErrorCode());
   }
@@ -158,7 +166,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
-    customerOrderService.validate(order.getId(), organization.getId());
+    customerOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE");
     customerOrderService.reserve(order.getId(), userId, organization.getId());
 
@@ -175,7 +183,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.valueOf(5), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.TEN, new Long[1]);
-    customerOrderService.validate(order.getId(), organization.getId());
+    customerOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE");
 
     assertThrows(InvalidOperationException.class, () -> customerOrderService.reserve(order.getId(), userId, organization.getId()));
@@ -188,11 +196,11 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
-    customerOrderService.validate(order.getId(), organization.getId());
+    customerOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_DELIVER");
     customerOrderService.reserve(order.getId(), userId, organization.getId());
-    customerOrderService.prepare(order.getId(), organization.getId());
-    customerOrderService.ship(order.getId(), organization.getId());
+    customerOrderService.prepare(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
+    customerOrderService.ship(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
 
     StockDto beforeDelivery = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, beforeDelivery.getQuantitePhysique().compareTo(BigDecimal.TEN));
@@ -212,7 +220,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
-    customerOrderService.validate(order.getId(), organization.getId());
+    customerOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_CANCEL");
     customerOrderService.reserve(order.getId(), userId, organization.getId());
 
@@ -231,7 +239,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
-    customerOrderService.validate(order.getId(), organization.getId());
+    customerOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_DELIVER");
     customerOrderService.reserve(order.getId(), userId, organization.getId());
 
@@ -266,15 +274,15 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
   public void createShouldRejectSiteFromAnotherOrganization() {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe CmdClient Caller").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe CmdClient Foreign").active(true).build());
-    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build());
+    CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build(),
+        userWithAllWritePermissions(orgB.getId()), orgB.getId());
     SiteDto siteB = siteService.save(SiteDto.builder().code(uniqueCode("BTQ")).name("Boutique etrangere")
-        .type(SiteType.BOUTIQUE).active(true).city(cityB).build(), orgB.getId());
+        .type(SiteType.BOUTIQUE).active(true).city(cityB).build(), userWithAllWritePermissions(orgB.getId()), orgB.getId());
     ArticleDto article = createArticle();
 
     InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> customerOrderService.create(
         CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(1L).site(siteB).build(),
-        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
-        orgA.getId()));
+        List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()), userWithAllWritePermissions(orgA.getId()), orgA.getId()));
 
     assertEquals(ErrorCodes.CUSTOMER_ORDER_ACCESS_DENIED, exception.getErrorCode());
   }

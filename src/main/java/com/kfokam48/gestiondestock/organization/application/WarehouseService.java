@@ -8,7 +8,7 @@ public interface WarehouseService {
   // Phase 5b-2g : le Site reference doit appartenir a l'organisation de l'appelant - le controle
   // de type ENTREPOT existant ne regardait que le type, jamais le proprietaire du site - voir
   // docs/phase-5b2g-report.md.
-  WarehouseDto save(WarehouseDto dto, Long organizationId);
+  WarehouseDto save(WarehouseDto dto, Long userId, Long organizationId);
 
   /**
    * Phase 5b-2g : l'unique chemin de MISE A JOUR. L'id vient du CHEMIN, jamais du corps ;
@@ -16,7 +16,7 @@ public interface WarehouseService {
    * verifiee AVANT toute ecriture (404 fail-closed sinon) ; l'organisation elle-meme n'est
    * jamais modifiable - voir docs/phase-5b2g-report.md.
    */
-  WarehouseDto update(Long id, WarehouseDto dto, Long organizationId);
+  WarehouseDto update(Long id, WarehouseDto dto, Long userId, Long organizationId);
 
   WarehouseDto findById(Long id);
 
@@ -37,6 +37,6 @@ public interface WarehouseService {
    * l'organisation de l'appelant AVANT de supprimer (404 fail-closed sinon) - voir
    * docs/phase-5b2h-report.md.
    */
-  void delete(Long id, Long organizationId);
+  void delete(Long id, Long userId, Long organizationId);
 
 }

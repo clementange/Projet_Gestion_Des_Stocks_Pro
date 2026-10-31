@@ -33,7 +33,7 @@ public class PurchaseOrderController {
 
   @PostMapping(value = APP_ROOT + "/purchase-orders/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public PurchaseOrderDto create(@RequestBody CreatePurchaseOrderRequest request, @AuthenticationPrincipal ExtendedUser principal) {
-    return purchaseOrderService.create(request.getOrder(), request.getLines(), principal.getOrganizationId());
+    return purchaseOrderService.create(request.getOrder(), request.getLines(), principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/purchase-orders/{idCommande}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -58,12 +58,12 @@ public class PurchaseOrderController {
 
   @PostMapping(value = APP_ROOT + "/purchase-orders/{idCommande}/valider", produces = MediaType.APPLICATION_JSON_VALUE)
   public PurchaseOrderDto validate(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return purchaseOrderService.validate(id, principal.getOrganizationId());
+    return purchaseOrderService.validate(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/purchase-orders/{idCommande}/annuler", produces = MediaType.APPLICATION_JSON_VALUE)
   public PurchaseOrderDto cancel(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return purchaseOrderService.cancel(id, principal.getOrganizationId());
+    return purchaseOrderService.cancel(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/purchase-orders/{idCommande}/lignes/{idLigne}/receptionner", produces = MediaType.APPLICATION_JSON_VALUE)

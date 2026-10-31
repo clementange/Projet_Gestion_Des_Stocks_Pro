@@ -35,13 +35,19 @@ public class CategoryServiceImplTest extends AbstractIntegrationTest {
 
   @Test
   public void shouldSaveCategoryWithSuccess() {
+    // Phase 5c : la creation exige CATEGORY_CREATE dans l'organisation ciblee. Le decor fournit
+    // donc une organisation reelle et un utilisateur autorise - voir docs/phase-5c-report.md.
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Cat Save").active(true).build());
     CategoryDto expectedCategory = CategoryDto.builder()
         .code("Cat test")
         .designation("Designation test")
         .idEntreprise(1L)
+        .organization(organization)
         .build();
 
-    CategoryDto savedCategory = service.save(expectedCategory);
+    CategoryDto savedCategory = service.save(expectedCategory,
+        userWithAllWritePermissions(organization.getId()), organization.getId());
 
     assertNotNull(savedCategory);
     assertNotNull(savedCategory.getId());
@@ -64,12 +70,13 @@ public class CategoryServiceImplTest extends AbstractIntegrationTest {
     OrganizationDto organization = organizationService.save(
         OrganizationDto.builder().name("Societe Cat Update").active(true).build());
     expectedCategory.setOrganization(organization);
-    CategoryDto savedCategory = service.save(expectedCategory);
+    Long userId = userWithAllWritePermissions(organization.getId());
+    CategoryDto savedCategory = service.save(expectedCategory, userId, organization.getId());
 
     CategoryDto categoryToUpdate = savedCategory;
     categoryToUpdate.setCode("Cat update");
 
-    savedCategory = service.update(categoryToUpdate.getId(), categoryToUpdate, organization.getId());
+    savedCategory = service.update(categoryToUpdate.getId(), categoryToUpdate, userId, organization.getId());
 
     assertNotNull(categoryToUpdate);
     assertNotNull(categoryToUpdate.getId());
@@ -81,8 +88,14 @@ public class CategoryServiceImplTest extends AbstractIntegrationTest {
   @Test
   public void shouldThrowInvalidEntityException() {
     CategoryDto expectedCategory = CategoryDto.builder().build();
+    // Phase 5c : l'utilisateur est autorise, pour que l'echec provienne bien de la VALIDATION et
+    // non de la permission - sinon ce test ne verifierait plus ce qu'il annonce.
+    OrganizationDto organization = organizationService.save(
+        OrganizationDto.builder().name("Societe Cat Invalid").active(true).build());
+    Long userId = userWithAllWritePermissions(organization.getId());
 
-    InvalidEntityException expectedException = assertThrows(InvalidEntityException.class, () -> service.save(expectedCategory));
+    InvalidEntityException expectedException = assertThrows(InvalidEntityException.class,
+        () -> service.save(expectedCategory, userId, organization.getId()));
 
     assertEquals(ErrorCodes.CATEGORY_NOT_VALID, expectedException.getErrorCode());
     assertEquals(1, expectedException.getErrors().size());
@@ -108,7 +121,8 @@ public class CategoryServiceImplTest extends AbstractIntegrationTest {
     OrganizationDto orgA = organizationService.save(OrganizationDto.builder().name("Societe A").active(true).build());
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe B").active(true).build());
     CategoryDto categoryA = service.save(
-        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat A").organization(orgA).build());
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat A").organization(orgA).build(),
+        userWithAllWritePermissions(orgA.getId()), orgA.getId());
 
     assertEquals(categoryA.getId(), service.findById(categoryA.getId(), orgA.getId()).getId());
     assertEquals(categoryA.getCode(), service.findByCode(categoryA.getCode(), orgA.getId()).getCode());

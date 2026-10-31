@@ -123,31 +123,30 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     // 1. Organisation : Societe X a Douala, avec un entrepot central et deux boutiques.
     OrganizationDto societeX = organizationService.save(OrganizationDto.builder().name("Societe X").active(true).build());
     organizationId = societeX.getId();
-    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(societeX).build());
+    CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(societeX).build(), userWithAllWritePermissions(societeX.getId()), societeX.getId());
 
     SiteDto entrepotCentral = siteService.save(SiteDto.builder().code(uniqueCode("ENT-DLA")).name("Entrepot Central Douala")
-        .type(SiteType.ENTREPOT).active(true).city(douala).build(), organizationId);
+        .type(SiteType.ENTREPOT).active(true).city(douala).build(), userWithAllWritePermissions(organizationId), organizationId);
     WarehouseDto warehouse = warehouseService.save(WarehouseDto.builder().code(uniqueCode("WH-DLA")).name("Entrepot Central Douala")
-        .site(entrepotCentral).build(), organizationId);
+        .site(entrepotCentral).build(), userWithAllWritePermissions(organizationId), organizationId);
     assertEquals(entrepotCentral.getId(), warehouse.getSite().getId());
 
     SiteDto boutiqueAkwa = siteService.save(SiteDto.builder().code(uniqueCode("BTQ-AKW")).name("Boutique Akwa")
-        .type(SiteType.BOUTIQUE).active(true).city(douala).build(), organizationId);
+        .type(SiteType.BOUTIQUE).active(true).city(douala).build(), userWithAllWritePermissions(organizationId), organizationId);
     SiteDto boutiqueBonamoussadi = siteService.save(SiteDto.builder().code(uniqueCode("BTQ-BON")).name("Boutique Bonamoussadi")
-        .type(SiteType.BOUTIQUE).active(true).city(douala).build(), organizationId);
+        .type(SiteType.BOUTIQUE).active(true).city(douala).build(), userWithAllWritePermissions(organizationId), organizationId);
 
     // 2. Catalogue : article ORD-001.
-    CategoryDto categorie = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Informatique").organization(societeX).build());
+    CategoryDto categorie = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Informatique").organization(societeX).build(), userWithAllWritePermissions(societeX.getId()), societeX.getId());
     ArticleDto ord001 = articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ORD-001")).designation("Ordinateur HP")
         .prixUnitaireHt(BigDecimal.valueOf(400)).tauxTva(BigDecimal.valueOf(19.25)).prixUnitaireTtc(BigDecimal.valueOf(477))
-        .category(categorie).organization(societeX).build());
+        .category(categorie).organization(societeX).build(), userWithAllWritePermissions(societeX.getId()), societeX.getId());
 
     // 3. Achat : commande fournisseur de 500 unites, receptionnee integralement a l'entrepot.
     PurchaseOrderDto commandeFournisseur = purchaseOrderService.create(
         PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(entrepotCentral).build(),
-        List.of(PurchaseOrderLineDto.builder().article(ord001).quantiteCommandee(BigDecimal.valueOf(500)).prixUnitaire(BigDecimal.valueOf(400)).build()),
-        organizationId);
-    purchaseOrderService.validate(commandeFournisseur.getId(), organizationId);
+        List.of(PurchaseOrderLineDto.builder().article(ord001).quantiteCommandee(BigDecimal.valueOf(500)).prixUnitaire(BigDecimal.valueOf(400)).build()), userWithAllWritePermissions(organizationId), organizationId);
+    purchaseOrderService.validate(commandeFournisseur.getId(), userWithAllWritePermissions(organizationId), organizationId);
     Long ligneCommande = purchaseOrderService.findLines(commandeFournisseur.getId(), organizationId).get(0).getId();
     grantPermission("PURCHASE_ORDER_RECEIVE", entrepotCentral, 10L);
     purchaseOrderService.receiveLine(commandeFournisseur.getId(), ligneCommande, BigDecimal.valueOf(500), 10L, organizationId);
@@ -157,11 +156,12 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
     // 4. Transfert : 50 unites de l'entrepot central vers la boutique Akwa.
     StockTransferDto transfert = stockTransferService.create(
         StockTransferDto.builder().code(uniqueCode("TR")).originSite(entrepotCentral).destinationSite(boutiqueAkwa).requestedByUserId(10L).build(),
-        List.of(StockTransferLineDto.builder().article(ord001).quantite(BigDecimal.valueOf(50)).build()),
-        organizationId);
-    stockTransferService.submit(transfert.getId(), organizationId);
+        List.of(StockTransferLineDto.builder().article(ord001).quantite(BigDecimal.valueOf(50)).build()), userWithAllWritePermissions(organizationId), organizationId);
+    stockTransferService.submit(transfert.getId(), userWithAllWritePermissions(organizationId), organizationId);
+    // Phase 5c : l'approbateur est le sujet de la permission.
+    grantPermission("STOCK_TRANSFER_APPROVE", entrepotCentral, 11L);
     stockTransferService.approve(transfert.getId(), 11L, organizationId);
-    stockTransferService.startPreparation(transfert.getId(), organizationId);
+    stockTransferService.startPreparation(transfert.getId(), userWithAllWritePermissions(organizationId), organizationId);
     grantPermission("STOCK_TRANSFER_SHIP", entrepotCentral, 12L);
     stockTransferService.ship(transfert.getId(), 12L, organizationId);
     grantPermission("STOCK_TRANSFER_RECEIVE", boutiqueAkwa, 13L);

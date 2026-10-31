@@ -2,6 +2,9 @@ package com.kfokam48.gestiondestock.identity.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.exception.InvalidOperationException;
+import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
@@ -24,11 +27,14 @@ public class UserServiceImpl implements UserService {
 
   private UserRepository userRepository;
   private PasswordEncoder passwordEncoder;
+  private AuthorizationService authorizationService;
 
   @Autowired
-  public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+  public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
+      AuthorizationService authorizationService) {
     this.userRepository = userRepository;
     this.passwordEncoder = passwordEncoder;
+    this.authorizationService = authorizationService;
   }
 
   @Override
@@ -148,6 +154,16 @@ public class UserServiceImpl implements UserService {
     delete(user.getId());
   }
 
+  // Phase 5c : ordre impose - appartenance (findById scope, 404 masque) PUIS permission PUIS
+  // ecriture. Inverser revient a reintroduire le contournement de 5b-2b : une affectation de
+  // portee GLOBAL matche n'importe quel scopeId, donc hasPermission seul ne prouve rien.
+  @Override
+  public void delete(Long id, Long callerTenantId, Long userId, Long organizationId) {
+    UserDto user = findById(id, callerTenantId);
+    requirePermission(userId, "USER_DELETE", organizationId);
+    delete(user.getId());
+  }
+
   @Override
   public UserDto changePassword(Long id, String rawPassword) {
     User user = userRepository.findById(id)
@@ -177,5 +193,19 @@ public class UserServiceImpl implements UserService {
     user.setPhoto(url);
 
     return UserDto.fromEntity(userRepository.save(user));
+  }
+  // Phase 5c : voir docs/rbac-matrix.md.
+  @Override
+  public UserDto save(UserDto dto, Long userId, Long organizationId) {
+    requirePermission(userId, "USER_CREATE", organizationId);
+    return save(dto);
+  }
+
+  private void requirePermission(Long userId, String code, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, code, ScopeType.ORGANIZATION, organizationId, organizationId)) {
+      log.warn("User {} lacks {} in organization {}", userId, code, organizationId);
+      throw new InvalidOperationException("Vous n'avez pas la permission d'effectuer cette action",
+          ErrorCodes.USER_ACCESS_DENIED);
+    }
   }
 }

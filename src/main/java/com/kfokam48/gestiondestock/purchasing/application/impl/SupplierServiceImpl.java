@@ -4,6 +4,8 @@ import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.dto.AdresseDto;
 import com.kfokam48.gestiondestock.purchasing.domain.model.Supplier;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
@@ -27,16 +29,20 @@ import org.springframework.util.StringUtils;
 public class SupplierServiceImpl implements SupplierService {
 
   private SupplierRepository supplierRepository;
+  private AuthorizationService authorizationService;
   private PurchaseOrderRepository purchaseOrderRepository;
 
   @Autowired
-  public SupplierServiceImpl(SupplierRepository supplierRepository, PurchaseOrderRepository purchaseOrderRepository) {
+  public SupplierServiceImpl(SupplierRepository supplierRepository, PurchaseOrderRepository purchaseOrderRepository,
+      AuthorizationService authorizationService) {
     this.supplierRepository = supplierRepository;
     this.purchaseOrderRepository = purchaseOrderRepository;
+    this.authorizationService = authorizationService;
   }
 
   @Override
-  public SupplierDto save(SupplierDto dto) {
+  public SupplierDto save(SupplierDto dto, Long userId, Long organizationId) {
+    requirePermission(userId, "SUPPLIER_CREATE", organizationId);
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'un fournisseur");
@@ -142,7 +148,7 @@ public class SupplierServiceImpl implements SupplierService {
 
   // Phase 5b-2g : voir docs/phase-5b2g-report.md.
   @Override
-  public SupplierDto update(Long id, SupplierDto dto, Long organizationId) {
+  public SupplierDto update(Long id, SupplierDto dto, Long userId, Long organizationId) {
     Supplier existing = supplierRepository.findById(id)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucun fournisseur avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SUPPLIER_NOT_FOUND));
@@ -152,6 +158,7 @@ public class SupplierServiceImpl implements SupplierService {
       throw new EntityNotFoundException(
           "Aucun fournisseur avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SUPPLIER_NOT_FOUND);
     }
+    requirePermission(userId, "SUPPLIER_UPDATE", organizationId);
     dto.setId(id);
     dto.setOrganizationId(existing.getOrganizationId());
     List<String> errors = SupplierValidator.validate(dto);
@@ -176,7 +183,7 @@ public class SupplierServiceImpl implements SupplierService {
   }
   // Phase 5b-2h : voir docs/phase-5b2h-report.md.
   @Override
-  public void delete(Long id, Long organizationId) {
+  public void delete(Long id, Long userId, Long organizationId) {
     if (id == null) {
       log.error("Supplier ID is null");
       return;
@@ -190,6 +197,22 @@ public class SupplierServiceImpl implements SupplierService {
       throw new EntityNotFoundException(
           "Aucun fournisseur avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SUPPLIER_NOT_FOUND);
     }
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    requirePermission(userId, "SUPPLIER_DELETE", organizationId);
     delete(id);
+  }
+  /**
+   * Phase 5c : ordre strict appartenance -> permission -> ecriture. L'appartenance est verifiee
+   * en amont (5b-2g/2h) et renvoie un *_NOT_FOUND masque ; ici on repond a la question distincte
+   * « qui, DANS l'organisation, a le droit de faire cela » - voir docs/rbac-matrix.md.
+   */
+  private void requirePermission(Long userId, String permissionCode, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.ORGANIZATION,
+        organizationId, organizationId)) {
+      log.warn("User {} lacks {} in organization {}", userId, permissionCode, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action",
+          ErrorCodes.SUPPLIER_ACCESS_DENIED);
+    }
   }
 }

@@ -34,6 +34,11 @@ import org.springframework.util.StringUtils;
 public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
   private static final String PURCHASE_ORDER_RECEIVE = "PURCHASE_ORDER_RECEIVE";
+  // Phase 5c : voir docs/rbac-matrix.md.
+  private static final String PURCHASE_ORDER_VALIDATE = "PURCHASE_ORDER_VALIDATE";
+  private static final String PURCHASE_ORDER_CANCEL = "PURCHASE_ORDER_CANCEL";
+
+
 
   private PurchaseOrderRepository purchaseOrderRepository;
   private PurchaseOrderLineRepository purchaseOrderLineRepository;
@@ -53,7 +58,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
   }
 
   @Override
-  public PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines, Long organizationId) {
+  public PurchaseOrderDto create(PurchaseOrderDto dto, List<PurchaseOrderLineDto> lines, Long userId, Long organizationId) {
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'une commande fournisseur");
@@ -71,6 +76,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     // Phase 5b-2b : PurchaseOrder.create n'avait aucune verification de permission ni
     // d'appartenance du site a l'organisation de l'appelant - voir docs/phase-5b2b-report.md.
     requireSiteInOrganization(dto.getSite().getId(), organizationId);
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    if (!authorizationService.hasPermission(userId, "PURCHASE_ORDER_CREATE", ScopeType.SITE, dto.getSite().getId(), organizationId)) {
+      log.warn("User {} lacks PURCHASE_ORDER_CREATE on site {}", userId, dto.getSite().getId());
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action sur ce site",
+          ErrorCodes.PURCHASE_ORDER_ACCESS_DENIED);
+    }
 
     PurchaseOrder purchaseOrder = PurchaseOrderDto.toEntity(dto);
     purchaseOrder.setOrderDate(Instant.now());
@@ -163,17 +175,21 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
   }
 
   @Override
-  public PurchaseOrderDto validate(Long id, Long organizationId) {
+  public PurchaseOrderDto validate(Long id, Long userId, Long organizationId) {
     findById(id, organizationId);
     PurchaseOrder purchaseOrder = fetchOrder(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOrderPermission(PURCHASE_ORDER_VALIDATE, purchaseOrder, userId, organizationId);
     purchaseOrder.validate();
     return PurchaseOrderDto.fromEntity(purchaseOrderRepository.save(purchaseOrder));
   }
 
   @Override
-  public PurchaseOrderDto cancel(Long id, Long organizationId) {
+  public PurchaseOrderDto cancel(Long id, Long userId, Long organizationId) {
     findById(id, organizationId);
     PurchaseOrder purchaseOrder = fetchOrder(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOrderPermission(PURCHASE_ORDER_CANCEL, purchaseOrder, userId, organizationId);
     purchaseOrder.cancel();
     return PurchaseOrderDto.fromEntity(purchaseOrderRepository.save(purchaseOrder));
   }
@@ -227,5 +243,15 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             "Aucune commande fournisseur avec l'ID = " + id + " n'a ete trouvee dans la BDD",
             ErrorCodes.PURCHASE_ORDER_NOT_FOUND)
         );
+  }
+  // Phase 5c : meme forme que le controle de receiveLine, extrait pour etre partage.
+  private void requireOrderPermission(String permissionCode, PurchaseOrder purchaseOrder, Long userId, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.SITE, purchaseOrder.getSite().getId(), organizationId)) {
+      log.warn("User {} tried to {} on purchase order {} (site {}) without permission",
+          userId, permissionCode, purchaseOrder.getId(), purchaseOrder.getSite().getId());
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action sur cette commande fournisseur",
+          ErrorCodes.PURCHASE_ORDER_ACCESS_DENIED);
+    }
   }
 }

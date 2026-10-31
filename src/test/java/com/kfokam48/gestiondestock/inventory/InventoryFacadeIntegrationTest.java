@@ -66,21 +66,28 @@ public class InventoryFacadeIntegrationTest extends AbstractIntegrationTest {
     return prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
   }
 
+  // Phase 5c : l'organisation du dernier site cree est retenue pour que createArticle() puisse
+  // creer categorie et article dans CETTE organisation, avec un utilisateur autorise.
+  private OrganizationDto lastOrganization;
+
   private SiteDto createSite(SiteType type) {
-    OrganizationDto organization = organizationService.save(
+    OrganizationDto organization = lastOrganization = organizationService.save(
         OrganizationDto.builder().name("Societe Inventory").active(true).build());
-    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build());
+    CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     return siteService.save(SiteDto.builder().code(uniqueCode("SITE")).name("Site test")
-        .type(type).active(true).city(city).build(), organization.getId());
+        .type(type).active(true).city(city).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
   }
 
   private ArticleDto createArticle() {
     SiteDto site = createSite(SiteType.BOUTIQUE);
-    CategoryDto category = categoryService.save(CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build());
+    CategoryDto category = categoryService.save(
+        CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
+        userWithAllWritePermissions(lastOrganization.getId()), lastOrganization.getId());
     ArticleDto article = articleService.save(
         ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
             .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
-            .category(category).build());
+            .category(category).build(),
+        userWithAllWritePermissions(lastOrganization.getId()), lastOrganization.getId());
     return article;
   }
 

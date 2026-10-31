@@ -4,6 +4,8 @@ import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.dto.AdresseDto;
 import com.kfokam48.gestiondestock.sales.domain.model.Customer;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
@@ -27,16 +29,20 @@ import org.springframework.util.StringUtils;
 public class CustomerServiceImpl implements CustomerService {
 
   private CustomerRepository customerRepository;
+  private AuthorizationService authorizationService;
   private CustomerOrderRepository customerOrderRepository;
 
   @Autowired
-  public CustomerServiceImpl(CustomerRepository customerRepository, CustomerOrderRepository customerOrderRepository) {
+  public CustomerServiceImpl(CustomerRepository customerRepository, CustomerOrderRepository customerOrderRepository,
+      AuthorizationService authorizationService) {
     this.customerRepository = customerRepository;
     this.customerOrderRepository = customerOrderRepository;
+    this.authorizationService = authorizationService;
   }
 
   @Override
-  public CustomerDto save(CustomerDto dto) {
+  public CustomerDto save(CustomerDto dto, Long userId, Long organizationId) {
+    requirePermission(userId, "CUSTOMER_CREATE", organizationId);
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'un client");
@@ -142,7 +148,7 @@ public class CustomerServiceImpl implements CustomerService {
 
   // Phase 5b-2g : voir docs/phase-5b2g-report.md.
   @Override
-  public CustomerDto update(Long id, CustomerDto dto, Long organizationId) {
+  public CustomerDto update(Long id, CustomerDto dto, Long userId, Long organizationId) {
     Customer existing = customerRepository.findById(id)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucun client avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CUSTOMER_NOT_FOUND));
@@ -152,6 +158,7 @@ public class CustomerServiceImpl implements CustomerService {
       throw new EntityNotFoundException(
           "Aucun client avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CUSTOMER_NOT_FOUND);
     }
+    requirePermission(userId, "CUSTOMER_UPDATE", organizationId);
     dto.setId(id);
     dto.setOrganizationId(existing.getOrganizationId());
     List<String> errors = CustomerValidator.validate(dto);
@@ -178,7 +185,7 @@ public class CustomerServiceImpl implements CustomerService {
   }
   // Phase 5b-2h : voir docs/phase-5b2h-report.md.
   @Override
-  public void delete(Long id, Long organizationId) {
+  public void delete(Long id, Long userId, Long organizationId) {
     if (id == null) {
       log.error("Customer ID is null");
       return;
@@ -192,6 +199,22 @@ public class CustomerServiceImpl implements CustomerService {
       throw new EntityNotFoundException(
           "Aucun client avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CUSTOMER_NOT_FOUND);
     }
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    requirePermission(userId, "CUSTOMER_DELETE", organizationId);
     delete(id);
+  }
+  /**
+   * Phase 5c : ordre strict appartenance -> permission -> ecriture. L'appartenance est verifiee
+   * en amont (5b-2g/2h) et renvoie un *_NOT_FOUND masque ; ici on repond a la question distincte
+   * « qui, DANS l'organisation, a le droit de faire cela » - voir docs/rbac-matrix.md.
+   */
+  private void requirePermission(Long userId, String permissionCode, Long organizationId) {
+    if (!authorizationService.hasPermission(userId, permissionCode, ScopeType.ORGANIZATION,
+        organizationId, organizationId)) {
+      log.warn("User {} lacks {} in organization {}", userId, permissionCode, organizationId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action",
+          ErrorCodes.CUSTOMER_ACCESS_DENIED);
+    }
   }
 }

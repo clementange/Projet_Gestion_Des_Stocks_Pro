@@ -36,6 +36,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   private static final String CUSTOMER_ORDER_RESERVE = "CUSTOMER_ORDER_RESERVE";
   private static final String CUSTOMER_ORDER_DELIVER = "CUSTOMER_ORDER_DELIVER";
   private static final String CUSTOMER_ORDER_CANCEL = "CUSTOMER_ORDER_CANCEL";
+  // Phase 5c : les trois transitions restantes n'avaient que l'appartenance (5b-2h), aucune
+  // permission - voir docs/rbac-matrix.md.
+  private static final String CUSTOMER_ORDER_VALIDATE = "CUSTOMER_ORDER_VALIDATE";
+  private static final String CUSTOMER_ORDER_PREPARE = "CUSTOMER_ORDER_PREPARE";
+  private static final String CUSTOMER_ORDER_SHIP = "CUSTOMER_ORDER_SHIP";
 
   private CustomerOrderRepository customerOrderRepository;
   private CustomerOrderLineRepository customerOrderLineRepository;
@@ -65,7 +70,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines, Long organizationId) {
+  public CustomerOrderDto create(CustomerOrderDto dto, List<CustomerOrderLineDto> lines, Long userId, Long organizationId) {
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'une commande client");
@@ -83,6 +88,13 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     // Phase 5b-2b : CustomerOrder.create n'avait aucune verification de permission ni
     // d'appartenance du site a l'organisation de l'appelant - voir docs/phase-5b2b-report.md.
     requireSiteInOrganization(dto.getSite().getId(), organizationId);
+    // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    if (!authorizationService.hasPermission(userId, "CUSTOMER_ORDER_CREATE", ScopeType.SITE, dto.getSite().getId(), organizationId)) {
+      log.warn("User {} lacks CUSTOMER_ORDER_CREATE on site {}", userId, dto.getSite().getId());
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action sur ce site",
+          ErrorCodes.CUSTOMER_ORDER_ACCESS_DENIED);
+    }
 
     CustomerOrder order = CustomerOrderDto.toEntity(dto);
     order.setOrderDate(Instant.now());
@@ -175,9 +187,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto validate(Long id, Long organizationId) {
+  public CustomerOrderDto validate(Long id, Long userId, Long organizationId) {
     findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOrderPermission(CUSTOMER_ORDER_VALIDATE, order, userId, organizationId);
     order.validate();
     return CustomerOrderDto.fromEntity(customerOrderRepository.save(order));
   }
@@ -200,18 +214,22 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto prepare(Long id, Long organizationId) {
+  public CustomerOrderDto prepare(Long id, Long userId, Long organizationId) {
     findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOrderPermission(CUSTOMER_ORDER_PREPARE, order, userId, organizationId);
     order.requirePreparable();
     order.markPrepared();
     return CustomerOrderDto.fromEntity(customerOrderRepository.save(order));
   }
 
   @Override
-  public CustomerOrderDto ship(Long id, Long organizationId) {
+  public CustomerOrderDto ship(Long id, Long userId, Long organizationId) {
     findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
+    // Phase 5c : appartenance (findById scope, ci-dessus) -> permission -> ecriture.
+    requireOrderPermission(CUSTOMER_ORDER_SHIP, order, userId, organizationId);
     order.requireShippable();
     order.markShipped();
     return CustomerOrderDto.fromEntity(customerOrderRepository.save(order));

@@ -31,7 +31,7 @@ public class StockTransferController {
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public StockTransferDto create(@RequestBody CreateStockTransferRequest request, @AuthenticationPrincipal ExtendedUser principal) {
-    return stockTransferService.create(request.getTransfer(), request.getLines(), principal.getOrganizationId());
+    return stockTransferService.create(request.getTransfer(), request.getLines(), principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -56,7 +56,7 @@ public class StockTransferController {
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/demander", produces = MediaType.APPLICATION_JSON_VALUE)
   public StockTransferDto submit(@PathVariable("idTransfert") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return stockTransferService.submit(id, principal.getOrganizationId());
+    return stockTransferService.submit(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/approuver", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -66,7 +66,7 @@ public class StockTransferController {
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/preparer", produces = MediaType.APPLICATION_JSON_VALUE)
   public StockTransferDto startPreparation(@PathVariable("idTransfert") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return stockTransferService.startPreparation(id, principal.getOrganizationId());
+    return stockTransferService.startPreparation(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/expedier", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -81,6 +81,6 @@ public class StockTransferController {
 
   @PostMapping(value = APP_ROOT + "/stock-transfers/{idTransfert}/annuler", produces = MediaType.APPLICATION_JSON_VALUE)
   public StockTransferDto cancel(@PathVariable("idTransfert") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    return stockTransferService.cancel(id, principal.getOrganizationId());
+    return stockTransferService.cancel(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

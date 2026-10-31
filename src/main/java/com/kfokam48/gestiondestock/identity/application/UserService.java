@@ -7,6 +7,14 @@ public interface UserService {
 
   UserDto save(UserDto dto);
 
+  /**
+   * Phase 5c : variante gardee par USER_CREATE, utilisee par le point d'entree HTTP. La variante
+   * sans permission reste necessaire a l'AMORCAGE d'un tenant : l'admin bootstrap est cree avant
+   * qu'aucune affectation RBAC n'existe, donc aucune permission ne pourrait etre verifiee a ce
+   * moment-la - voir docs/rbac-matrix.md.
+   */
+  UserDto save(UserDto dto, Long userId, Long organizationId);
+
   UserDto findById(Long id);
 
   // Phase 5b-2c : scope via User.idEntreprise (Tenant.id), pas organizationId - meme 404 qu'un id
@@ -27,6 +35,11 @@ public interface UserService {
   void delete(Long id);
 
   void delete(Long id, Long callerTenantId);
+
+  // Phase 5c : variante gardee par USER_DELETE. La variante a 2 arguments (appartenance seule)
+  // reste utilisee par l'adaptateur legacy /utilisateurs/delete - gap de permission assume, cette
+  // route devant disparaitre en 4e.
+  void delete(Long id, Long callerTenantId, Long userId, Long organizationId);
 
   UserDto changePassword(Long id, String rawPassword);
 

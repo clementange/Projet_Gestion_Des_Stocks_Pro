@@ -37,7 +37,7 @@ public class SiteController {
 
   @PostMapping(value = APP_ROOT + "/sites/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public SiteDto save(@RequestBody SiteDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return siteService.save(dto, principal.getOrganizationId());
+    return siteService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/sites/{idSite}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -57,6 +57,6 @@ public class SiteController {
 
   @DeleteMapping(value = APP_ROOT + "/sites/delete/{idSite}")
   public void delete(@PathVariable("idSite") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    siteService.delete(id, principal.getOrganizationId());
+    siteService.delete(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

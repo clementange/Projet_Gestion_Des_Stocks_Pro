@@ -1,5 +1,19 @@
 package com.kfokam48.gestiondestock.support;
 
+import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.identity.application.PermissionService;
+import com.kfokam48.gestiondestock.identity.application.RoleService;
+import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
+import com.kfokam48.gestiondestock.identity.application.dto.PermissionDto;
+import com.kfokam48.gestiondestock.identity.application.dto.RoleDto;
+import com.kfokam48.gestiondestock.identity.application.dto.UserRoleAssignmentDto;
+import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MinIOContainer;
@@ -61,5 +75,81 @@ public abstract class AbstractIntegrationTest {
     registry.add("minio.access-key", MINIO::getUserName);
     registry.add("minio.secret-key", MINIO::getPassword);
     registry.add("minio.bucket", () -> "gestiondestock-media-test");
+  }
+
+  /**
+   * Phase 5c : toutes les ecritures exigent desormais une permission metier. Les tests qui
+   * CONSTRUISENT un decor (creer une ville, un site, un article...) ont besoin d'un utilisateur
+   * autorise ; ceux qui VERIFIENT un refus continuent de se forger un utilisateur aux permissions
+   * precises (voir {@code grantOrderPermissions} dans les tests d'agregats). Ce helper ne sert
+   * donc qu'au decor - voir docs/phase-5c-report.md.
+   *
+   * <p>Les trois services sont {@code required = false} : les sous-classes qui ne demarrent pas de
+   * contexte Spring complet n'en ont pas besoin.
+   */
+  private static final List<String> ALL_WRITE_PERMISSIONS = List.of(
+      "ARTICLE_CREATE", "ARTICLE_UPDATE", "ARTICLE_DELETE",
+      "CATEGORY_CREATE", "CATEGORY_UPDATE", "CATEGORY_DELETE",
+      "CUSTOMER_CREATE", "CUSTOMER_UPDATE", "CUSTOMER_DELETE",
+      "SUPPLIER_CREATE", "SUPPLIER_UPDATE", "SUPPLIER_DELETE",
+      "CITY_CREATE", "CITY_UPDATE", "CITY_DELETE",
+      "SITE_CREATE", "SITE_DELETE",
+      "WAREHOUSE_CREATE", "WAREHOUSE_UPDATE", "WAREHOUSE_DELETE",
+      "USER_CREATE", "USER_DELETE",
+      "SALE_CREATE",
+      "CUSTOMER_ORDER_CREATE", "CUSTOMER_ORDER_VALIDATE", "CUSTOMER_ORDER_RESERVE",
+      "CUSTOMER_ORDER_PREPARE", "CUSTOMER_ORDER_SHIP", "CUSTOMER_ORDER_DELIVER",
+      "CUSTOMER_ORDER_CANCEL",
+      "PURCHASE_ORDER_CREATE", "PURCHASE_ORDER_VALIDATE", "PURCHASE_ORDER_CANCEL",
+      "PURCHASE_ORDER_RECEIVE",
+      "STOCK_TRANSFER_CREATE", "STOCK_TRANSFER_REQUEST", "STOCK_TRANSFER_APPROVE",
+      "STOCK_TRANSFER_PREPARE", "STOCK_TRANSFER_SHIP", "STOCK_TRANSFER_RECEIVE",
+      "STOCK_TRANSFER_CANCEL",
+      "STOCK_RECEIVE", "STOCK_ISSUE", "STOCK_CORRECT");
+
+  @Autowired(required = false)
+  private PermissionService permissionServiceForFixtures;
+
+  @Autowired(required = false)
+  private RoleService roleServiceForFixtures;
+
+  @Autowired(required = false)
+  private UserRoleAssignmentService assignmentServiceForFixtures;
+
+  /**
+   * Un utilisateur de l'organisation donnee, porteur de toutes les permissions d'ecriture via une
+   * affectation de portee {@code GLOBAL} dans CETTE organisation - exactement la forme que prend
+   * l'affectation de l'administrateur a l'amorcage d'un tenant. La portee GLOBAL matche n'importe
+   * quel {@code scopeId} demande, mais seulement a l'interieur de l'organisation de l'affectation :
+   * ce helper ne peut donc pas masquer une faille d'isolation inter-tenant.
+   */
+  protected Long userWithAllWritePermissions(Long organizationId) {
+    return fixtureUsersByOrganization.computeIfAbsent(organizationId,
+        this::createUserWithAllWritePermissions);
+  }
+
+  // Memoise par organisation : un decor appelle ce helper a chaque creation de ressource, et
+  // recreer un role de 44 permissions a chaque fois rendrait les tests inutilement lents.
+  private final java.util.Map<Long, Long> fixtureUsersByOrganization = new java.util.HashMap<>();
+
+  private Long createUserWithAllWritePermissions(Long organizationId) {
+    Set<PermissionDto> permissions = ALL_WRITE_PERMISSIONS.stream().map(code -> {
+      try {
+        return permissionServiceForFixtures.findByCode(code);
+      } catch (EntityNotFoundException e) {
+        return permissionServiceForFixtures.save(
+            PermissionDto.builder().code(code).description(code).build());
+      }
+    }).collect(Collectors.toSet());
+    RoleDto role = roleServiceForFixtures.save(RoleDto.builder()
+        .code("ROLE-FIXTURE-" + UUID.randomUUID().toString().substring(0, 8))
+        .name("Decor de test (toutes les ecritures)")
+        .permissions(permissions)
+        .build());
+    Long userId = ThreadLocalRandom.current().nextLong(1_000_000L, 9_000_000L);
+    assignmentServiceForFixtures.save(UserRoleAssignmentDto.builder()
+        .userId(userId).role(role).scopeType(ScopeType.GLOBAL)
+        .organizationId(organizationId).build());
+    return userId;
   }
 }

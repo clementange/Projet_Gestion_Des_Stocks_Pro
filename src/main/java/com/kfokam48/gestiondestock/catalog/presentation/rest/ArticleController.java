@@ -42,7 +42,7 @@ public class ArticleController {
   @PostMapping(value = APP_ROOT + "/articles/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public ArticleDto save(@RequestBody ArticleDto dto, @AuthenticationPrincipal ExtendedUser principal) {
     dto.setOrganization(OrganizationDto.builder().id(principal.getOrganizationId()).build());
-    return articleService.save(dto);
+    return articleService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/articles/{idArticle}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -67,7 +67,7 @@ public class ArticleController {
 
   @DeleteMapping(value = APP_ROOT + "/articles/delete/{idArticle}")
   public void delete(@PathVariable("idArticle") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    articleService.delete(id, principal.getOrganizationId());
+    articleService.delete(id, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 
   // Phase 4c : remplace /save/{id}/{title}/article (StrategyPhotoContext, supprime). L'appelant
@@ -84,6 +84,6 @@ public class ArticleController {
    */
   @PutMapping(value = APP_ROOT + "/articles/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public ArticleDto update(@PathVariable("id") Long id, @RequestBody ArticleDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return articleService.update(id, dto, principal.getOrganizationId());
+    return articleService.update(id, dto, principal.getIdUtilisateur(), principal.getOrganizationId());
   }
 }

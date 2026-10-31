@@ -3,7 +3,7 @@ package com.kfokam48.gestiondestock.tenant;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.tenant.application.TenantService;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantDto;

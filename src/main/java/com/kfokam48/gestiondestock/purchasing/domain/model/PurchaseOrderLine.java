@@ -3,7 +3,7 @@ package com.kfokam48.gestiondestock.purchasing.domain.model;
 import com.kfokam48.gestiondestock.catalog.domain.model.Article;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
-import com.kfokam48.gestiondestock.model.AbstractEntity;
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;

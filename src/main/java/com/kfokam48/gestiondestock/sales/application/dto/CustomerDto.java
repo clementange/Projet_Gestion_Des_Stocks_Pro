@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.sales.application.dto;
 
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.sales.domain.model.Customer;
 import lombok.Builder;
 import lombok.Data;

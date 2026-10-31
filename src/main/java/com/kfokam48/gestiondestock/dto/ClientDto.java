@@ -1,5 +1,7 @@
 package com.kfokam48.gestiondestock.dto;
 
+import com.kfokam48.gestiondestock.shared.AdresseDto;
+
 import com.kfokam48.gestiondestock.model.Client;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.List;

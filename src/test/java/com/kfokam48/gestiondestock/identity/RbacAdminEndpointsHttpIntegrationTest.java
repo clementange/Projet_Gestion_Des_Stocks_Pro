@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.identity.application.PermissionService;
 import com.kfokam48.gestiondestock.identity.application.RoleService;
 import com.kfokam48.gestiondestock.identity.application.dto.PermissionDto;

@@ -2,7 +2,7 @@ package com.kfokam48.gestiondestock.purchasing.presentation.rest;
 
 import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.purchasing.application.PurchaseOrderService;
 import com.kfokam48.gestiondestock.purchasing.application.dto.CreatePurchaseOrderRequest;
 import com.kfokam48.gestiondestock.purchasing.application.dto.PurchaseOrderDto;

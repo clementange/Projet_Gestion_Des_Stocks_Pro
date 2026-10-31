@@ -1,7 +1,7 @@
 package com.kfokam48.gestiondestock.inventory.domain.model;
 
 import com.kfokam48.gestiondestock.catalog.domain.model.Article;
-import com.kfokam48.gestiondestock.model.AbstractEntity;
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
 import com.kfokam48.gestiondestock.organization.domain.model.Site;
 import java.math.BigDecimal;
 import java.time.Instant;

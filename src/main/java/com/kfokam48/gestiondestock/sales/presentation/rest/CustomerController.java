@@ -2,7 +2,7 @@ package com.kfokam48.gestiondestock.sales.presentation.rest;
 
 import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.sales.application.CustomerService;
 import com.kfokam48.gestiondestock.sales.application.dto.CustomerDto;
 import org.springframework.web.bind.annotation.PutMapping;

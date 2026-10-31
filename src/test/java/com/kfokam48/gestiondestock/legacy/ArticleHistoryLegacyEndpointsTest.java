@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
 import java.time.Instant;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;

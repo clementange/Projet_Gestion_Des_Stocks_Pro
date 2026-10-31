@@ -10,7 +10,7 @@ import com.kfokam48.gestiondestock.inventory.application.InventoryFacade;
 import com.kfokam48.gestiondestock.inventory.application.dto.StockDto;
 import com.kfokam48.gestiondestock.inventory.application.dto.StockMovementDto;
 import com.kfokam48.gestiondestock.inventory.domain.model.StockMovementSource;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.organization.application.SiteService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.math.BigDecimal;

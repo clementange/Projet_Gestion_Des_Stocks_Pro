@@ -4,7 +4,7 @@ package com.kfokam48.gestiondestock.controller;
 import com.kfokam48.gestiondestock.controller.api.AuthenticationApi;
 import com.kfokam48.gestiondestock.dto.auth.AuthenticationRequest;
 import com.kfokam48.gestiondestock.dto.auth.AuthenticationResponse;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.services.auth.ApplicationUserDetailsService;
 import com.kfokam48.gestiondestock.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;

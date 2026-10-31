@@ -3,7 +3,7 @@ package com.kfokam48.gestiondestock.validator;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import java.util.List;
 import org.junit.Test;
 

@@ -1,4 +1,4 @@
-package com.kfokam48.gestiondestock.model;
+package com.kfokam48.gestiondestock.shared;
 
 import java.io.Serializable;
 import java.time.Instant;

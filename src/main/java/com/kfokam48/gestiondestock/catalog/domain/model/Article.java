@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.catalog.domain.model;
 
-import com.kfokam48.gestiondestock.model.AbstractEntity;
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
 import com.kfokam48.gestiondestock.organization.domain.model.Organization;
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;

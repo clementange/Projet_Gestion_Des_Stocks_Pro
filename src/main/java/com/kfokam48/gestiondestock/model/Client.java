@@ -1,5 +1,8 @@
 package com.kfokam48.gestiondestock.model;
 
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
+import com.kfokam48.gestiondestock.shared.Adresse;
+
 import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;

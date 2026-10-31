@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.validator;
 
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.util.StringUtils;

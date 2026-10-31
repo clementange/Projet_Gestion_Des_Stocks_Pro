@@ -6,7 +6,7 @@ import com.kfokam48.gestiondestock.dto.ChangerMotDePasseUtilisateurDto;
 import com.kfokam48.gestiondestock.dto.UtilisateurDto;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.services.UtilisateurService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;

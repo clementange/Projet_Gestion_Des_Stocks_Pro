@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.sales.domain.model;
 
-import com.kfokam48.gestiondestock.model.AbstractEntity;
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
 import com.kfokam48.gestiondestock.organization.domain.model.Site;
 import java.time.Instant;
 import lombok.AllArgsConstructor;

@@ -8,7 +8,7 @@ import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.identity.application.PermissionService;
 import com.kfokam48.gestiondestock.identity.application.dto.PermissionDto;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;

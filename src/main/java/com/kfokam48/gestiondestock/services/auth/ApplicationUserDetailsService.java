@@ -4,7 +4,7 @@ import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
 import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.tenant.application.TenantService;
 import java.util.List;
 import java.util.stream.Collectors;

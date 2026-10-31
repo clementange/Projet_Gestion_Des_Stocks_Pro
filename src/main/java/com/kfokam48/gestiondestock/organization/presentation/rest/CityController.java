@@ -6,7 +6,7 @@ import com.kfokam48.gestiondestock.organization.application.CityService;
 import com.kfokam48.gestiondestock.organization.application.dto.CityDto;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;

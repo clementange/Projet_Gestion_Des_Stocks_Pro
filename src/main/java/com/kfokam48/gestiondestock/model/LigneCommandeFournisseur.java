@@ -1,5 +1,7 @@
 package com.kfokam48.gestiondestock.model;
 
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
+
 import com.kfokam48.gestiondestock.catalog.domain.model.Article;
 
 import java.math.BigDecimal;

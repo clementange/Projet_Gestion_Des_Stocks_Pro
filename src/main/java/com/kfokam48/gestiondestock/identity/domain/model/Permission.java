@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.identity.domain.model;
 
-import com.kfokam48.gestiondestock.model.AbstractEntity;
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;

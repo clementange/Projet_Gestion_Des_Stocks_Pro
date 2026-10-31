@@ -1,7 +1,7 @@
 package com.kfokam48.gestiondestock.purchasing.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.purchasing.domain.model.Supplier;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;

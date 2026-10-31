@@ -1,5 +1,7 @@
 package com.kfokam48.gestiondestock.model;
 
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;

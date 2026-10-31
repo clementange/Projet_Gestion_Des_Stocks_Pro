@@ -5,7 +5,7 @@ import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 import com.kfokam48.gestiondestock.catalog.application.ArticleService;
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 import com.kfokam48.gestiondestock.media.application.dto.PhotoUrlRequest;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import org.springframework.web.bind.annotation.PutMapping;
 import io.swagger.v3.oas.annotations.tags.Tag;

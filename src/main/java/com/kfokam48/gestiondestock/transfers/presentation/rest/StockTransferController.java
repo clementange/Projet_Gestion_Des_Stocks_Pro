@@ -2,7 +2,7 @@ package com.kfokam48.gestiondestock.transfers.presentation.rest;
 
 import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.transfers.application.StockTransferService;
 import com.kfokam48.gestiondestock.transfers.application.dto.CreateStockTransferRequest;
 import com.kfokam48.gestiondestock.transfers.application.dto.StockTransferDto;

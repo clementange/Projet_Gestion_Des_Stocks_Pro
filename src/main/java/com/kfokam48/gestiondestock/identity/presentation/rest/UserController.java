@@ -8,7 +8,7 @@ import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.identity.application.dto.ChangePasswordRequest;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
 import com.kfokam48.gestiondestock.media.application.dto.PhotoUrlRequest;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;

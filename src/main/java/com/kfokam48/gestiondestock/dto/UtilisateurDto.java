@@ -1,5 +1,7 @@
 package com.kfokam48.gestiondestock.dto;
 
+import com.kfokam48.gestiondestock.shared.AdresseDto;
+
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantDto;
 import java.time.Instant;
 import lombok.Builder;

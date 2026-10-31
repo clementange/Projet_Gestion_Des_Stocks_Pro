@@ -1,4 +1,4 @@
-package com.kfokam48.gestiondestock.model.auth;
+package com.kfokam48.gestiondestock.shared;
 
 import java.util.Collection;
 import lombok.Getter;

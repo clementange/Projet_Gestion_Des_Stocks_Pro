@@ -2,7 +2,7 @@ package com.kfokam48.gestiondestock.organization.presentation.rest;
 
 import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import com.kfokam48.gestiondestock.organization.application.OrganizationService;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import io.swagger.v3.oas.annotations.tags.Tag;

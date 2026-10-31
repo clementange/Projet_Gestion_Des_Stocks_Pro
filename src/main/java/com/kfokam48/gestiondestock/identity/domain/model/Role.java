@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.identity.domain.model;
 
-import com.kfokam48.gestiondestock.model.AbstractEntity;
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
 import java.util.HashSet;
 import java.util.Set;
 import lombok.AllArgsConstructor;

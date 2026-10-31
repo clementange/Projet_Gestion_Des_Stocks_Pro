@@ -4,7 +4,7 @@ import static com.kfokam48.gestiondestock.utils.Constants.UTILISATEUR_ENDPOINT;
 
 import com.kfokam48.gestiondestock.dto.ChangerMotDePasseUtilisateurDto;
 import com.kfokam48.gestiondestock.dto.UtilisateurDto;
-import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
+import com.kfokam48.gestiondestock.shared.ExtendedUser;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

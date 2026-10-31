@@ -3,7 +3,7 @@ package com.kfokam48.gestiondestock.services;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserRoleAssignmentDto;
 import com.kfokam48.gestiondestock.identity.application.UserService;

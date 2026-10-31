@@ -1,5 +1,7 @@
 package com.kfokam48.gestiondestock.model;
 
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
+
 import java.time.Instant;
 import java.util.List;
 import jakarta.persistence.Column;

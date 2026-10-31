@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.identity.application.dto;
 
-import com.kfokam48.gestiondestock.dto.AdresseDto;
+import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.identity.domain.model.User;
 import java.time.Instant;
 import lombok.Builder;

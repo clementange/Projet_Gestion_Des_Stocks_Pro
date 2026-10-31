@@ -1,7 +1,7 @@
 package com.kfokam48.gestiondestock.tenant.domain.model;
 
-import com.kfokam48.gestiondestock.model.AbstractEntity;
-import com.kfokam48.gestiondestock.model.Adresse;
+import com.kfokam48.gestiondestock.shared.AbstractEntity;
+import com.kfokam48.gestiondestock.shared.Adresse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;

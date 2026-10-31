@@ -15,8 +15,13 @@
   <description>API de gestion de stock</description>
 
   <properties>
-    <java.version>17</java.version>
-    <lombok.version>1.18.30</lombok.version>
+    <!-- L0 : cible 21 LTS (etait 17). Le JDK de l'environnement est passe en 25 pendant la
+         Phase 5b-2e ; Lombok 1.18.30 ne le supportait pas (ExceptionInInitializerError :
+         com.sun.tools.javac.code.TypeTag :: UNKNOWN). Voir docs/phase-L0-report.md. -->
+    <java.version>21</java.version>
+    <!-- L0 : 1.18.30 ne compile pas sous JDK 23+. Monte a une version qui supporte a la fois
+         JDK 21 (cible du projet) et JDK 25 (JDK present sur le poste). -->
+    <lombok.version>1.18.46</lombok.version>
     <!-- Phase 0 : la version de Testcontainers geree par spring-boot-starter-parent (1.19.8)
          negocie une version d'API Docker (1.32) trop ancienne pour un daemon Docker recent
          (minimum accepte 1.40) -> negociation en echec. Version plus recente forcee ici pour que
@@ -184,6 +189,34 @@
 
   <build>
     <plugins>
+      <!-- L0 : verrouille la chaine d'outils pour que l'ecart JDK/Lombok rencontre en 5b-2e
+           echoue immediatement avec un message explicite, au lieu d'une erreur interne de
+           javac - voir docs/phase-L0-report.md. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>enforce-toolchain</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                  <message>Ce projet exige un JDK 21 ou superieur (cible 21 LTS).</message>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.9,)</version>
+                  <message>Ce projet exige Maven 3.9 ou superieur ; utilisez ./mvnw.</message>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>

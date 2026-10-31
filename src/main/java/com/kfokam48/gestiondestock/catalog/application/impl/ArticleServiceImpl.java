@@ -213,7 +213,9 @@ public class ArticleServiceImpl implements ArticleService {
    * sur {@code UserServiceImpl.updatePhoto} (le save() de l'epoque corrompait le mot de passe).
    * Voir docs/phase-5b2g-report.md.
    */
-  public ArticleDto updatePhoto(Long id, String url) {
+  // Phase 5b-2h : appartenance verifiee avant la mise a jour - voir docs/phase-5b2h-report.md.
+  public ArticleDto updatePhoto(Long id, String url, Long organizationId) {
+    findById(id, organizationId);
     Article existing = articleRepository.findById(id)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND));
@@ -249,5 +251,23 @@ public class ArticleServiceImpl implements ArticleService {
     existing.setPrixUnitaireTtc(dto.getPrixUnitaireTtc());
     existing.setCategory(CategoryDto.toEntity(dto.getCategory()));
     return ArticleDto.fromEntity(articleRepository.save(existing));
+  }
+  // Phase 5b-2h : voir docs/phase-5b2h-report.md.
+  @Override
+  public void delete(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Article ID is null");
+      return;
+    }
+    Article existing = articleRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND));
+    Long ownerOrg = existing.getOrganization() == null ? null : existing.getOrganization().getId();
+    if (organizationId == null || ownerOrg == null || !organizationId.equals(ownerOrg)) {
+      log.warn("Article {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucun article avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.ARTICLE_NOT_FOUND);
+    }
+    delete(id);
   }
 }

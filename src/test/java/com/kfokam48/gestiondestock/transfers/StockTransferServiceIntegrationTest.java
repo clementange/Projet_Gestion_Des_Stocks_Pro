@@ -120,10 +120,10 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         organizationId);
   }
 
-  private StockTransferDto runToShippable(StockTransferDto transfer) {
-    stockTransferService.submit(transfer.getId());
-    stockTransferService.approve(transfer.getId(), 2L);
-    return stockTransferService.startPreparation(transfer.getId());
+  private StockTransferDto runToShippable(StockTransferDto transfer, Long organizationId) {
+    stockTransferService.submit(transfer.getId(), organizationId);
+    stockTransferService.approve(transfer.getId(), 2L, organizationId);
+    return stockTransferService.startPreparation(transfer.getId(), organizationId);
   }
 
   @Test
@@ -138,7 +138,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-A", null);
 
     StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.valueOf(30), organization.getId());
-    runToShippable(transfer);
+    runToShippable(transfer, organization.getId());
     grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, 3L, organization.getId());
     grantTransferPermission("STOCK_TRANSFER_RECEIVE", entrepotB, 4L, organization.getId());
     stockTransferService.ship(transfer.getId(), 3L, organization.getId());
@@ -189,7 +189,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN, organization.getId());
-    runToShippable(transfer);
+    runToShippable(transfer, organization.getId());
     Long userId = 31L;
     grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
 
@@ -210,12 +210,12 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN, organization.getId());
-    runToShippable(transfer);
+    runToShippable(transfer, organization.getId());
     Long userId = 32L;
     grantTransferPermission("STOCK_TRANSFER_SHIP", entrepotA, userId, organization.getId());
     stockTransferService.ship(transfer.getId(), userId, organization.getId());
 
-    assertThrows(InvalidOperationException.class, () -> stockTransferService.cancel(transfer.getId()));
+    assertThrows(InvalidOperationException.class, () -> stockTransferService.cancel(transfer.getId(), organization.getId()));
   }
 
   // Phase 5b-2b : voir docs/phase-5b2b-report.md.

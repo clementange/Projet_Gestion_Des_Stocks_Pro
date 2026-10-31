@@ -109,4 +109,36 @@ public class CityServiceImpl implements CityService {
     existing.setCountry(dto.getCountry());
     return CityDto.fromEntity(cityRepository.save(existing));
   }
+  // Phase 5b-2h : voir docs/phase-5b2h-report.md.
+  @Override
+  public void delete(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("City ID is null");
+      return;
+    }
+    City existing = cityRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucune ville avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CITY_NOT_FOUND));
+    Long ownerOrg = existing.getOrganization() == null ? null : existing.getOrganization().getId();
+    if (organizationId == null || ownerOrg == null || !organizationId.equals(ownerOrg)) {
+      log.warn("City {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucune ville avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CITY_NOT_FOUND);
+    }
+    delete(id);
+  }
+  // Phase 5b-2h : voir docs/phase-5b2h-report.md.
+  @Override
+  public CityDto findById(Long id, Long organizationId) {
+    City existing = cityRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucune ville avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.CITY_NOT_FOUND));
+    if (organizationId == null || existing.getOrganization() == null
+        || !organizationId.equals(existing.getOrganization().getId())) {
+      log.warn("City {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucune ville avec l'ID = " + id + " n'a ete trouvee dans la BDD", ErrorCodes.CITY_NOT_FOUND);
+    }
+    return CityDto.fromEntity(existing);
+  }
 }

@@ -146,28 +146,35 @@ public class StockTransferServiceImpl implements StockTransferService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<StockTransferLineDto> findLines(Long stockTransferId) {
+  // Phase 5b-2h : appartenance AVANT toute action. hasPermission ne suffit pas : une
+  // affectation GLOBAL dans sa propre organisation matche n'importe quel scopeId demande
+  // (meme classe de contournement qu'en 5b-2b) - voir docs/phase-5b2h-report.md.
+  public List<StockTransferLineDto> findLines(Long stockTransferId, Long organizationId) {
+    findById(stockTransferId, organizationId);
     return stockTransferLineRepository.findAllByStockTransferId(stockTransferId).stream()
         .map(StockTransferLineDto::fromEntity)
         .collect(Collectors.toList());
   }
 
   @Override
-  public StockTransferDto submit(Long id) {
+  public StockTransferDto submit(Long id, Long organizationId) {
+    findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
     transfer.submit();
     return StockTransferDto.fromEntity(stockTransferRepository.save(transfer));
   }
 
   @Override
-  public StockTransferDto approve(Long id, Long approverUserId) {
+  public StockTransferDto approve(Long id, Long approverUserId, Long organizationId) {
+    findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
     transfer.approve(approverUserId);
     return StockTransferDto.fromEntity(stockTransferRepository.save(transfer));
   }
 
   @Override
-  public StockTransferDto startPreparation(Long id) {
+  public StockTransferDto startPreparation(Long id, Long organizationId) {
+    findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
     transfer.requirePreparable();
     transfer.markInPreparation();
@@ -176,6 +183,7 @@ public class StockTransferServiceImpl implements StockTransferService {
 
   @Override
   public StockTransferDto ship(Long id, Long userId, Long organizationId) {
+    findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
     if (!authorizationService.hasPermission(userId, STOCK_TRANSFER_SHIP, ScopeType.SITE, transfer.getOriginSite().getId(), organizationId)) {
       log.warn("User {} tried to ship transfer {} from site {} without permission",
@@ -198,6 +206,7 @@ public class StockTransferServiceImpl implements StockTransferService {
 
   @Override
   public StockTransferDto receive(Long id, Long userId, Long organizationId) {
+    findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
     if (!authorizationService.hasPermission(userId, STOCK_TRANSFER_RECEIVE, ScopeType.SITE, transfer.getDestinationSite().getId(), organizationId)) {
       log.warn("User {} tried to receive transfer {} at site {} without permission",
@@ -219,7 +228,8 @@ public class StockTransferServiceImpl implements StockTransferService {
   }
 
   @Override
-  public StockTransferDto cancel(Long id) {
+  public StockTransferDto cancel(Long id, Long organizationId) {
+    findById(id, organizationId);
     StockTransfer transfer = fetchTransfer(id);
     transfer.cancel();
     return StockTransferDto.fromEntity(stockTransferRepository.save(transfer));

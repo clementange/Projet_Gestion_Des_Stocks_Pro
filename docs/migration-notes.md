@@ -1209,3 +1209,66 @@ lecture inter-tenant. A traiter en 5b-2h, dont la matrice automatique le reveler
 Aucun test inter-tenant dedie ne couvre encore les nouveaux `PUT` ni le forcage d'organisation sur
 `/cities/create` / l'appartenance de site sur `/warehouses/create`. C'est l'objet de la matrice
 5b-2h. Jusque-la : declare, non prouve.
+
+## Phase 5b-2h (appartenance sur delete/update + matrice inter-tenant automatique) : trouve pendant l'increment
+
+Voir `docs/phase-5b2h-report.md`. La matrice automatique, ecrite AVANT les correctifs, a revele
+**30 fuites inter-tenant** la ou le perimetre annonce n'en prevoyait que 7 (les deletes). Toutes
+relevaient du motif « appartenance », donc toutes corrigees dans cet increment.
+
+### Les actions de machine a etats etaient TOUTES exploitables (le contournement GLOBAL de 5b-2b restait ouvert)
+
+`valider`, `reserver`, `preparer`, `expedier`, `livrer`, `annuler`, `demander`, `approuver`,
+`receptionner` acceptaient l'id d'un agregat d'un AUTRE tenant. Celles qui recevaient deja
+`organizationId` (`reserve`, `deliver`, `ship`, `receive`, `receiveLine`) ne s'en servaient que pour
+`hasPermission` - or une affectation GLOBAL dans sa propre organisation matche n'importe quel
+`scopeId`. C'est exactement le contournement identifie en 5b-2b sur `Sale.create`, reste ouvert sur
+une douzaine d'actions. Correctif uniforme : appartenance en tete via le `findById(id,
+organizationId)` DEJA scope (reutilisation du code eprouve). Meme cause pour
+`/reporting/stock/site/{idSite}`, ou `requireSiteAccess` verifiait la permission mais jamais
+l'appartenance du site.
+
+### La fuite la plus grave : DELETE /user-role-assignments/{id}
+
+Gardee par `RBAC_MANAGE`, que TOUT admin de tenant possede via le bootstrap ADMINISTRATEUR : B
+supprimait l'affectation RBAC de A. Corrige en placant l'appartenance AVANT `requireRbacManage`
+(meme ordre qu'en 5b-2c pour les lectures). Lecon generale deja vue deux fois : un gate de
+permission global ne remplace jamais une verification d'appartenance.
+
+### City et Warehouse : lectures scopees pour la PREMIERE fois
+
+Confirme le backlog ouvert en 5b-2g. `findById`/`findByCode`/`findAll` n'avaient jamais ete
+couvertes par 5b-2a/b/c. En prime, `/cities/filter/organization/{idOrganization}` prenait
+l'organisation dans le CHEMIN : fournir l'id d'une autre organisation retournait ses villes. Le
+chemin est desormais ignore, seul le principal fait foi.
+
+### Un seul critere de sonde produisait des faux positifs : la matrice a trois modes
+
+`DENY` (4xx attendu) pour tout acces par id ; `EMPTY` (200 + corps vide) pour les listes filtrees
+par organisation, ou repondre `[]` est CORRECT et non une fuite ; `NO_FOREIGN_DATA` pour
+`/cities/filter/organization`, qui renvoie legitimement les villes de l'appelant. Faux positif
+rencontre et corrige : le marqueur `"id":2,` matchait un `organization.id` imbreque quelconque -
+remplace par un nom de ville unique par tenant.
+
+### @NamedInterface necessaire des qu'un module verifie l'appartenance via un autre module
+
+Faire verifier l'appartenance d'un article par les controleurs d'historique de `sales`/`purchasing`
+exige d'appeler `catalog.application.ArticleService` : `ModularityTests` l'a refuse (type non
+expose). Resolu en exposant `catalog/application/package-info.java` en
+`@NamedInterface("application")` - precedent existant (`organization.application`,
+`identity.application.dto`). A anticiper pour tout futur controle d'appartenance cross-module.
+
+### Routes legacy /utilisateurs/** durcies bien que 4e doive les supprimer
+
+Elles appelaient les variantes NON filtrees (`findById(id)`, `findAll()`, `delete(id)`) : fuite de
+lecture ET de suppression inter-tenant. Durcies ici plutot que laissees ouvertes en attendant 4e.
+Effet de bord sur les tests : un utilisateur cree sans `entreprise` est desormais invisible en
+lecture scopee. J'ai d'abord modifie le helper `createUser` globalement, ce qui a casse
+`loginSucceedsAndJwtCarriesExpectedClaims` (qui caracterise justement un utilisateur SANS
+entreprise) - d'ou la separation en deux helpers, `createUser` inchange et
+`createUserInCallerTenant` pour les seuls tests qui relisent la ressource.
+
+### Ecart assume : pas de test rouge->vert nomme par delete
+
+La matrice a servi de rouge collectif (30 fuites listees avant, verte apres). C'est une preuve
+reelle mais ce n'est pas 7 tests nommes comme demande. Signale tel quel.

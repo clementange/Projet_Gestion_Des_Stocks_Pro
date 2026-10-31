@@ -55,8 +55,8 @@ public class CustomerController {
   }
 
   @DeleteMapping(value = APP_ROOT + "/customers/delete/{id}")
-  public void delete(@PathVariable("id") Long id) {
-    customerService.delete(id);
+  public void delete(@PathVariable("id") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    customerService.delete(id, principal.getOrganizationId());
   }
 
   /**

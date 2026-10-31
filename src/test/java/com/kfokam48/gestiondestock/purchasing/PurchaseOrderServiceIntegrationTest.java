@@ -125,7 +125,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
         PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(site).build(),
         List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(quantity).prixUnitaire(BigDecimal.TEN).build()),
         organization.getId());
-    lineIdOut[0] = purchaseOrderService.findLines(order.getId()).get(0).getId();
+    lineIdOut[0] = purchaseOrderService.findLines(order.getId(), organization.getId()).get(0).getId();
     return order;
   }
 
@@ -177,7 +177,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
 
-    purchaseOrderService.validate(order.getId());
+    purchaseOrderService.validate(order.getId(), organization.getId());
     Long userId = grantPurchaseOrderReceive(site, organization.getId());
     purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.TEN, userId, organization.getId());
 
@@ -192,7 +192,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     ArticleDto article = createArticle();
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
-    purchaseOrderService.validate(order.getId());
+    purchaseOrderService.validate(order.getId(), organization.getId());
     Long userId = grantPurchaseOrderReceive(site, organization.getId());
 
     purchaseOrderService.receiveLine(order.getId(), lineId[0], BigDecimal.valueOf(4), userId, organization.getId());
@@ -211,7 +211,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     ArticleDto article = createArticle();
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
-    purchaseOrderService.validate(order.getId());
+    purchaseOrderService.validate(order.getId(), organization.getId());
     Long userId = grantPurchaseOrderReceive(site, organization.getId());
 
     assertThrows(InvalidOperationException.class,

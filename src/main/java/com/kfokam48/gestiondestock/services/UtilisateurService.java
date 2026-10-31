@@ -8,13 +8,13 @@ public interface UtilisateurService {
 
   UtilisateurDto save(UtilisateurDto dto);
 
-  UtilisateurDto findById(Long id);
+  UtilisateurDto findById(Long id, Long callerTenantId);
 
-  List<UtilisateurDto> findAll();
+  List<UtilisateurDto> findAll(Long callerTenantId);
 
-  void delete(Long id);
+  void delete(Long id, Long callerTenantId);
 
-  UtilisateurDto findByEmail(String email);
+  UtilisateurDto findByEmail(String email, Long callerTenantId);
 
   UtilisateurDto changerMotDePasse(ChangerMotDePasseUtilisateurDto dto);
 

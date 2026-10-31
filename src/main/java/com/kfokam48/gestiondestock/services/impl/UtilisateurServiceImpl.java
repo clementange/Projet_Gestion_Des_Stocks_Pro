@@ -59,34 +59,34 @@ public class UtilisateurServiceImpl implements UtilisateurService {
   }
 
   @Override
-  public UtilisateurDto findById(Long id) {
+  public UtilisateurDto findById(Long id, Long callerTenantId) {
     if (id == null) {
       log.error("Utilisateur ID is null");
       return null;
     }
-    return toUtilisateurDto(findUserOrThrow(() -> userService.findById(id),
+    return toUtilisateurDto(findUserOrThrow(() -> userService.findById(id, callerTenantId),
         "Aucun utilisateur avec l'ID = " + id + " n' ete trouve dans la BDD"));
   }
 
   @Override
-  public List<UtilisateurDto> findAll() {
-    return userService.findAll().stream()
+  public List<UtilisateurDto> findAll(Long callerTenantId) {
+    return userService.findAll(callerTenantId).stream()
         .map(this::toUtilisateurDto)
         .collect(Collectors.toList());
   }
 
   @Override
-  public void delete(Long id) {
+  public void delete(Long id, Long callerTenantId) {
     if (id == null) {
       log.error("Utilisateur ID is null");
       return;
     }
-    userService.delete(id);
+    userService.delete(id, callerTenantId);
   }
 
   @Override
-  public UtilisateurDto findByEmail(String email) {
-    return toUtilisateurDto(findUserOrThrow(() -> userService.findByEmail(email),
+  public UtilisateurDto findByEmail(String email, Long callerTenantId) {
+    return toUtilisateurDto(findUserOrThrow(() -> userService.findByEmail(email, callerTenantId),
         "Aucun utilisateur avec l'email = " + email + " n' ete trouve dans la BDD"));
   }
 

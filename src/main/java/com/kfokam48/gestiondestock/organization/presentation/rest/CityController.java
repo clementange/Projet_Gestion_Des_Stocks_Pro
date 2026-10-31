@@ -40,18 +40,24 @@ public class CityController {
   }
 
   @GetMapping(value = APP_ROOT + "/cities/{idCity}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public CityDto findById(@PathVariable("idCity") Long id) {
-    return cityService.findById(id);
+  public CityDto findById(@PathVariable("idCity") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return cityService.findById(id, principal.getOrganizationId());
   }
 
+  /**
+   * Phase 5b-2h : l'organisation du CHEMIN est ignoree - seule celle du principal fait foi.
+   * Auparavant, fournir l'id d'une autre organisation retournait ses villes - voir
+   * docs/phase-5b2h-report.md.
+   */
   @GetMapping(value = APP_ROOT + "/cities/filter/organization/{idOrganization}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<CityDto> findAllByOrganization(@PathVariable("idOrganization") Long idOrganization) {
-    return cityService.findAllByOrganization(idOrganization);
+  public List<CityDto> findAllByOrganization(@PathVariable("idOrganization") Long idOrganization,
+      @AuthenticationPrincipal ExtendedUser principal) {
+    return cityService.findAllByOrganization(principal.getOrganizationId());
   }
 
   @DeleteMapping(value = APP_ROOT + "/cities/delete/{idCity}")
-  public void delete(@PathVariable("idCity") Long id) {
-    cityService.delete(id);
+  public void delete(@PathVariable("idCity") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    cityService.delete(id, principal.getOrganizationId());
   }
 
   /**

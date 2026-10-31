@@ -16,6 +16,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import com.kfokam48.gestiondestock.catalog.application.ArticleService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SalesArticleHistoryLegacyController {
 
   private final LigneVenteRepository venteRepository;
+  private final ArticleService articleService;
   private final LigneCommandeClientRepository commandeClientRepository;
   private final SaleService saleService;
   private final CustomerOrderService customerOrderService;
@@ -42,15 +46,21 @@ public class SalesArticleHistoryLegacyController {
   @Autowired
   public SalesArticleHistoryLegacyController(LigneVenteRepository venteRepository,
       LigneCommandeClientRepository commandeClientRepository, SaleService saleService,
-      CustomerOrderService customerOrderService) {
+      CustomerOrderService customerOrderService,
+      ArticleService articleService) {
     this.venteRepository = venteRepository;
     this.commandeClientRepository = commandeClientRepository;
     this.saleService = saleService;
     this.customerOrderService = customerOrderService;
+    this.articleService = articleService;
   }
 
   @GetMapping(value = APP_ROOT + "/articles/historique/vente/{idArticle}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<LigneVenteDto> findHistoriqueVentes(@PathVariable("idArticle") Long idArticle) {
+  public List<LigneVenteDto> findHistoriqueVentes(@PathVariable("idArticle") Long idArticle, @AuthenticationPrincipal ExtendedUser principal) {
+    // Phase 5b-2h : l'article doit appartenir a l'organisation de l'appelant (404
+    // fail-closed sinon), sinon l'historique d'un article d'un autre tenant etait lisible -
+    // voir docs/phase-5b2h-report.md.
+    articleService.findById(idArticle, principal.getOrganizationId());
     Stream<LigneVenteDto> legacy = venteRepository.findAllByArticleId(idArticle).stream()
         .map(LigneVenteDto::fromEntity);
     Stream<LigneVenteDto> fromSales = saleService.findLinesByArticleId(idArticle).stream()
@@ -59,7 +69,11 @@ public class SalesArticleHistoryLegacyController {
   }
 
   @GetMapping(value = APP_ROOT + "/articles/historique/commandeclient/{idArticle}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<LigneCommandeClientDto> findHistoriqueCommandeClient(@PathVariable("idArticle") Long idArticle) {
+  public List<LigneCommandeClientDto> findHistoriqueCommandeClient(@PathVariable("idArticle") Long idArticle, @AuthenticationPrincipal ExtendedUser principal) {
+    // Phase 5b-2h : l'article doit appartenir a l'organisation de l'appelant (404
+    // fail-closed sinon), sinon l'historique d'un article d'un autre tenant etait lisible -
+    // voir docs/phase-5b2h-report.md.
+    articleService.findById(idArticle, principal.getOrganizationId());
     Stream<LigneCommandeClientDto> legacy = commandeClientRepository.findAllByArticleId(idArticle).stream()
         .map(LigneCommandeClientDto::fromEntity);
     Stream<LigneCommandeClientDto> fromCustomerOrders = customerOrderService.findLinesByArticleId(idArticle).stream()

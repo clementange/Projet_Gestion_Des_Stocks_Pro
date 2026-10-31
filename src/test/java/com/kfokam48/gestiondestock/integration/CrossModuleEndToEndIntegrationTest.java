@@ -147,8 +147,8 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
         PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(entrepotCentral).build(),
         List.of(PurchaseOrderLineDto.builder().article(ord001).quantiteCommandee(BigDecimal.valueOf(500)).prixUnitaire(BigDecimal.valueOf(400)).build()),
         organizationId);
-    purchaseOrderService.validate(commandeFournisseur.getId());
-    Long ligneCommande = purchaseOrderService.findLines(commandeFournisseur.getId()).get(0).getId();
+    purchaseOrderService.validate(commandeFournisseur.getId(), organizationId);
+    Long ligneCommande = purchaseOrderService.findLines(commandeFournisseur.getId(), organizationId).get(0).getId();
     grantPermission("PURCHASE_ORDER_RECEIVE", entrepotCentral, 10L);
     purchaseOrderService.receiveLine(commandeFournisseur.getId(), ligneCommande, BigDecimal.valueOf(500), 10L, organizationId);
 
@@ -159,9 +159,9 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
         StockTransferDto.builder().code(uniqueCode("TR")).originSite(entrepotCentral).destinationSite(boutiqueAkwa).requestedByUserId(10L).build(),
         List.of(StockTransferLineDto.builder().article(ord001).quantite(BigDecimal.valueOf(50)).build()),
         organizationId);
-    stockTransferService.submit(transfert.getId());
-    stockTransferService.approve(transfert.getId(), 11L);
-    stockTransferService.startPreparation(transfert.getId());
+    stockTransferService.submit(transfert.getId(), organizationId);
+    stockTransferService.approve(transfert.getId(), 11L, organizationId);
+    stockTransferService.startPreparation(transfert.getId(), organizationId);
     grantPermission("STOCK_TRANSFER_SHIP", entrepotCentral, 12L);
     stockTransferService.ship(transfert.getId(), 12L, organizationId);
     grantPermission("STOCK_TRANSFER_RECEIVE", boutiqueAkwa, 13L);

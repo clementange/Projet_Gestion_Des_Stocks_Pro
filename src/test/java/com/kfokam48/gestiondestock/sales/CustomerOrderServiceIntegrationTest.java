@@ -129,7 +129,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
         CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(1L).site(site).build(),
         List.of(CustomerOrderLineDto.builder().article(article).quantite(quantity).prixUnitaire(BigDecimal.TEN).build()),
         organization.getId());
-    lineIdOut[0] = customerOrderService.findLines(order.getId()).get(0).getId();
+    lineIdOut[0] = customerOrderService.findLines(order.getId(), organization.getId()).get(0).getId();
     return order;
   }
 
@@ -158,7 +158,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
-    customerOrderService.validate(order.getId());
+    customerOrderService.validate(order.getId(), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE");
     customerOrderService.reserve(order.getId(), userId, organization.getId());
 
@@ -175,7 +175,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.valueOf(5), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.TEN, new Long[1]);
-    customerOrderService.validate(order.getId());
+    customerOrderService.validate(order.getId(), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE");
 
     assertThrows(InvalidOperationException.class, () -> customerOrderService.reserve(order.getId(), userId, organization.getId()));
@@ -188,11 +188,11 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
-    customerOrderService.validate(order.getId());
+    customerOrderService.validate(order.getId(), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_DELIVER");
     customerOrderService.reserve(order.getId(), userId, organization.getId());
-    customerOrderService.prepare(order.getId());
-    customerOrderService.ship(order.getId());
+    customerOrderService.prepare(order.getId(), organization.getId());
+    customerOrderService.ship(order.getId(), organization.getId());
 
     StockDto beforeDelivery = inventoryFacade.getStock(article.getId(), site.getId());
     assertEquals(0, beforeDelivery.getQuantitePhysique().compareTo(BigDecimal.TEN));
@@ -212,7 +212,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
-    customerOrderService.validate(order.getId());
+    customerOrderService.validate(order.getId(), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_CANCEL");
     customerOrderService.reserve(order.getId(), userId, organization.getId());
 
@@ -231,7 +231,7 @@ public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = createOrder(site, article, BigDecimal.valueOf(6), new Long[1]);
-    customerOrderService.validate(order.getId());
+    customerOrderService.validate(order.getId(), organization.getId());
     Long userId = grantOrderPermissions(site, organization.getId(), "CUSTOMER_ORDER_RESERVE", "CUSTOMER_ORDER_DELIVER");
     customerOrderService.reserve(order.getId(), userId, organization.getId());
 

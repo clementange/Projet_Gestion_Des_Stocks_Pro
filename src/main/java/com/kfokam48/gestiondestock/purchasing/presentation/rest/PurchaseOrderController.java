@@ -52,18 +52,18 @@ public class PurchaseOrderController {
   }
 
   @GetMapping(value = APP_ROOT + "/purchase-orders/{idCommande}/lignes", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<PurchaseOrderLineDto> findLines(@PathVariable("idCommande") Long id) {
-    return purchaseOrderService.findLines(id);
+  public List<PurchaseOrderLineDto> findLines(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return purchaseOrderService.findLines(id, principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/purchase-orders/{idCommande}/valider", produces = MediaType.APPLICATION_JSON_VALUE)
-  public PurchaseOrderDto validate(@PathVariable("idCommande") Long id) {
-    return purchaseOrderService.validate(id);
+  public PurchaseOrderDto validate(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return purchaseOrderService.validate(id, principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/purchase-orders/{idCommande}/annuler", produces = MediaType.APPLICATION_JSON_VALUE)
-  public PurchaseOrderDto cancel(@PathVariable("idCommande") Long id) {
-    return purchaseOrderService.cancel(id);
+  public PurchaseOrderDto cancel(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return purchaseOrderService.cancel(id, principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/purchase-orders/{idCommande}/lignes/{idLigne}/receptionner", produces = MediaType.APPLICATION_JSON_VALUE)

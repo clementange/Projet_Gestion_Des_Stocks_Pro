@@ -50,13 +50,13 @@ public class CustomerOrderController {
   }
 
   @GetMapping(value = APP_ROOT + "/customer-orders/{idCommande}/lignes", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<CustomerOrderLineDto> findLines(@PathVariable("idCommande") Long id) {
-    return customerOrderService.findLines(id);
+  public List<CustomerOrderLineDto> findLines(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return customerOrderService.findLines(id, principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/valider", produces = MediaType.APPLICATION_JSON_VALUE)
-  public CustomerOrderDto validate(@PathVariable("idCommande") Long id) {
-    return customerOrderService.validate(id);
+  public CustomerOrderDto validate(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return customerOrderService.validate(id, principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/reserver", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -65,13 +65,13 @@ public class CustomerOrderController {
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/preparer", produces = MediaType.APPLICATION_JSON_VALUE)
-  public CustomerOrderDto prepare(@PathVariable("idCommande") Long id) {
-    return customerOrderService.prepare(id);
+  public CustomerOrderDto prepare(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return customerOrderService.prepare(id, principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/expedier", produces = MediaType.APPLICATION_JSON_VALUE)
-  public CustomerOrderDto ship(@PathVariable("idCommande") Long id) {
-    return customerOrderService.ship(id);
+  public CustomerOrderDto ship(@PathVariable("idCommande") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return customerOrderService.ship(id, principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/customer-orders/{idCommande}/livrer", produces = MediaType.APPLICATION_JSON_VALUE)

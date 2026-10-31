@@ -45,22 +45,22 @@ public class UtilisateurController implements UtilisateurApi {
   }
 
   @Override
-  public UtilisateurDto findById(Long id) {
-    return utilisateurService.findById(id);
+  public UtilisateurDto findById(Long id, ExtendedUser principal) {
+    return utilisateurService.findById(id, principal.getIdEntreprise());
   }
 
   @Override
-  public UtilisateurDto findByEmail(String email) {
-    return utilisateurService.findByEmail(email);
+  public UtilisateurDto findByEmail(String email, ExtendedUser principal) {
+    return utilisateurService.findByEmail(email, principal.getIdEntreprise());
   }
 
   @Override
-  public List<UtilisateurDto> findAll() {
-    return utilisateurService.findAll();
+  public List<UtilisateurDto> findAll(ExtendedUser principal) {
+    return utilisateurService.findAll(principal.getIdEntreprise());
   }
 
   @Override
-  public void delete(Long id) {
-    utilisateurService.delete(id);
+  public void delete(Long id, ExtendedUser principal) {
+    utilisateurService.delete(id, principal.getIdEntreprise());
   }
 }

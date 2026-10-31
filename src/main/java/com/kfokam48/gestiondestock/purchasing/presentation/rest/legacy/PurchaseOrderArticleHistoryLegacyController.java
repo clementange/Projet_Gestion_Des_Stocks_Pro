@@ -12,6 +12,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import com.kfokam48.gestiondestock.catalog.application.ArticleService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,17 +32,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class PurchaseOrderArticleHistoryLegacyController {
 
   private final LigneCommandeFournisseurRepository commandeFournisseurRepository;
+  private final ArticleService articleService;
   private final PurchaseOrderService purchaseOrderService;
 
   @Autowired
   public PurchaseOrderArticleHistoryLegacyController(LigneCommandeFournisseurRepository commandeFournisseurRepository,
-      PurchaseOrderService purchaseOrderService) {
+      PurchaseOrderService purchaseOrderService,
+      ArticleService articleService) {
     this.commandeFournisseurRepository = commandeFournisseurRepository;
     this.purchaseOrderService = purchaseOrderService;
+    this.articleService = articleService;
   }
 
   @GetMapping(value = APP_ROOT + "/articles/historique/commandefournisseur/{idArticle}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<LigneCommandeFournisseurDto> findHistoriqueCommandeFournisseur(@PathVariable("idArticle") Long idArticle) {
+  public List<LigneCommandeFournisseurDto> findHistoriqueCommandeFournisseur(@PathVariable("idArticle") Long idArticle, @AuthenticationPrincipal ExtendedUser principal) {
+    // Phase 5b-2h : l'article doit appartenir a l'organisation de l'appelant (404
+    // fail-closed sinon), sinon l'historique d'un article d'un autre tenant etait lisible -
+    // voir docs/phase-5b2h-report.md.
+    articleService.findById(idArticle, principal.getOrganizationId());
     Stream<LigneCommandeFournisseurDto> legacy = commandeFournisseurRepository.findAllByArticleId(idArticle).stream()
         .map(LigneCommandeFournisseurDto::fromEntity);
     Stream<LigneCommandeFournisseurDto> fromPurchaseOrders = purchaseOrderService.findLinesByArticleId(idArticle).stream()

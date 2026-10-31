@@ -54,8 +54,8 @@ public class CategoryController {
   }
 
   @DeleteMapping(value = APP_ROOT + "/categories/delete/{idCategory}")
-  public void delete(@PathVariable("idCategory") Long id) {
-    categoryService.delete(id);
+  public void delete(@PathVariable("idCategory") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    categoryService.delete(id, principal.getOrganizationId());
   }
 
   /**

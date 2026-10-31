@@ -130,7 +130,9 @@ public class SupplierServiceImpl implements SupplierService {
    * sur {@code UserServiceImpl.updatePhoto} (le save() de l'epoque corrompait le mot de passe).
    * Voir docs/phase-5b2g-report.md.
    */
-  public SupplierDto updatePhoto(Long id, String url) {
+  // Phase 5b-2h : appartenance verifiee avant la mise a jour - voir docs/phase-5b2h-report.md.
+  public SupplierDto updatePhoto(Long id, String url, Long organizationId) {
+    findById(id, organizationId);
     Supplier existing = supplierRepository.findById(id)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucun fournisseur avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SUPPLIER_NOT_FOUND));
@@ -171,5 +173,23 @@ public class SupplierServiceImpl implements SupplierService {
     existing.setNumTel(dto.getNumTel());
     existing.setAdresse(AdresseDto.toEntity(dto.getAdresse()));
     return SupplierDto.fromEntity(supplierRepository.save(existing));
+  }
+  // Phase 5b-2h : voir docs/phase-5b2h-report.md.
+  @Override
+  public void delete(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Supplier ID is null");
+      return;
+    }
+    Supplier existing = supplierRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun fournisseur avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SUPPLIER_NOT_FOUND));
+    Long ownerOrg = existing.getOrganizationId();
+    if (organizationId == null || ownerOrg == null || !organizationId.equals(ownerOrg)) {
+      log.warn("Supplier {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucun fournisseur avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SUPPLIER_NOT_FOUND);
+    }
+    delete(id);
   }
 }

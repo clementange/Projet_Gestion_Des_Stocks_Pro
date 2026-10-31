@@ -54,8 +54,8 @@ public class SupplierController {
   }
 
   @DeleteMapping(value = APP_ROOT + "/suppliers/delete/{id}")
-  public void delete(@PathVariable("id") Long id) {
-    supplierService.delete(id);
+  public void delete(@PathVariable("id") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    supplierService.delete(id, principal.getOrganizationId());
   }
 
   /**

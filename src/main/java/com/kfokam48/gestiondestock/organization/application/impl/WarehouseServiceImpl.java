@@ -84,12 +84,13 @@ public class WarehouseServiceImpl implements WarehouseService {
   }
 
   @Override
-  public WarehouseDto findByCode(String code) {
+  public WarehouseDto findByCode(String code, Long organizationId) {
     if (!StringUtils.hasLength(code)) {
       log.error("Warehouse CODE is null");
       return null;
     }
     return warehouseRepository.findWarehouseByCode(code)
+        .filter(w -> ownerOrganization(w) != null && organizationId != null && organizationId.equals(ownerOrganization(w)))
         .map(WarehouseDto::fromEntity)
         .orElseThrow(() -> new EntityNotFoundException(
             "Aucun entrepot avec le CODE = " + code + " n'a ete trouve dans la BDD",
@@ -98,8 +99,9 @@ public class WarehouseServiceImpl implements WarehouseService {
   }
 
   @Override
-  public List<WarehouseDto> findAll() {
+  public List<WarehouseDto> findAll(Long organizationId) {
     return warehouseRepository.findAll().stream()
+        .filter(w -> ownerOrganization(w) != null && organizationId != null && organizationId.equals(ownerOrganization(w)))
         .map(WarehouseDto::fromEntity)
         .collect(Collectors.toList());
   }
@@ -144,5 +146,43 @@ public class WarehouseServiceImpl implements WarehouseService {
     existing.setDescription(dto.getDescription());
     existing.setActive(dto.isActive());
     return WarehouseDto.fromEntity(warehouseRepository.save(existing));
+  }
+  // Phase 5b-2h : voir docs/phase-5b2h-report.md.
+  @Override
+  public void delete(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Warehouse ID is null");
+      return;
+    }
+    Warehouse existing = warehouseRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun entrepot avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.WAREHOUSE_NOT_FOUND));
+    Long ownerOrg = existing.getSite() == null || existing.getSite().getCity() == null || existing.getSite().getCity().getOrganization() == null ? null : existing.getSite().getCity().getOrganization().getId();
+    if (organizationId == null || ownerOrg == null || !organizationId.equals(ownerOrg)) {
+      log.warn("Warehouse {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucun entrepot avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.WAREHOUSE_NOT_FOUND);
+    }
+    delete(id);
+  }
+  // Phase 5b-2h : voir docs/phase-5b2h-report.md.
+  private Long ownerOrganization(Warehouse warehouse) {
+    return warehouse.getSite() == null || warehouse.getSite().getCity() == null
+        || warehouse.getSite().getCity().getOrganization() == null
+        ? null : warehouse.getSite().getCity().getOrganization().getId();
+  }
+
+  @Override
+  public WarehouseDto findById(Long id, Long organizationId) {
+    Warehouse existing = warehouseRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun entrepot avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.WAREHOUSE_NOT_FOUND));
+    Long owner = ownerOrganization(existing);
+    if (organizationId == null || owner == null || !organizationId.equals(owner)) {
+      log.warn("Warehouse {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucun entrepot avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.WAREHOUSE_NOT_FOUND);
+    }
+    return WarehouseDto.fromEntity(existing);
   }
 }

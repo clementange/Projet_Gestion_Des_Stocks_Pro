@@ -129,4 +129,22 @@ public class CategoryServiceImpl implements CategoryService {
     existing.setDesignation(dto.getDesignation());
     return CategoryDto.fromEntity(categoryRepository.save(existing));
   }
+  // Phase 5b-2h : voir docs/phase-5b2h-report.md.
+  @Override
+  public void delete(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Category ID is null");
+      return;
+    }
+    Category existing = categoryRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucune categorie avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CATEGORY_NOT_FOUND));
+    Long ownerOrg = existing.getOrganization() == null ? null : existing.getOrganization().getId();
+    if (organizationId == null || ownerOrg == null || !organizationId.equals(ownerOrg)) {
+      log.warn("Category {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucune categorie avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.CATEGORY_NOT_FOUND);
+    }
+    delete(id);
+  }
 }

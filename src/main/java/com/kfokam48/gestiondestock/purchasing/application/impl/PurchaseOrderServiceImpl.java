@@ -145,7 +145,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<PurchaseOrderLineDto> findLines(Long purchaseOrderId) {
+  // Phase 5b-2h : appartenance AVANT toute action. hasPermission ne suffit pas : une
+  // affectation GLOBAL dans sa propre organisation matche n'importe quel scopeId demande
+  // (meme classe de contournement qu'en 5b-2b) - voir docs/phase-5b2h-report.md.
+  public List<PurchaseOrderLineDto> findLines(Long purchaseOrderId, Long organizationId) {
+    findById(purchaseOrderId, organizationId);
     return purchaseOrderLineRepository.findAllByPurchaseOrderId(purchaseOrderId).stream()
         .map(PurchaseOrderLineDto::fromEntity)
         .collect(Collectors.toList());
@@ -159,14 +163,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
   }
 
   @Override
-  public PurchaseOrderDto validate(Long id) {
+  public PurchaseOrderDto validate(Long id, Long organizationId) {
+    findById(id, organizationId);
     PurchaseOrder purchaseOrder = fetchOrder(id);
     purchaseOrder.validate();
     return PurchaseOrderDto.fromEntity(purchaseOrderRepository.save(purchaseOrder));
   }
 
   @Override
-  public PurchaseOrderDto cancel(Long id) {
+  public PurchaseOrderDto cancel(Long id, Long organizationId) {
+    findById(id, organizationId);
     PurchaseOrder purchaseOrder = fetchOrder(id);
     purchaseOrder.cancel();
     return PurchaseOrderDto.fromEntity(purchaseOrderRepository.save(purchaseOrder));
@@ -174,6 +180,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
   @Override
   public PurchaseOrderLineDto receiveLine(Long purchaseOrderId, Long purchaseOrderLineId, BigDecimal quantity, Long userId, Long organizationId) {
+    findById(purchaseOrderId, organizationId);
     PurchaseOrder purchaseOrder = fetchOrder(purchaseOrderId);
     if (!authorizationService.hasPermission(userId, PURCHASE_ORDER_RECEIVE, ScopeType.SITE, purchaseOrder.getSite().getId(), organizationId)) {
       log.warn("User {} tried to receive purchase order {} on site {} without permission",

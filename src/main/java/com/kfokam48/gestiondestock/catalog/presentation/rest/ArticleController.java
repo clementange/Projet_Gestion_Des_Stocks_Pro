@@ -66,15 +66,15 @@ public class ArticleController {
   }
 
   @DeleteMapping(value = APP_ROOT + "/articles/delete/{idArticle}")
-  public void delete(@PathVariable("idArticle") Long id) {
-    articleService.delete(id);
+  public void delete(@PathVariable("idArticle") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    articleService.delete(id, principal.getOrganizationId());
   }
 
   // Phase 4c : remplace /save/{id}/{title}/article (StrategyPhotoContext, supprime). L'appelant
   // uploade d'abord via POST /media/upload puis attache l'URL ici.
   @PostMapping(value = APP_ROOT + "/articles/{idArticle}/photo", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public ArticleDto updatePhoto(@PathVariable("idArticle") Long id, @RequestBody PhotoUrlRequest request) {
-    return articleService.updatePhoto(id, request.url());
+  public ArticleDto updatePhoto(@PathVariable("idArticle") Long id, @RequestBody PhotoUrlRequest request, @AuthenticationPrincipal ExtendedUser principal) {
+    return articleService.updatePhoto(id, request.url(), principal.getOrganizationId());
   }
 
   /**

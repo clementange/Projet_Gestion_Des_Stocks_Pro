@@ -25,16 +25,19 @@ public interface UtilisateurApi {
   @PostMapping(UTILISATEUR_ENDPOINT + "/update/password")
   UtilisateurDto changerMotDePasse(@RequestBody ChangerMotDePasseUtilisateurDto dto, @AuthenticationPrincipal ExtendedUser principal);
 
+  // Phase 5b-2h : le principal est desormais requis - ces routes legacy appelaient les
+  // variantes NON filtrees du service (findById(id), findAll(), delete(id)), donc fuyaient en
+  // lecture et en suppression inter-tenant. Voir docs/phase-5b2h-report.md.
   @GetMapping(UTILISATEUR_ENDPOINT + "/{idUtilisateur}")
-  UtilisateurDto findById(@PathVariable("idUtilisateur") Long id);
+  UtilisateurDto findById(@PathVariable("idUtilisateur") Long id, @AuthenticationPrincipal ExtendedUser principal);
 
   @GetMapping(UTILISATEUR_ENDPOINT + "/find/{email}")
-  UtilisateurDto findByEmail(@PathVariable("email") String email);
+  UtilisateurDto findByEmail(@PathVariable("email") String email, @AuthenticationPrincipal ExtendedUser principal);
 
   @GetMapping(UTILISATEUR_ENDPOINT + "/all")
-  List<UtilisateurDto> findAll();
+  List<UtilisateurDto> findAll(@AuthenticationPrincipal ExtendedUser principal);
 
   @DeleteMapping(UTILISATEUR_ENDPOINT + "/delete/{idUtilisateur}")
-  void delete(@PathVariable("idUtilisateur") Long id);
+  void delete(@PathVariable("idUtilisateur") Long id, @AuthenticationPrincipal ExtendedUser principal);
 
 }

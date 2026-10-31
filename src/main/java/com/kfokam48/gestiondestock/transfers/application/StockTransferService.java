@@ -17,13 +17,13 @@ public interface StockTransferService {
 
   List<StockTransferDto> findAll(Long organizationId);
 
-  List<StockTransferLineDto> findLines(Long stockTransferId);
+  List<StockTransferLineDto> findLines(Long stockTransferId, Long organizationId);
 
-  StockTransferDto submit(Long id);
+  StockTransferDto submit(Long id, Long organizationId);
 
-  StockTransferDto approve(Long id, Long approverUserId);
+  StockTransferDto approve(Long id, Long approverUserId, Long organizationId);
 
-  StockTransferDto startPreparation(Long id);
+  StockTransferDto startPreparation(Long id, Long organizationId);
 
   /**
    * EN_PREPARATION -> EXPEDIE : sort physiquement le stock du site d'origine, ligne par ligne
@@ -38,6 +38,6 @@ public interface StockTransferService {
    */
   StockTransferDto receive(Long id, Long userId, Long organizationId);
 
-  StockTransferDto cancel(Long id);
+  StockTransferDto cancel(Long id, Long organizationId);
 
 }

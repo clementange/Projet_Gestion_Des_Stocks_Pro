@@ -161,7 +161,11 @@ public class SaleServiceImpl implements SaleService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<SaleLineDto> findLines(Long saleId) {
+  // Phase 5b-2h : appartenance AVANT toute action. hasPermission ne suffit pas : une
+  // affectation GLOBAL dans sa propre organisation matche n'importe quel scopeId demande
+  // (meme classe de contournement qu'en 5b-2b) - voir docs/phase-5b2h-report.md.
+  public List<SaleLineDto> findLines(Long saleId, Long organizationId) {
+    findById(saleId, organizationId);
     return saleLineRepository.findAllBySaleId(saleId).stream()
         .map(SaleLineDto::fromEntity)
         .collect(Collectors.toList());

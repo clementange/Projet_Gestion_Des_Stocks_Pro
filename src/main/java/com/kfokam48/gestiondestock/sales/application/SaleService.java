@@ -23,7 +23,7 @@ public interface SaleService {
 
   List<SaleDto> findAll(Long organizationId);
 
-  List<SaleLineDto> findLines(Long saleId);
+  List<SaleLineDto> findLines(Long saleId, Long organizationId);
 
   /**
    * Toutes les lignes de vente referencant cet article, tous sites/ventes confondus. Point

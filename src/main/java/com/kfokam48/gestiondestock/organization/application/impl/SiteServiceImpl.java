@@ -150,4 +150,22 @@ public class SiteServiceImpl implements SiteService {
     }
     siteRepository.deleteById(id);
   }
+  // Phase 5b-2h : voir docs/phase-5b2h-report.md.
+  @Override
+  public void delete(Long id, Long organizationId) {
+    if (id == null) {
+      log.error("Site ID is null");
+      return;
+    }
+    Site existing = siteRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException(
+            "Aucun site avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SITE_NOT_FOUND));
+    Long ownerOrg = existing.getCity() == null || existing.getCity().getOrganization() == null ? null : existing.getCity().getOrganization().getId();
+    if (organizationId == null || ownerOrg == null || !organizationId.equals(ownerOrg)) {
+      log.warn("Site {} does not belong to organization {}", id, organizationId);
+      throw new EntityNotFoundException(
+          "Aucun site avec l'ID = " + id + " n'a ete trouve dans la BDD", ErrorCodes.SITE_NOT_FOUND);
+    }
+    delete(id);
+  }
 }

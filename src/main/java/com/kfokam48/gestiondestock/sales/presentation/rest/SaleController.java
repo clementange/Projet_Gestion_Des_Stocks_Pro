@@ -50,7 +50,7 @@ public class SaleController {
   }
 
   @GetMapping(value = APP_ROOT + "/sales/{idVente}/lignes", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<SaleLineDto> findLines(@PathVariable("idVente") Long id) {
-    return saleService.findLines(id);
+  public List<SaleLineDto> findLines(@PathVariable("idVente") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return saleService.findLines(id, principal.getOrganizationId());
   }
 }

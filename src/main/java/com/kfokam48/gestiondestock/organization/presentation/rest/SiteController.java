@@ -56,7 +56,7 @@ public class SiteController {
   }
 
   @DeleteMapping(value = APP_ROOT + "/sites/delete/{idSite}")
-  public void delete(@PathVariable("idSite") Long id) {
-    siteService.delete(id);
+  public void delete(@PathVariable("idSite") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    siteService.delete(id, principal.getOrganizationId());
   }
 }

@@ -17,7 +17,7 @@ public interface PurchaseOrderService {
 
   List<PurchaseOrderDto> findAll(Long organizationId);
 
-  List<PurchaseOrderLineDto> findLines(Long purchaseOrderId);
+  List<PurchaseOrderLineDto> findLines(Long purchaseOrderId, Long organizationId);
 
   /**
    * Toutes les lignes de commande fournisseur referencant cet article, toutes commandes
@@ -27,9 +27,9 @@ public interface PurchaseOrderService {
    */
   List<PurchaseOrderLineDto> findLinesByArticleId(Long articleId);
 
-  PurchaseOrderDto validate(Long id);
+  PurchaseOrderDto validate(Long id, Long organizationId);
 
-  PurchaseOrderDto cancel(Long id);
+  PurchaseOrderDto cancel(Long id, Long organizationId);
 
   /**
    * Reception explicite d'une ligne : c'est le SEUL point d'entree qui fait entrer du stock

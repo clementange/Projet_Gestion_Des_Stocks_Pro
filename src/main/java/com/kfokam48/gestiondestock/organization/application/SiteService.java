@@ -27,4 +27,11 @@ public interface SiteService {
 
   void delete(Long id);
 
+  /**
+   * Phase 5b-2h : seul chemin de suppression expose en HTTP. Verifie l'appartenance a
+   * l'organisation de l'appelant AVANT de supprimer (404 fail-closed sinon) - voir
+   * docs/phase-5b2h-report.md.
+   */
+  void delete(Long id, Long organizationId);
+
 }

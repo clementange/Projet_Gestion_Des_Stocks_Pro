@@ -85,6 +85,10 @@ public class UserRoleAssignmentController {
 
   @DeleteMapping(value = APP_ROOT + "/user-role-assignments/delete/{idAssignment}")
   public void delete(@PathVariable("idAssignment") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    // Phase 5b-2h : appartenance EN PREMIER. requireRbacManage seul ne protegeait rien ici,
+    // puisque tout admin de tenant possede RBAC_MANAGE : B pouvait supprimer l'affectation de A -
+    // voir docs/phase-5b2h-report.md.
+    userRoleAssignmentService.findById(id, principal.getOrganizationId());
     requireRbacManage(principal);
     userRoleAssignmentService.delete(id);
   }

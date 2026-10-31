@@ -5,6 +5,8 @@ import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 import com.kfokam48.gestiondestock.media.application.dto.PhotoUrlRequest;
 import com.kfokam48.gestiondestock.purchasing.application.SupplierService;
 import com.kfokam48.gestiondestock.purchasing.application.dto.SupplierDto;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.kfokam48.gestiondestock.model.auth.ExtendedUser;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -31,7 +33,7 @@ public class FournisseurPhotoLegacyController {
   }
 
   @PostMapping(value = APP_ROOT + "/fournisseurs/{idFournisseur}/photo", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public SupplierDto updatePhoto(@PathVariable("idFournisseur") Long id, @RequestBody PhotoUrlRequest request) {
-    return supplierService.updatePhoto(id, request.url());
+  public SupplierDto updatePhoto(@PathVariable("idFournisseur") Long id, @RequestBody PhotoUrlRequest request, @AuthenticationPrincipal ExtendedUser principal) {
+    return supplierService.updatePhoto(id, request.url(), principal.getOrganizationId());
   }
 }

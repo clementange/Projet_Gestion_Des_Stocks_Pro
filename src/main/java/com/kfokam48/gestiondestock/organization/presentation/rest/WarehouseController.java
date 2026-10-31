@@ -35,23 +35,23 @@ public class WarehouseController {
   }
 
   @GetMapping(value = APP_ROOT + "/warehouses/{idWarehouse}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public WarehouseDto findById(@PathVariable("idWarehouse") Long id) {
-    return warehouseService.findById(id);
+  public WarehouseDto findById(@PathVariable("idWarehouse") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    return warehouseService.findById(id, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/warehouses/filter/{codeWarehouse}", produces = MediaType.APPLICATION_JSON_VALUE)
-  public WarehouseDto findByCode(@PathVariable("codeWarehouse") String code) {
-    return warehouseService.findByCode(code);
+  public WarehouseDto findByCode(@PathVariable("codeWarehouse") String code, @AuthenticationPrincipal ExtendedUser principal) {
+    return warehouseService.findByCode(code, principal.getOrganizationId());
   }
 
   @GetMapping(value = APP_ROOT + "/warehouses/all", produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<WarehouseDto> findAll() {
-    return warehouseService.findAll();
+  public List<WarehouseDto> findAll(@AuthenticationPrincipal ExtendedUser principal) {
+    return warehouseService.findAll(principal.getOrganizationId());
   }
 
   @DeleteMapping(value = APP_ROOT + "/warehouses/delete/{idWarehouse}")
-  public void delete(@PathVariable("idWarehouse") Long id) {
-    warehouseService.delete(id);
+  public void delete(@PathVariable("idWarehouse") Long id, @AuthenticationPrincipal ExtendedUser principal) {
+    warehouseService.delete(id, principal.getOrganizationId());
   }
 
   /**

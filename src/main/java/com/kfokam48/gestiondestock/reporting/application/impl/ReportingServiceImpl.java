@@ -75,7 +75,7 @@ public class ReportingServiceImpl implements ReportingService {
     BigDecimal totalQuantity = BigDecimal.ZERO;
     BigDecimal totalAmount = BigDecimal.ZERO;
     for (SaleDto sale : sales) {
-      for (SaleLineDto line : saleService.findLines(sale.getId())) {
+      for (SaleLineDto line : saleService.findLines(sale.getId(), organizationId)) {
         totalQuantity = totalQuantity.add(line.getQuantite());
         totalAmount = totalAmount.add(line.getQuantite().multiply(line.getPrixUnitaire()));
       }
@@ -91,7 +91,18 @@ public class ReportingServiceImpl implements ReportingService {
         .build();
   }
 
+  /**
+   * Phase 5b-2h : appartenance du site AVANT la verification de permission. Sans elle, un
+   * appelant porteur d'une affectation GLOBAL dans SA PROPRE organisation passait
+   * hasPermission(..., SITE, siteId, ...) pour le site d'un AUTRE tenant - meme classe de
+   * contournement qu'en 5b-2b - voir docs/phase-5b2h-report.md.
+   */
+  private void requireSiteInOrganization(Long siteId, Long organizationId) {
+    siteService.findById(siteId, organizationId);
+  }
+
   private void requireSiteAccess(Long userId, Long siteId, Long organizationId) {
+    requireSiteInOrganization(siteId, organizationId);
     if (!canAccessSite(userId, siteId, organizationId)) {
       log.warn("User {} tried to access reports for site {} without REPORTING_VIEW on that scope", userId, siteId);
       throw new InvalidOperationException(

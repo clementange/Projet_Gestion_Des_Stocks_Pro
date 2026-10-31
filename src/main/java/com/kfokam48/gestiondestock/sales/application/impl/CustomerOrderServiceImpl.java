@@ -157,7 +157,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
   @Override
   @Transactional(readOnly = true)
-  public List<CustomerOrderLineDto> findLines(Long customerOrderId) {
+  // Phase 5b-2h : appartenance AVANT toute action. hasPermission ne suffit pas : une
+  // affectation GLOBAL dans sa propre organisation matche n'importe quel scopeId demande
+  // (meme classe de contournement qu'en 5b-2b) - voir docs/phase-5b2h-report.md.
+  public List<CustomerOrderLineDto> findLines(Long customerOrderId, Long organizationId) {
+    findById(customerOrderId, organizationId);
     return customerOrderLineRepository.findAllByCustomerOrderId(customerOrderId).stream()
         .map(CustomerOrderLineDto::fromEntity)
         .collect(Collectors.toList());
@@ -171,7 +175,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto validate(Long id) {
+  public CustomerOrderDto validate(Long id, Long organizationId) {
+    findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
     order.validate();
     return CustomerOrderDto.fromEntity(customerOrderRepository.save(order));
@@ -179,6 +184,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
   @Override
   public CustomerOrderDto reserve(Long id, Long userId, Long organizationId) {
+    findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
     requireOrderPermission(CUSTOMER_ORDER_RESERVE, order, userId, organizationId);
     order.requireReservable();
@@ -194,7 +200,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto prepare(Long id) {
+  public CustomerOrderDto prepare(Long id, Long organizationId) {
+    findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
     order.requirePreparable();
     order.markPrepared();
@@ -202,7 +209,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   }
 
   @Override
-  public CustomerOrderDto ship(Long id) {
+  public CustomerOrderDto ship(Long id, Long organizationId) {
+    findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
     order.requireShippable();
     order.markShipped();
@@ -211,6 +219,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
   @Override
   public CustomerOrderDto deliver(Long id, Long userId, Long organizationId) {
+    findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
     requireOrderPermission(CUSTOMER_ORDER_DELIVER, order, userId, organizationId);
     order.requireDeliverable();
@@ -229,6 +238,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
   @Override
   public CustomerOrderDto cancel(Long id, Long userId, Long organizationId) {
+    findById(id, organizationId);
     CustomerOrder order = fetchOrder(id);
     requireOrderPermission(CUSTOMER_ORDER_CANCEL, order, userId, organizationId);
 

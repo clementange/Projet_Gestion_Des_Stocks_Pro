@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
  * la suppression de {@code /organizations/create} en 5b-2e. {@code PermissionService.save()}
  * est conserve : il reste utilise par les tests et resterait necessaire a tout futur amorcage -
  * voir docs/phase-5b2f-report.md.
+ *
+ * <p>Phase 5b-2h : {@code DELETE /permissions/delete/{id}} est SUPPRIME pour la meme raison que la
+ * creation - supprimer une entree d'un catalogue GLOBAL impacte tous les tenants, et le gate
+ * RBAC_MANAGE ne distingue pas les tenants puisque chaque admin le possede - voir
+ * docs/phase-5b2h-report.md.
  */
 @Tag(name = "permissions")
 @RestController
@@ -70,9 +74,4 @@ public class PermissionController {
     return permissionService.findAll();
   }
 
-  @DeleteMapping(value = APP_ROOT + "/permissions/delete/{idPermission}")
-  public void delete(@PathVariable("idPermission") Long id, @AuthenticationPrincipal ExtendedUser principal) {
-    requireRbacManage(principal);
-    permissionService.delete(id);
-  }
 }

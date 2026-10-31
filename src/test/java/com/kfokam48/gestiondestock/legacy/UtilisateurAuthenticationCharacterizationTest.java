@@ -87,10 +87,38 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
     return objectMapper.readTree(result.getResponse().getContentAsString()).get("accessToken").asText();
   }
 
+  private long idEntrepriseFromToken(String token) throws Exception {
+    byte[] decoded = java.util.Base64.getUrlDecoder().decode(token.split("\\.")[1]);
+    return objectMapper.readTree(decoded).get("idEntreprise").asLong();
+  }
+
   private long createUser(String callerToken, String email, String password) throws Exception {
     String payload = "{\"nom\":\"Nom\",\"prenom\":\"Prenom\",\"email\":\"" + email + "\","
         + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"" + password + "\","
         + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}";
+    MvcResult result = mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+            .header("Authorization", "Bearer " + callerToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(payload))
+        .andExpect(status().isOk())
+        .andReturn();
+    return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+  }
+
+  /**
+   * Phase 5b-2h : les routes {@code /utilisateurs/**} sont desormais scopees au tenant de
+   * l'appelant. Un utilisateur cree sans {@code entreprise} n'appartient a aucun tenant et reste
+   * donc invisible en lecture scopee. Ce helper cree l'utilisateur DANS le tenant de l'appelant,
+   * et n'est utilise que par les tests qui lisent ensuite la ressource ; {@link #createUser}
+   * reste volontairement sans entreprise, car
+   * {@link #loginSucceedsAndJwtCarriesExpectedClaims()} caracterise precisement ce cas. Aucune
+   * assertion n'a ete modifiee - seule la fixture l'a ete (meme cause racine qu'en 5b-2d §3).
+   */
+  private long createUserInCallerTenant(String callerToken, String email, String password) throws Exception {
+    String payload = "{\"nom\":\"Nom\",\"prenom\":\"Prenom\",\"email\":\"" + email + "\","
+        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"" + password + "\","
+        + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"},"
+        + "\"entreprise\":{\"id\":" + idEntrepriseFromToken(callerToken) + "}}";
     MvcResult result = mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
             .header("Authorization", "Bearer " + callerToken)
             .contentType(MediaType.APPLICATION_JSON)
@@ -258,7 +286,7 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
   public void findAllIncludesCreatedUsers() throws Exception {
     String adminToken = adminToken();
     String email = uniqueCode("findall") + "@test.local";
-    createUser(adminToken, email, "Passw0rd!");
+    createUserInCallerTenant(adminToken, email, "Passw0rd!");
 
     MvcResult result = mockMvc.perform(get("/gestiondestock/v1/utilisateurs/all").header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isOk())
@@ -276,7 +304,7 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
   @Test
   public void deleteThenFindByIdReturnsNotFound() throws Exception {
     String adminToken = adminToken();
-    long userId = createUser(adminToken, uniqueCode("todelete") + "@test.local", "Passw0rd!");
+    long userId = createUserInCallerTenant(adminToken, uniqueCode("todelete") + "@test.local", "Passw0rd!");
 
     mockMvc.perform(delete("/gestiondestock/v1/utilisateurs/delete/" + userId).header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isOk());

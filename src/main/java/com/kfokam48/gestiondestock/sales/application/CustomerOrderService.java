@@ -16,7 +16,7 @@ public interface CustomerOrderService {
 
   List<CustomerOrderDto> findAll(Long organizationId);
 
-  List<CustomerOrderLineDto> findLines(Long customerOrderId);
+  List<CustomerOrderLineDto> findLines(Long customerOrderId, Long organizationId);
 
   /**
    * Toutes les lignes de commande client referencant cet article, toutes commandes confondues.
@@ -26,7 +26,7 @@ public interface CustomerOrderService {
    */
   List<CustomerOrderLineDto> findLinesByArticleId(Long articleId);
 
-  CustomerOrderDto validate(Long id);
+  CustomerOrderDto validate(Long id, Long organizationId);
 
   /**
    * VALIDEE -> RESERVEE : reserve le stock disponible de chaque ligne (StockMovement
@@ -34,9 +34,9 @@ public interface CustomerOrderService {
    */
   CustomerOrderDto reserve(Long id, Long userId, Long organizationId);
 
-  CustomerOrderDto prepare(Long id);
+  CustomerOrderDto prepare(Long id, Long organizationId);
 
-  CustomerOrderDto ship(Long id);
+  CustomerOrderDto ship(Long id, Long organizationId);
 
   /**
    * EXPEDIEE -> LIVREE : sortie physique + liberation de la reservation de chaque ligne.

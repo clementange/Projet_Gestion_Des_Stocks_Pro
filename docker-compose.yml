@@ -5,7 +5,8 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-gestionstock}
       POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      # 5b-2i : plus de defaut devinable - echec explicite si la variable est absente.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
     volumes:
       - db_data:/var/lib/postgresql/data
     ports:
@@ -27,8 +28,10 @@ services:
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-gestionstock}
       DB_USERNAME: ${DB_USERNAME:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY must be set}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY must be set}
       SERVER_PORT: 8081
     ports:
       - "8081:8081"

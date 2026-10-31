@@ -2,7 +2,10 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:gestionstock}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    # 5b-2i : aucune valeur par defaut pour un secret. Vide = absent -> echec explicite au
+    # demarrage (RequiredSecretsValidator), pas une connexion silencieuse avec un mot de passe
+    # devinable - voir docs/phase-5b2i-report.md.
+    password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
   jpa:
     database: POSTGRESQL
@@ -35,7 +38,9 @@ jwt:
   # bits) : jamais detecte par les tests @SpringBootTest, qui n'appellent jamais JwtUtil via une
   # vraie requete HTTP de login. Valeur ci-dessous generee aleatoirement pour cet environnement
   # de dev (384 bits) ; a externaliser via variable d'environnement avant toute mise en prod.
-  secret: ${JWT_SECRET:5ihIh2R5xJnVjcFapkSQIM8kbuBpyJXLV23DwyuJTzKh5vTZxnN0iLRgEGIMDsbX}
+  # 5b-2i : la valeur par defaut precedente etait une veritable cle HS256 en clair dans le
+  # depot. Elle doit etre consideree COMPROMISE et rotee (voir docs/phase-5b2i-report.md).
+  secret: ${JWT_SECRET:}
 
 cors:
   # Phase 5a : allowedOriginPatterns("*") combine a allowCredentials(true) est la combinaison
@@ -52,6 +57,6 @@ minio:
   # ci-dessous : ceux par defaut de l'image Docker MinIO officielle, valables uniquement pour un
   # MinIO local de dev ; a changer avant toute mise en prod, comme JWT_SECRET ci-dessus.
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-  access-key: ${MINIO_ACCESS_KEY:minioadmin}
-  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  access-key: ${MINIO_ACCESS_KEY:}
+  secret-key: ${MINIO_SECRET_KEY:}
   bucket: ${MINIO_BUCKET:gestiondestock-media}

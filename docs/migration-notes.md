@@ -1272,3 +1272,40 @@ entreprise) - d'ou la separation en deux helpers, `createUser` inchange et
 
 La matrice a servi de rouge collectif (30 fuites listees avant, verte apres). C'est une preuve
 reelle mais ce n'est pas 7 tests nommes comme demande. Signale tel quel.
+
+## Phase 5b-2i (secrets : plus aucune valeur par defaut sensible) : trouve pendant l'increment
+
+Voir `docs/phase-5b2i-report.md`.
+
+### Une veritable cle HS256 etait la valeur par defaut de JWT_SECRET, en clair dans le depot
+
+`application.yml` portait `${JWT_SECRET:5ihIh2R5...}` - une cle reelle de 64 caracteres, donc
+signant tous les jetons de toute instance demarree sans variable d'environnement. Idem
+`DB_PASSWORD:postgres` et `MINIO_(ACCESS|SECRET)_KEY:minioadmin`, et `docker-compose` en forme
+`:-postgres`. Tous retires.
+
+**ACTION HUMAINE REQUISE** : l'ancienne cle est dans l'historique git. Elle doit etre consideree
+COMPROMISE et rotee avant toute mise en production, et les jetons signes avec elle invalides.
+L'historique n'a pas ete reecrit (operation destructive, hors perimetre).
+
+### Defaut VIDE plutot que placeholder sans defaut (decision de conception)
+
+Retirer totalement le defaut (`${JWT_SECRET}`) produit une erreur de placeholder non resolu :
+illisible, et Spring s'arrete a la PREMIERE variable manquante. Un defaut vide - qui n'est pas une
+valeur sensible - laisse le demarrage atteindre `config/RequiredSecretsValidator`
+(`InitializingBean`), qui liste TOUTES les variables manquantes d'un coup avec un message
+actionnable, et impose 32 octets minimum pour HS256. Le message ne contient que des NOMS de
+variables, jamais une valeur - verifie par un test dedie.
+
+### Les tests ont desormais leurs propres secrets
+
+`src/test/resources/application.properties` (nouveau) fournit `jwt.secret` et des valeurs de
+remplissage ; le datasource et MinIO restent ecrases dynamiquement par Testcontainers. A savoir
+pour tout futur test qui demarre un contexte sans passer par `AbstractIntegrationTest` : les
+secrets ne sont plus fournis par defaut, il faut ce fichier (ou des `properties` explicites).
+
+### Limite assumee sur le rouge->vert
+
+Cet increment AJOUTE une protection, il ne corrige pas un comportement observable. Les tests
+echoueraient sans `RequiredSecretsValidator` (classe inexistante avant), mais je ne les ai pas
+executes contre un arbre sans elle - signale comme limite plutot que presente comme un rouge.

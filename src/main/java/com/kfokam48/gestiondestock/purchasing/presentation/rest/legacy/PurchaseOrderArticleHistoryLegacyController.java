@@ -2,10 +2,10 @@ package com.kfokam48.gestiondestock.purchasing.presentation.rest.legacy;
 
 import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
-import com.kfokam48.gestiondestock.dto.LigneCommandeFournisseurDto;
+import com.kfokam48.gestiondestock.legacy.LigneCommandeFournisseurDto;
 import com.kfokam48.gestiondestock.purchasing.application.PurchaseOrderService;
 import com.kfokam48.gestiondestock.purchasing.application.dto.PurchaseOrderLineDto;
-import com.kfokam48.gestiondestock.repository.LigneCommandeFournisseurRepository;
+import com.kfokam48.gestiondestock.legacy.LigneCommandeFournisseurRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.stream.Collectors;

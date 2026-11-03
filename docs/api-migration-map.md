@@ -92,32 +92,54 @@ par `/user-role-assignments/**`.
 
 ## 4. Cluster legacy mort → supprimé (sous-lot 4e-d)
 
-Aucun importateur hors du cluster lui-même ; les modules correspondants servent déjà ces données.
+**Correction par rapport à la première version de cette carte.** Elle annonçait la suppression de
+neuf entités. En lisant les mappings JPA plutôt que les seuls importateurs, il s'avère que les
+trois entités de ligne portent un `@ManyToOne` vers leur parent (`LigneVente → Ventes`,
+`LigneCommandeClient → CommandeClient → Client` + `EtatCommande`,
+`LigneCommandeFournisseur → CommandeFournisseur → Fournisseur`), et que `LigneVenteDto` **expose
+`vente` dans son JSON**. Tout ce cluster est donc une seule pièce : il est déplacé, pas supprimé.
+Le code a tranché contre le plan.
+
+Ne restaient réellement morts que les cinq doublons de tables déjà servies par un module :
 
 | Classe supprimée | Module qui la remplace |
 |---|---|
-| `model/Client`, `dto/ClientDto` | `sales.domain.model.Customer` |
-| `model/Fournisseur` | `purchasing.domain.model.Supplier` |
-| `model/Ventes`, `dto/VentesDto` | `sales.domain.model.Sale` |
-| `model/CommandeClient`, `dto/CommandeClientDto`, `model/EtatCommande` | `sales.domain.model.CustomerOrder` + `CustomerOrderStatus` |
-| `model/CommandeFournisseur` | `purchasing.domain.model.PurchaseOrder` |
-| `model/Entreprise`, `repository/EntrepriseRepository` | `tenant.domain.model.Tenant` |
+| `model/Entreprise`, `repository/EntrepriseRepository` | `tenant.domain.model.Tenant` (même table `entreprise`) |
+| `model/Utilisateur`, `repository/UtilisateurRepository` | `identity.domain.model.User` (même table `utilisateur`) |
+| `model/Roles` | `identity.domain.model.Role` + `UserRoleAssignment` |
+
+`Utilisateur` et `Roles` ne sont devenus morts qu'après 4e-c.
 
 ## 5. Historique antérieur à la migration → `legacy` (sous-lot 4e-d)
 
-**CONSERVÉES** : elles seules portent l'historique d'avant la migration (voir §Méthode).
+**CONSERVÉES** : elles seules portent l'historique d'avant la migration (voir §Méthode). 18 classes
+déplacées vers `legacy/` : `Client`, `Fournisseur`, `Ventes`, `CommandeClient`,
+`CommandeFournisseur`, `EtatCommande`, les trois `Ligne*`, leurs six DTO et leurs trois
+repositories.
 
-| Classe | Destination | Pourquoi elle ne peut pas disparaître |
-|---|---|---|
-| `model/LigneVente`, `repository/LigneVenteRepository`, `dto/LigneVenteDto` | `legacy/` | `GET /articles/historique/vente/{id}` |
-| `model/LigneCommandeClient` + repository + dto | `legacy/` | `GET /articles/historique/commandeclient/{id}` |
-| `model/LigneCommandeFournisseur` + repository + dto | `legacy/` | `GET /articles/historique/commandefournisseur/{id}` |
+| Endpoint servi | Classes nécessaires |
+|---|---|
+| `GET /articles/historique/vente/{id}` | `LigneVente` + `Ventes` + `LigneVenteDto` + `VentesDto` |
+| `GET /articles/historique/commandeclient/{id}` | `LigneCommandeClient` + `CommandeClient` + `Client` + `EtatCommande` + DTO |
+| `GET /articles/historique/commandefournisseur/{id}` | `LigneCommandeFournisseur` + `CommandeFournisseur` + `Fournisseur` + DTO |
 
-Elles sont aussi lues par `ArticleServiceImpl.delete`, qui refuse de supprimer un article encore
-référencé par une ligne historique. Les placer dans `sales`/`purchasing` créerait un cycle
-`catalog → sales` (sales dépend déjà légitimement de `catalog`) : d'où un module `legacy` neutre,
-dont dépendent `catalog`, `sales` et `purchasing`, et qui matérialise la dette restante sous un nom
-explicite au lieu de la disperser.
+### Le cycle `catalog ↔ legacy`, et son inversion
+
+`ArticleServiceImpl.delete` refuse de supprimer un article encore référencé par une ligne
+historique : `catalog` lisait donc les trois repositories legacy. Mais `legacy` dépend de
+`catalog` (ses entités portent un `@ManyToOne Article`, ses DTO exposent un `ArticleDto`). Faire de
+`legacy` un vrai module révèle le cycle — invisible tant que ces classes vivaient dans des paquets
+plats exclus du graphe.
+
+Résolu par **inversion de dépendance** : `catalog` déclare
+`catalog.domain.port.ArticleUsagePort` (`Optional<String> findBlockingHistoricalUsage(Long)`) et
+`legacy.LegacyArticleUsageAdapter` l'implémente. `catalog` ne connaît plus `legacy` ; les trois
+messages d'erreur HTTP sont inchangés au caractère, et l'ordre de vérification (commandes client,
+puis fournisseur, puis ventes) est conservé car il décide du message renvoyé quand un article
+apparaît dans plusieurs historiques.
+
+`shared` et `legacy` sont des **vrais modules**, volontairement absents de la liste d'exclusion de
+`ModuleBoundaries` : c'est précisément ce qui a permis de détecter ce cycle.
 
 ## 6. Interceptor
 

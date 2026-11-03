@@ -113,4 +113,29 @@ class ArchitectureRulesTest {
         .should().beFreeOfCycles()
         .check(moduleClasses);
   }
+  /**
+   * Phase 4e : les cinq paquets plats legacy ({@code model}, {@code dto}, {@code repository},
+   * {@code services}, {@code controller}) ont ete vides et supprimes. Cette regle interdit de les
+   * recreer : toute classe neuve appartient a un module metier, et plus jamais a la racine du
+   * package de base.
+   *
+   * <p>La regle porte sur le PAQUET, pas sur un nom de classe : c'est la frontiere que CLAUDE.md
+   * decrit (« Aucune nouvelle fonctionnalite dans le legacy plat ») et la seule qu'un auteur
+   * puisse violer par inadvertance en recreant un dossier familier. Elle est volontairement
+   * distincte de la regle de structure par module, qui verifie l'INTERIEUR d'un module.
+   */
+  @ArchTest
+  static final ArchRule the_flat_legacy_packages_must_never_come_back =
+      noClasses()
+          .should().resideInAnyPackage(
+              "com.kfokam48.gestiondestock.model..",
+              "com.kfokam48.gestiondestock.dto..",
+              "com.kfokam48.gestiondestock.repository..",
+              "com.kfokam48.gestiondestock.services..",
+              "com.kfokam48.gestiondestock.controller..")
+          .because("les paquets plats legacy ont ete supprimes en Phase 4e : une classe neuve va "
+              + "dans son module metier (voir docs/api-migration-map.md), jamais a la racine du "
+              + "package de base. Si une classe doit etre partagee par tous les modules, elle va "
+              + "dans shared ; si elle sert UNIQUEMENT des donnees anterieures a la migration, "
+              + "dans legacy - qui ne doit pas grossir");
 }

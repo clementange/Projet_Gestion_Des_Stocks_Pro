@@ -23,9 +23,20 @@ public final class ModuleBoundaries {
   private ModuleBoundaries() {
   }
 
+  /**
+   * Phase 4e : {@code model}, {@code services}, {@code dto}, {@code controller} et
+   * {@code repository} ont ete VIDES et supprimes. Ne restent que des paquets TECHNIQUES, qui
+   * n'ont jamais ete des modules metier et ne le deviendront pas : plomberie Spring
+   * ({@code config}), utilitaires ({@code utils}, {@code validator}), erreurs
+   * ({@code exception}, {@code handlers}) et l'intercepteur d'isolation ({@code interceptor}).
+   *
+   * <p>{@code shared} et {@code legacy}, eux, sont de VRAIS modules et ne figurent
+   * volontairement pas ici : leurs dependances doivent etre verifiees comme celles des autres -
+   * c'est ainsi que le cycle {@code catalog <-> legacy} a ete detecte et inverse via
+   * {@code ArticleUsagePort} (voir docs/phase-4e-report.md).
+   */
   public static final Set<String> LEGACY_FLAT_PACKAGES = Set.of(
-      "model", "services", "dto", "controller", "validator", "repository",
-      "exception", "handlers", "interceptor", "config", "utils");
+      "validator", "exception", "handlers", "interceptor", "config", "utils");
 
   public static final DescribedPredicate<JavaClass> IN_LEGACY_FLAT_PACKAGE =
       new DescribedPredicate<>("dans un package legacy plat (pas un module)") {

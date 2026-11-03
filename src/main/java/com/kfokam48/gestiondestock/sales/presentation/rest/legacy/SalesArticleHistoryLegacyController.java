@@ -2,10 +2,10 @@ package com.kfokam48.gestiondestock.sales.presentation.rest.legacy;
 
 import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
-import com.kfokam48.gestiondestock.dto.LigneCommandeClientDto;
-import com.kfokam48.gestiondestock.dto.LigneVenteDto;
-import com.kfokam48.gestiondestock.repository.LigneCommandeClientRepository;
-import com.kfokam48.gestiondestock.repository.LigneVenteRepository;
+import com.kfokam48.gestiondestock.legacy.LigneCommandeClientDto;
+import com.kfokam48.gestiondestock.legacy.LigneVenteDto;
+import com.kfokam48.gestiondestock.legacy.LigneCommandeClientRepository;
+import com.kfokam48.gestiondestock.legacy.LigneVenteRepository;
 import com.kfokam48.gestiondestock.sales.application.CustomerOrderService;
 import com.kfokam48.gestiondestock.sales.application.SaleService;
 import com.kfokam48.gestiondestock.sales.application.dto.CustomerOrderLineDto;

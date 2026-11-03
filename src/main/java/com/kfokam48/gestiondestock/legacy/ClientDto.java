@@ -1,8 +1,8 @@
-package com.kfokam48.gestiondestock.dto;
+package com.kfokam48.gestiondestock.legacy;
 
 import com.kfokam48.gestiondestock.shared.AdresseDto;
 
-import com.kfokam48.gestiondestock.model.Client;
+import com.kfokam48.gestiondestock.legacy.Client;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.List;
 import lombok.Builder;

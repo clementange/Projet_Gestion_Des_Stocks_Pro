@@ -1,4 +1,4 @@
-package com.kfokam48.gestiondestock.model;
+package com.kfokam48.gestiondestock.legacy;
 
 import com.kfokam48.gestiondestock.shared.AbstractEntity;
 

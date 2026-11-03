@@ -54,8 +54,10 @@ public class ArticleHistoryLegacyEndpointsTest extends AbstractIntegrationTest {
   @Autowired
   private ObjectMapper objectMapper;
 
+  // Phase 4e : EntrepriseRepository (doublon legacy de la table entreprise) est supprime ;
+  // l'organisation du tenant se lit desormais par le module tenant, seul proprietaire.
   @Autowired
-  private com.kfokam48.gestiondestock.repository.EntrepriseRepository entrepriseRepository;
+  private com.kfokam48.gestiondestock.tenant.application.TenantService tenantService;
 
   @Autowired
   private com.kfokam48.gestiondestock.organization.application.OrganizationService organizationService;
@@ -104,7 +106,7 @@ public class ArticleHistoryLegacyEndpointsTest extends AbstractIntegrationTest {
   }
 
   private Long defaultSiteId(Tenant tenant) {
-    Long organizationId = entrepriseRepository.findById(tenant.entrepriseId).orElseThrow().getOrganizationId();
+    Long organizationId = tenantService.findById(tenant.entrepriseId).getOrganizationId();
     return organizationService.ensureDefaultSite(organizationId).getId();
   }
 

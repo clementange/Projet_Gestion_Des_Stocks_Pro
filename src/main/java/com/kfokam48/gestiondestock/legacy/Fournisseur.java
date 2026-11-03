@@ -1,10 +1,9 @@
-package com.kfokam48.gestiondestock.model;
+package com.kfokam48.gestiondestock.legacy;
 
 import com.kfokam48.gestiondestock.shared.AbstractEntity;
 import com.kfokam48.gestiondestock.shared.Adresse;
 
 import java.util.List;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -20,8 +19,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Entity
-@Table(name = "client")
-public class Client extends AbstractEntity {
+@Table(name = "fournisseur")
+public class Fournisseur extends AbstractEntity {
 
   @Column(name = "nom")
   private String nom;
@@ -44,7 +43,8 @@ public class Client extends AbstractEntity {
   @Column(name = "identreprise")
   private Long idEntreprise;
 
-  @OneToMany(mappedBy = "client")
-  private List<CommandeClient> commandeClients;
+  @OneToMany(mappedBy = "fournisseur")
+  private List<CommandeFournisseur> commandeFournisseurs;
+
 
 }

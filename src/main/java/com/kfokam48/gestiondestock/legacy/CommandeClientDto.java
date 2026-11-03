@@ -1,7 +1,7 @@
-package com.kfokam48.gestiondestock.dto;
+package com.kfokam48.gestiondestock.legacy;
 
-import com.kfokam48.gestiondestock.model.CommandeClient;
-import com.kfokam48.gestiondestock.model.EtatCommande;
+import com.kfokam48.gestiondestock.legacy.CommandeClient;
+import com.kfokam48.gestiondestock.legacy.EtatCommande;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonProperty.Access;

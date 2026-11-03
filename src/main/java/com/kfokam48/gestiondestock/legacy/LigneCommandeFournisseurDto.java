@@ -1,9 +1,9 @@
-package com.kfokam48.gestiondestock.dto;
+package com.kfokam48.gestiondestock.legacy;
 
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 
-import com.kfokam48.gestiondestock.model.CommandeFournisseur;
-import com.kfokam48.gestiondestock.model.LigneCommandeFournisseur;
+import com.kfokam48.gestiondestock.legacy.CommandeFournisseur;
+import com.kfokam48.gestiondestock.legacy.LigneCommandeFournisseur;
 import java.math.BigDecimal;
 import lombok.Builder;
 import lombok.Data;

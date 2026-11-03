@@ -1,6 +1,6 @@
-package com.kfokam48.gestiondestock.dto;
+package com.kfokam48.gestiondestock.legacy;
 
-import com.kfokam48.gestiondestock.model.Ventes;
+import com.kfokam48.gestiondestock.legacy.Ventes;
 import java.time.Instant;
 import java.util.List;
 import lombok.Builder;

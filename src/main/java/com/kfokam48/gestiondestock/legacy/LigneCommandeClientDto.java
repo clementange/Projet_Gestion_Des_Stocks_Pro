@@ -1,8 +1,8 @@
-package com.kfokam48.gestiondestock.dto;
+package com.kfokam48.gestiondestock.legacy;
 
 import com.kfokam48.gestiondestock.catalog.application.dto.ArticleDto;
 
-import com.kfokam48.gestiondestock.model.LigneCommandeClient;
+import com.kfokam48.gestiondestock.legacy.LigneCommandeClient;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.math.BigDecimal;
 import lombok.Builder;

@@ -1,6 +1,6 @@
-package com.kfokam48.gestiondestock.repository;
+package com.kfokam48.gestiondestock.legacy;
 
-import com.kfokam48.gestiondestock.model.LigneCommandeClient;
+import com.kfokam48.gestiondestock.legacy.LigneCommandeClient;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 

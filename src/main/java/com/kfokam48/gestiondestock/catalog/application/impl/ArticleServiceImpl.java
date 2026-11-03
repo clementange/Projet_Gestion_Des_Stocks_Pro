@@ -8,20 +8,16 @@ import com.kfokam48.gestiondestock.catalog.infrastructure.persistence.ArticleRep
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.catalog.application.dto.CategoryDto;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
+import com.kfokam48.gestiondestock.catalog.domain.port.ArticleUsagePort;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
 import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
-import com.kfokam48.gestiondestock.model.LigneCommandeClient;
-import com.kfokam48.gestiondestock.model.LigneCommandeFournisseur;
-import com.kfokam48.gestiondestock.model.LigneVente;
 import com.kfokam48.gestiondestock.organization.domain.model.Organization;
-import com.kfokam48.gestiondestock.repository.LigneCommandeClientRepository;
-import com.kfokam48.gestiondestock.repository.LigneCommandeFournisseurRepository;
-import com.kfokam48.gestiondestock.repository.LigneVenteRepository;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,20 +71,15 @@ public class ArticleServiceImpl implements ArticleService {
 
   private ArticleRepository articleRepository;
   private AuthorizationService authorizationService;
-  private LigneVenteRepository venteRepository;
-  private LigneCommandeFournisseurRepository commandeFournisseurRepository;
-  private LigneCommandeClientRepository commandeClientRepository;
+  private ArticleUsagePort articleUsagePort;
 
   @Autowired
   public ArticleServiceImpl(
       ArticleRepository articleRepository,
-      LigneVenteRepository venteRepository, LigneCommandeFournisseurRepository commandeFournisseurRepository,
-      LigneCommandeClientRepository commandeClientRepository,
+      ArticleUsagePort articleUsagePort,
       AuthorizationService authorizationService) {
     this.articleRepository = articleRepository;
-    this.venteRepository = venteRepository;
-    this.commandeFournisseurRepository = commandeFournisseurRepository;
-    this.commandeClientRepository = commandeClientRepository;
+    this.articleUsagePort = articleUsagePort;
     this.authorizationService = authorizationService;
   }
 
@@ -186,18 +177,13 @@ public class ArticleServiceImpl implements ArticleService {
       log.error("Article ID is null");
       return;
     }
-    List<LigneCommandeClient> ligneCommandeClients = commandeClientRepository.findAllByArticleId(id);
-    if (!ligneCommandeClients.isEmpty()) {
-      throw new InvalidOperationException("Impossible de supprimer un article deja utilise dans des commandes client", ErrorCodes.ARTICLE_ALREADY_IN_USE);
-    }
-    List<LigneCommandeFournisseur> ligneCommandeFournisseurs = commandeFournisseurRepository.findAllByArticleId(id);
-    if (!ligneCommandeFournisseurs.isEmpty()) {
-      throw new InvalidOperationException("Impossible de supprimer un article deja utilise dans des commandes fournisseur",
-          ErrorCodes.ARTICLE_ALREADY_IN_USE);
-    }
-    List<LigneVente> ligneVentes = venteRepository.findAllByArticleId(id);
-    if (!ligneVentes.isEmpty()) {
-      throw new InvalidOperationException("Impossible de supprimer un article deja utilise dans des ventes",
+    // Phase 4e : les lignes historiques vivent dans le module legacy ; catalog passe par le port
+    // qu'il declare lui-meme, ce qui evite le cycle catalog <-> legacy. Les messages d'erreur sont
+    // inchanges au caractere - voir ArticleUsagePort et docs/phase-4e-report.md.
+    Optional<String> blockingUsage = articleUsagePort.findBlockingHistoricalUsage(id);
+    if (blockingUsage.isPresent()) {
+      throw new InvalidOperationException(
+          "Impossible de supprimer un article deja utilise dans des " + blockingUsage.get(),
           ErrorCodes.ARTICLE_ALREADY_IN_USE);
     }
     try {

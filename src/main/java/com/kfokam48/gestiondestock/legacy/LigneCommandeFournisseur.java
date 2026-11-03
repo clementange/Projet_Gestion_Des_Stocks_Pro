@@ -1,4 +1,4 @@
-package com.kfokam48.gestiondestock.model;
+package com.kfokam48.gestiondestock.legacy;
 
 import com.kfokam48.gestiondestock.shared.AbstractEntity;
 
@@ -20,16 +20,16 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Entity
-@Table(name = "lignecommandeclient")
-public class LigneCommandeClient extends AbstractEntity {
+@Table(name = "lignecommandefournisseur")
+public class LigneCommandeFournisseur extends AbstractEntity {
 
   @ManyToOne
   @JoinColumn(name = "idarticle")
   private Article article;
 
   @ManyToOne
-  @JoinColumn(name = "idcommandeclient")
-  private CommandeClient commandeClient;
+  @JoinColumn(name = "idcommandefournisseur")
+  private CommandeFournisseur commandeFournisseur;
 
   @Column(name = "quantite")
   private BigDecimal quantite;

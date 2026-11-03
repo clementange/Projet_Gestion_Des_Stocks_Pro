@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.3.5</version>
+    <version>3.5.16</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
   <groupId>com.kfokam48</groupId>
@@ -26,11 +26,12 @@
          negocie une version d'API Docker (1.32) trop ancienne pour un daemon Docker recent
          (minimum accepte 1.40) -> negociation en echec. Version plus recente forcee ici pour que
          la negociation automatique aboutisse. -->
-    <testcontainers.version>1.20.4</testcontainers.version>
+    <testcontainers.version>1.21.4</testcontainers.version>
     <!-- Phase 1 : Spring Modulith 1.2.x est la ligne alignee sur Spring Boot 3.3.x (voir la
          matrice de compatibilite du projet) ; ne pas monter en 1.3+/2.x sans monter Boot en
          meme temps. -->
-    <spring-modulith.version>1.2.13</spring-modulith.version>
+    <!-- P2-A : la ligne 1.4.x de Spring Modulith est celle alignee sur Boot 3.5. -->
+    <spring-modulith.version>1.4.14</spring-modulith.version>
   </properties>
 
   <dependencyManagement>
@@ -111,7 +112,7 @@
     <dependency>
       <groupId>org.springdoc</groupId>
       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-      <version>2.6.0</version>
+      <version>2.10.0</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -175,7 +176,7 @@
     <dependency>
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit-junit5</artifactId>
-      <version>1.3.1</version>
+      <version>1.5.1</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

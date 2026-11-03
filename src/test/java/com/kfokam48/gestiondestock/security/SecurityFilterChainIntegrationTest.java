@@ -32,7 +32,7 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  *   PatternParseException sur CHAQUE requete reelle (Spring 6 PathPattern interdit "**" ailleurs
  *   qu'en fin de motif) — l'application entiere etait cassee en conditions reelles ;</li>
  *   <li>la cle de signature JWT ("secret", 48 bits) faisait echouer TOUTE authentification
- *   (io.jsonwebtoken.security.WeakKeyException, jjwt 0.11.5 exige >= 256 bits pour HS256).</li>
+ *   (io.jsonwebtoken.security.WeakKeyException, jjwt exige >= 256 bits pour HS256).</li>
  * </ul>
  * Ces deux bugs ne pouvaient etre detectes qu'en passant reellement par le filtre de securite et
  * la generation de JWT, d'ou ces tests MockMvc.

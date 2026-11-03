@@ -5,11 +5,11 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
-import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,9 @@ public class JwtUtil {
     this.secret = secret;
   }
 
-  private Key signingKey() {
+  // P2-A : jjwt 0.12 remplace l'API « setters » par une API fluide et exige un SecretKey (et non
+  // un Key generique) pour verifyWith - voir docs/phase-P2-report.md.
+  private SecretKey signingKey() {
     return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
   }
 
@@ -60,7 +62,7 @@ public class JwtUtil {
   }
 
   private Claims extractAllClaims(String token) {
-    return Jwts.parserBuilder().setSigningKey(signingKey()).build().parseClaimsJws(token).getBody();
+    return Jwts.parser().verifyWith(signingKey()).build().parseSignedClaims(token).getPayload();
   }
 
   private Boolean isTokenExpired(String token) {
@@ -74,10 +76,10 @@ public class JwtUtil {
 
   private String createToken(Map<String, Object> claims, ExtendedUser userDetails) {
 
-    return Jwts.builder().setClaims(claims)
-        .setSubject(userDetails.getUsername())
-        .setIssuedAt(new Date(System.currentTimeMillis()))
-        .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
+    return Jwts.builder().claims(claims)
+        .subject(userDetails.getUsername())
+        .issuedAt(new Date(System.currentTimeMillis()))
+        .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
         .claim("idEntreprise", userDetails.getIdEntreprise() != null ? userDetails.getIdEntreprise().toString() : null)
         .claim("idUtilisateur", userDetails.getIdUtilisateur() != null ? userDetails.getIdUtilisateur().toString() : null)
         .claim("organizationId", userDetails.getOrganizationId() != null ? userDetails.getOrganizationId().toString() : null)

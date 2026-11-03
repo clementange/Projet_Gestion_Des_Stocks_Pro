@@ -1,4 +1,4 @@
-package com.kfokam48.gestiondestock.dto.auth;
+package com.kfokam48.gestiondestock.identity.application.dto;
 
 import lombok.Builder;
 import lombok.Data;

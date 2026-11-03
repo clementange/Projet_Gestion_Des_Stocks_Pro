@@ -47,7 +47,19 @@ raison d'être est d'être partagées.
 | `controller/api/AuthenticationApi` | `identity/presentation/rest/AuthenticationApi` |
 | `dto/auth/AuthenticationRequest` | `identity/application/dto/AuthenticationRequest` |
 | `dto/auth/AuthenticationResponse` | `identity/application/dto/AuthenticationResponse` |
-| `services/auth/ApplicationUserDetailsService` | `identity/infrastructure/security/ApplicationUserDetailsService` |
+| `services/auth/ApplicationUserDetailsService` | `config/ApplicationUserDetailsService` — **pas** dans `identity`, voir ci-dessous |
+
+**Le déplacement a révélé un cycle que le paquet plat masquait.** `ApplicationUserDetailsService`
+compose `identity` (`UserService`, `UserRoleAssignmentService`) **et** `tenant` (`TenantService`,
+pour résoudre `organizationId` depuis `Tenant.idEntreprise`). Or `tenant` dépend déjà de
+`identity` : `TenantRegistrationServiceImpl` appelle `UserService`. Le mettre dans `identity`
+crée donc un vrai cycle `identity ↔ tenant`, que `ModularityTests` et `ArchitectureRulesTest` ont
+immédiatement rejeté — le paquet `services/auth`, exclu du graphe de modules, se contentait de le
+cacher. Sa place est la **plomberie technique de sécurité** (`config/`), aux côtés de
+`SecurityConfiguration` et `ApplicationRequestFilter` qui l'utilisent tous deux : c'est un
+adaptateur d'authentification, il n'appartient à aucun des deux modules. Résoudre le cycle
+`identity ↔ tenant` lui-même est une décision d'architecture distincte, **hors périmètre 4e** et
+mise en backlog.
 
 `POST /auth/authenticate` est **vivant et public** (c'est lui qui établit l'identité) : seul
 l'emplacement du code change, l'URL et le contrat JSON sont inchangés.

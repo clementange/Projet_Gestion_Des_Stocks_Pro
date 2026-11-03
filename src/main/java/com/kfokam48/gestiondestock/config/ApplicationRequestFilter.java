@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.config;
 
-import com.kfokam48.gestiondestock.services.auth.ApplicationUserDetailsService;
+import com.kfokam48.gestiondestock.config.ApplicationUserDetailsService;
 import com.kfokam48.gestiondestock.utils.JwtUtil;
 import io.jsonwebtoken.JwtException;
 import java.io.IOException;

@@ -1,4 +1,4 @@
-package com.kfokam48.gestiondestock.services.auth;
+package com.kfokam48.gestiondestock.config;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
@@ -31,6 +31,15 @@ import org.springframework.stereotype.Service;
 // ApplicationRequestFilter, que lisent les controleurs pour verifier une permission. Voir
 // docs/phase-5b1-report.md.
 @Service
+// Phase 4e : cette classe compose identity (UserService, UserRoleAssignmentService) ET tenant
+// (TenantService, pour resoudre organizationId depuis Tenant.idEntreprise). La deplacer DANS
+// identity cree un cycle identity <-> tenant reel - tenant.TenantRegistrationServiceImpl appelle
+// deja identity.UserService - que le paquet plat services/auth masquait simplement en restant
+// hors du graphe de modules. Sa place est donc la plomberie technique de securite, aux cotes de
+// SecurityConfiguration et ApplicationRequestFilter qui l'utilisent tous deux : c'est un
+// adaptateur d'authentification, il n'appartient a aucun des deux modules. Resoudre le cycle
+// identity <-> tenant est une decision d'architecture distincte, hors perimetre 4e - voir
+// docs/phase-4e-report.md.
 public class ApplicationUserDetailsService implements UserDetailsService {
 
   private final UserService userService;

@@ -1,11 +1,11 @@
-package com.kfokam48.gestiondestock.controller;
+package com.kfokam48.gestiondestock.identity.presentation.rest;
 
 
-import com.kfokam48.gestiondestock.controller.api.AuthenticationApi;
-import com.kfokam48.gestiondestock.dto.auth.AuthenticationRequest;
-import com.kfokam48.gestiondestock.dto.auth.AuthenticationResponse;
+import com.kfokam48.gestiondestock.identity.presentation.rest.AuthenticationApi;
+import com.kfokam48.gestiondestock.identity.application.dto.AuthenticationRequest;
+import com.kfokam48.gestiondestock.identity.application.dto.AuthenticationResponse;
 import com.kfokam48.gestiondestock.shared.ExtendedUser;
-import com.kfokam48.gestiondestock.services.auth.ApplicationUserDetailsService;
+import com.kfokam48.gestiondestock.config.ApplicationUserDetailsService;
 import com.kfokam48.gestiondestock.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

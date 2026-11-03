@@ -67,18 +67,16 @@ public class InventoryFacadeImpl implements InventoryFacade {
 
   @Override
   @Transactional(readOnly = true)
-  public List<StockDto> findAllStock() {
-    return stockRepository.findAll().stream()
+  public List<StockDto> findAllStock(Long organizationId) {
+    return stockRepository.findAllByOrganizationId(organizationId).stream()
         .map(StockDto::fromEntity)
         .collect(Collectors.toList());
   }
 
   @Override
   @Transactional(readOnly = true)
-  public List<StockDto> findLowStock() {
-    return stockRepository.findAll().stream()
-        .filter(stock -> stock.getSeuilAlerte() != null
-            && stock.getQuantiteDisponible().compareTo(stock.getSeuilAlerte()) <= 0)
+  public List<StockDto> findLowStock(Long organizationId) {
+    return stockRepository.findLowStockByOrganizationId(organizationId).stream()
         .map(StockDto::fromEntity)
         .collect(Collectors.toList());
   }

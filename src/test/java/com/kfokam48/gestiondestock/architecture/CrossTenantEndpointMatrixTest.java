@@ -77,7 +77,6 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
     EXCLUDED.put("/gestiondestock/v1/tenants/all", "self-only (5b-2c), aucun id en entree");
     EXCLUDED.put("/gestiondestock/v1/roles/all", "catalogue GLOBAL, gate RBAC_MANAGE (5b-2f)");
     EXCLUDED.put("/gestiondestock/v1/permissions/all", "catalogue GLOBAL, gate RBAC_MANAGE (5b-2f)");
-    EXCLUDED.put("/gestiondestock/v1/reporting/stock/global", "scope GLOBAL, filtre par RBAC (5b-1)");
     // Creations : l'injection d'id y est deja couverte exhaustivement par
     // CreateIdInjectionAllEndpointsHttpIntegrationTest et CreateEndpointIdGuardTest (5b-2f/5b-2g).
     EXCLUDED.put("/gestiondestock/v1/articles/create", "creation : couverte par les tests d'injection d'id (5b-2g)");
@@ -99,7 +98,13 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
     EXCLUDED.put("/gestiondestock/v1/users/{id}/photo", "self-only (5b-2c), id = l'appelant");
     EXCLUDED.put("/gestiondestock/v1/roles/{idRole}", "catalogue GLOBAL, gate RBAC_MANAGE (5b-2f)");
     EXCLUDED.put("/gestiondestock/v1/permissions/{idPermission}", "catalogue GLOBAL, gate RBAC_MANAGE (5b-2f)");
-    EXCLUDED.put("/gestiondestock/v1/reporting/stock/low", "liste filtree par RBAC, aucun id en entree");
+    // Phase 5g : exclusion CONSERVEE mais rejustifiee. Une sonde y serait trompeuse : aucun
+    // endpoint n'ecrit seuilAlerte, donc la reponse est toujours vide et la sonde passerait sans
+    // rien prouver. Le filtrage d'organisation de cet endpoint est verifie par
+    // reporting.GlobalStockReportIsScopedToOrganizationTest, qui pose le seuil en base.
+    EXCLUDED.put("/gestiondestock/v1/reporting/stock/low",
+        "liste scopee par organisation en SQL (5g) ; contenu non sondable ici, seuilAlerte n'etant "
+            + "ecrit par aucun endpoint - verifie par GlobalStockReportIsScopedToOrganizationTest");
     EXCLUDED.put("/gestiondestock/v1/swagger-ui.html", "documentation");
   }
 
@@ -271,6 +276,12 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
     p.add(new Probe("GET", v + "/user-role-assignments/filter/user/{idUser}", v + "/user-role-assignments/filter/user/" + a.userId, null, Mode.EMPTY));
     p.add(new Probe("GET", v + "/sites/filter/city/{idCity}", v + "/sites/filter/city/" + a.cityId, null, Mode.EMPTY));
     p.add(new Probe("GET", v + "/cities/filter/organization/{idOrganization}", v + "/cities/filter/organization/" + a.orgId, a.cityName, Mode.NO_FOREIGN_DATA));
+    // Phase 5g : cet endpoint etait EXCLU avec la justification « filtre par RBAC (5b-1) »,
+    // qui etait fausse - le RBAC decidait du DROIT de lire, jamais du PERIMETRE lu, et le rapport
+    // renvoyait le stock de tous les tenants. Sonde de CONTENU (pas seulement de statut) : B
+    // appelle son propre rapport global, le code article de A ne doit pas y figurer.
+    p.add(new Probe("GET", v + "/reporting/stock/global", v + "/reporting/stock/global",
+        a.articleCode, Mode.NO_FOREIGN_DATA));
     p.add(new Probe("GET", v + "/articles/filter/category/{idCategory}", v + "/articles/filter/category/" + a.categoryId, null, Mode.EMPTY));
     p.add(new Probe("GET", v + "/articles/historique/vente/{idArticle}", v + "/articles/historique/vente/" + a.articleId, null, Mode.EMPTY));
     p.add(new Probe("GET", v + "/articles/historique/commandeclient/{idArticle}", v + "/articles/historique/commandeclient/" + a.articleId, null, Mode.EMPTY));

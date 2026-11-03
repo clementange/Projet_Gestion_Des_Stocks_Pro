@@ -55,12 +55,18 @@ public class ReportingServiceImpl implements ReportingService {
           "Seul un perimetre GLOBAL avec la permission REPORTING_VIEW peut consulter les statistiques globales",
           ErrorCodes.REPORTING_ACCESS_DENIED);
     }
-    return inventoryFacade.findAllStock();
+    // Phase 5g : la portee GLOBAL de REPORTING_VIEW signifie « toute MON organisation », pas
+    // « toutes les organisations ». La permission decidait du DROIT de lire, jamais du PERIMETRE
+    // lu - d'ou une fuite complete du stock de tous les tenants - voir docs/phase-5g-report.md.
+    return inventoryFacade.findAllStock(organizationId);
   }
 
   @Override
   public List<StockDto> getLowStockReport(Long userId, Long organizationId) {
-    return inventoryFacade.findLowStock().stream()
+    // Phase 5g : le perimetre d'organisation est desormais filtre en SQL ; le filtre Java qui
+    // reste ne porte QUE sur le droit de l'utilisateur site par site, ce que SQL ne peut pas
+    // decider. L'ancienne version chargeait toute la table stock avant de la filtrer.
+    return inventoryFacade.findLowStock(organizationId).stream()
         .filter(stock -> canAccessSite(userId, stock.getSite().getId(), organizationId))
         .collect(Collectors.toList());
   }

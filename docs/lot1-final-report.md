@@ -112,7 +112,12 @@ Par gravité décroissante :
 8. **`legacy/` existe encore** (20 classes) : supprimable seulement après migration des données
    historiques.
 
-## 7. Note de transparence sur `CLAUDE.md`
+## 7. Note de transparence sur `CLAUDE.md` — **résolu en Phase 5g**
+
+`CLAUDE.md` a été **déplacé dans la racine du dépôt et commité** en Phase 5g : il est désormais
+suivi par git. Le texte ci-dessous décrit la situation telle qu'elle était à la clôture du Lot 1.
+
+
 
 `CLAUDE.md` vit **un niveau au-dessus de la racine git** (`gestion_de_stock/CLAUDE.md`) et n'est
 donc **pas suivi par le dépôt**. Je l'ai mis à jour à chaque incrément comme demandé (il fait 68

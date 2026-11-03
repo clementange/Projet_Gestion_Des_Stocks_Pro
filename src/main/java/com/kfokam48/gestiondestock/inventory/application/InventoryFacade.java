@@ -23,10 +23,15 @@ public interface InventoryFacade {
   List<StockDto> findStockBySite(Long siteId);
 
   /** Tout le stock, tous sites confondus (reporting a perimetre GLOBAL uniquement). */
-  List<StockDto> findAllStock();
+  /**
+   * Phase 5g : {@code organizationId} est OBLIGATOIRE. La variante sans parametre a ete supprimee
+   * plutot que conservee « au cas ou » : c'est son existence qui a rendu possible la fuite de
+   * {@code getGlobalStockSummary} - voir docs/phase-5g-report.md.
+   */
+  List<StockDto> findAllStock(Long organizationId);
 
   /** Stock dont le disponible est descendu au niveau ou sous son seuil d'alerte (section 49). */
-  List<StockDto> findLowStock();
+  List<StockDto> findLowStock(Long organizationId);
 
   boolean isAvailable(Long articleId, Long siteId, BigDecimal quantity);
 

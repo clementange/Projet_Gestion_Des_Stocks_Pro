@@ -1497,3 +1497,41 @@ Deux lecons :
 Audit fait : seules `RoleServiceImpl` et `AuthorizationServiceImpl` sont aussi `readOnly` au niveau
 classe, et aucune n'a de surcharge deleguante. `UserServiceImpl` (surcharges de 5d) n'a aucune
 annotation de classe, donc pas de read-only herite.
+
+## Phase 5g — GLOBAL ne veut pas dire « tous les tenants »
+
+`GET /reporting/stock/global` renvoyait le stock de TOUS les tenants : `getGlobalStockSummary`
+verifiait REPORTING_VIEW en portee GLOBAL puis retournait `stockRepository.findAll()`, sans aucun
+filtre d'organisation. Et comme `StockDto` serialise l'article ET le site en profondeur, l'appelant
+recuperait aussi le nom, le courriel, le telephone, le code fiscal et l'adresse des autres
+societes - fuite de donnees d'entreprise, pas seulement d'inventaire.
+
+**La regle a retenir** : une portee `GLOBAL` signifie « toute MON organisation », jamais « toutes
+les organisations ». La permission decide du DROIT de lire, jamais du PERIMETRE lu. Le filtre
+d'organisation reste obligatoire EN PLUS.
+
+### Le filtre descend en SQL, et la variante non filtree disparait
+
+Deux `@Query` sur `StockRepository` (chemin `Stock -> Site -> City -> Organization`, la ligne de
+stock ne portant pas d'organisation propre). `findLowStockByOrganizationId` reproduit
+`getQuantiteDisponible()` en SQL (`quantitePhysique - quantiteReservee`) car la quantite disponible
+est CALCULEE, non persistee.
+
+`InventoryFacade.findAllStock()` / `findLowStock()` sans argument ont ete **supprimees**, pas
+conservees : c'est leur existence qui a rendu la fuite possible. Laisser une methode non filtree
+disponible garantit qu'elle sera appelee un jour.
+
+### Une exclusion de matrice est une affirmation technique
+
+L'endpoint etait EXCLU de `CrossTenantEndpointMatrixTest` avec la justification « scope GLOBAL,
+filtre par RBAC (5b-1) » - **fausse**, ecrite en 5b-1 et jamais reverifiee. Elle a survecu a
+5b-2a..5f. A retenir : relire les justifications d'exclusion comme du code, et preferer une sonde
+de CONTENU - une sonde de statut n'aurait rien vu, l'endpoint repondant 200 a son proprietaire
+legitime. Les ~30 autres justifications n'ont pas ete re-auditees : c'est au backlog.
+
+### Audit des findAll() : une seule fuite
+
+17 appels. Douze sont dans une methode `findAll(organizationId)` qui filtre juste apres (pas de
+fuite, mais la meme forme que celle qui a produit ce bug - a descendre en SQL, backlog). Deux sont
+les catalogues REELLEMENT globaux (`Role`/`Permission` n'ont aucune colonne d'organisation).
+`UserServiceImpl.findAll()` n'est atteignable par aucun controleur.

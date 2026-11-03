@@ -15,14 +15,12 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequ
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -42,7 +40,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * <p>Avant cet increment, toutes ces requetes renvoyaient 200 : tout membre d'une organisation
  * pouvait y creer, modifier et supprimer n'importe quoi - voir docs/phase-5c-report.md.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class WritePermissionEnforcementHttpIntegrationTest extends AbstractIntegrationTest {
@@ -72,7 +69,7 @@ public class WritePermissionEnforcementHttpIntegrationTest extends AbstractInteg
     return prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
   }
 
-  @Before
+  @BeforeEach
   public void provisionOneTenantWithAnAdminAndAPermissionlessMember() throws Exception {
     String adminEmail = uniq("5c-admin") + "@test.local";
     TenantRegistrationRequest registration = new TenantRegistrationRequest(
@@ -98,7 +95,7 @@ public class WritePermissionEnforcementHttpIntegrationTest extends AbstractInteg
         tenantId = user.get("idEntreprise").asLong();
       }
     }
-    org.junit.Assert.assertNotEquals("Le tenant de l'admin doit etre lisible", -1, tenantId);
+    org.junit.jupiter.api.Assertions.assertNotEquals(-1, tenantId, "Le tenant de l'admin doit etre lisible");
 
     String memberEmail = uniq("5c-member") + "@test.local";
     memberUserId = idOf(okBody(post("/gestiondestock/v1/users/create").content(
@@ -107,10 +104,9 @@ public class WritePermissionEnforcementHttpIntegrationTest extends AbstractInteg
             + "\"idEntreprise\":" + tenantId + ",\"adresse\":{\"adresse1\":\"1 Rue\","
             + "\"ville\":\"Douala\",\"pays\":\"Cameroun\",\"codePostale\":\"00000\"}}"), adminToken));
     memberToken = authenticate(memberEmail);
-    org.junit.Assert.assertEquals(
+    org.junit.jupiter.api.Assertions.assertEquals(orgId, claim(memberToken, "organizationId"),
         "Le membre doit etre dans la MEME organisation que l'admin, sinon ce test mesurerait "
-            + "l'appartenance et non la permission",
-        orgId, claim(memberToken, "organizationId"));
+            + "l'appartenance et non la permission");
 
     // Jeu de ressources cree par l'admin : prouve au passage que l'admin, lui, reussit.
     cityId = idOf(okBody(post("/gestiondestock/v1/cities/create")

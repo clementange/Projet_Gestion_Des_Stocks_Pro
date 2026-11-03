@@ -39,11 +39,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
@@ -51,7 +49,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * stock disponible sans le sortir physiquement, et seule la livraison sort reellement le stock
  * et libere la reservation.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class CustomerOrderServiceIntegrationTest extends AbstractIntegrationTest {
 

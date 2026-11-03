@@ -1535,3 +1535,32 @@ legitime. Les ~30 autres justifications n'ont pas ete re-auditees : c'est au bac
 fuite, mais la meme forme que celle qui a produit ce bug - a descendre en SQL, backlog). Deux sont
 les catalogues REELLEMENT globaux (`Role`/`Permission` n'ont aucune colonne d'organisation).
 `UserServiceImpl.findAll()` n'est atteignable par aucun controleur.
+
+## Phase P1 — JUnit 4 -> JUnit 5
+
+Prealable a la montee de version : Spring Framework 7 / Boot 4 abandonnent JUnit 4 et SpringRunner.
+
+**Le piege de cette migration n'est pas le renommage, c'est l'ORDRE DES ARGUMENTS.** En JUnit 4 le
+message est le PREMIER argument, en JUnit 5 le DERNIER. Or `assertEquals("Client Renomme",
+updated.getNom())` est un couple attendu/reel, PAS un message : le deplacer compile et inverse
+l'assertion en silence. La regle appliquee conditionne donc le reordonnancement a l'ARITE EXACTE
+(3 args pour assertEquals, 2 pour assertTrue/Null) ET a un premier argument litteral chaine.
+
+Deux limites volontaires ont laisse 4 appels non convertis - message commencant par une variable,
+et appels pleinement qualifies `org.junit.Assert.x(...)`. **Tous signales par javac**, aucun passe
+en silence : un transformateur qui doute doit s'abstenir, l'erreur de compilation est le filet.
+
+`@Test(expected = ...)` -> `assertThrows`, fait a la main (4 cas) : ma version par regex a plante
+sur un corps dont l'accolade ne s'alignait pas, APRES avoir modifie des fichiers. `git checkout --
+src/test` puis traitement manuel. `assertThrows` est de surcroit plus precis - il cible
+l'instruction attendue en echec.
+
+**Garde-fou central : le DECOMPTE de tests (283 avant, 283 apres).** Le vrai risque de cette
+migration est un test silencieusement non decouvert ; le decompte est la seule preuve directe. Il
+ne prouve pas l'equivalence semantique, seulement la decouverte.
+
+`junit:junit` et `junit-vintage-engine` sont RETIRES du pom : les laisser permettait a une classe
+JUnit 4 de revenir sans etre vue - c'est ce qui avait produit 19 fichiers melangeant les deux APIs.
+
+Testcontainers : le pattern conteneur singleton (champs static, pas `@Testcontainers`/`@Container`)
+est independant du moteur JUnit - aucune modification necessaire.

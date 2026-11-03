@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.identity;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,14 +14,12 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequ
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -46,7 +44,6 @@ import org.springframework.test.web.servlet.MockMvc;
  * strictement filtre, rendrait ces lignes actives. D'ou un refus a la creation (fail-closed)
  * plutot qu'une confiance dans le filtrage en aval.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class RoleAssignmentTargetUserMustBelongToCallerTenantTest extends AbstractIntegrationTest {
@@ -68,7 +65,7 @@ public class RoleAssignmentTargetUserMustBelongToCallerTenantTest extends Abstra
 
   private record Tenant(String token, long tenantId, long organizationId, long adminUserId) {}
 
-  @Before
+  @BeforeEach
   public void registerTwoTenants() throws Exception {
     a = register("ura-A");
     b = register("ura-B");
@@ -173,7 +170,6 @@ public class RoleAssignmentTargetUserMustBelongToCallerTenantTest extends Abstra
             .header("Authorization", "Bearer " + a.token()))
         .andExpect(status().isOk());
 
-    assertEquals("les deux tenants doivent bien etre distincts, sinon ce test ne prouve rien",
-        false, a.organizationId() == b.organizationId());
+    assertEquals(false, a.organizationId() == b.organizationId(), "les deux tenants doivent bien etre distincts, sinon ce test ne prouve rien");
   }
 }

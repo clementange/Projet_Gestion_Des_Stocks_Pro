@@ -1,10 +1,10 @@
 package com.kfokam48.gestiondestock.config;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -32,8 +32,7 @@ public class RequiredSecretsValidatorTest {
             "minio.access-key=whatever",
             "minio.secret-key=whatever")
         .run(context -> {
-          assertTrue("le contexte doit demarrer quand tous les secrets sont fournis",
-              context.getStartupFailure() == null);
+          assertTrue(context.getStartupFailure() == null, "le contexte doit demarrer quand tous les secrets sont fournis");
           assertNotNull(context.getBean(RequiredSecretsValidator.class));
         });
   }
@@ -45,7 +44,7 @@ public class RequiredSecretsValidatorTest {
             "minio.access-key=whatever",
             "minio.secret-key=whatever")
         .run(context -> {
-          assertNotNull("le demarrage doit echouer sans JWT_SECRET", context.getStartupFailure());
+          assertNotNull(context.getStartupFailure(), "le demarrage doit echouer sans JWT_SECRET");
           assertTrue(rootMessage(context.getStartupFailure()).contains("JWT_SECRET est absent"));
         });
   }
@@ -58,8 +57,7 @@ public class RequiredSecretsValidatorTest {
             "minio.access-key=whatever",
             "minio.secret-key=whatever")
         .run(context -> {
-          assertNotNull("le demarrage doit echouer avec un secret trop court",
-              context.getStartupFailure());
+          assertNotNull(context.getStartupFailure(), "le demarrage doit echouer avec un secret trop court");
           assertTrue(rootMessage(context.getStartupFailure()).contains("trop court"));
         });
   }
@@ -84,8 +82,7 @@ public class RequiredSecretsValidatorTest {
         new RequiredSecretsValidator("too-short", secretValue, "", "");
     String message = String.join(" | ", validator.validate());
     assertTrue(message.contains("JWT_SECRET"));
-    assertEquals("aucune valeur de secret ne doit apparaitre dans le message",
-        false, message.contains(secretValue));
+    assertEquals(false, message.contains(secretValue), "aucune valeur de secret ne doit apparaitre dans le message");
   }
 
   private static String rootMessage(Throwable failure) {

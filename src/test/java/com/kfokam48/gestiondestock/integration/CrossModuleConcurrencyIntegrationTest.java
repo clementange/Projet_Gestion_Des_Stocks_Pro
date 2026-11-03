@@ -42,11 +42,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
@@ -57,7 +55,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * distincts (issue() direct vs reserve()) : la protection est bien portee par l'agregat Stock
  * lui-meme (verrouillage optimiste), pas par une coincidence d'implementation d'un seul module.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTest {
 

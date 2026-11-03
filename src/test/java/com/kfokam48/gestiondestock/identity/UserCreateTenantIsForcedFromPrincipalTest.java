@@ -1,7 +1,7 @@
 package com.kfokam48.gestiondestock.identity;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,13 +14,11 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequ
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -40,7 +38,6 @@ import org.springframework.test.web.servlet.MockMvc;
  * son PROPRE tenant est un usage legitime et repandu, rejeter toute valeur casserait des appelants
  * corrects pour aucun gain.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class UserCreateTenantIsForcedFromPrincipalTest extends AbstractIntegrationTest {
@@ -104,16 +101,14 @@ public class UserCreateTenantIsForcedFromPrincipalTest extends AbstractIntegrati
     String created = createUser(b.token(), intruderEmail, a.tenantId());
 
     // Le tenant du corps doit avoir ete ignore : l'utilisateur appartient a B, jamais a A.
-    assertEquals("idEntreprise doit venir du principal, pas du corps de la requete",
-        b.tenantId(), objectMapper.readTree(created).get("idEntreprise").asLong());
+    assertEquals(b.tenantId(), objectMapper.readTree(created).get("idEntreprise").asLong(), "idEntreprise doit venir du principal, pas du corps de la requete");
 
     // Preuve cote A : son administrateur ne voit pas cet utilisateur dans SON tenant.
     String usersOfA = mockMvc.perform(get("/gestiondestock/v1/users/all")
             .header("Authorization", "Bearer " + a.token()))
         .andExpect(status().isOk())
         .andReturn().getResponse().getContentAsString();
-    assertFalse("l'utilisateur plante par B ne doit pas apparaitre dans le tenant de A",
-        usersOfA.contains(intruderEmail));
+    assertFalse(usersOfA.contains(intruderEmail), "l'utilisateur plante par B ne doit pas apparaitre dans le tenant de A");
 
     // Et le compte, authentifie, resout l'organisation de B — pas celle de A.
     String login = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
@@ -123,8 +118,7 @@ public class UserCreateTenantIsForcedFromPrincipalTest extends AbstractIntegrati
         .andReturn().getResponse().getContentAsString();
     String intruderToken = objectMapper.readTree(login).get("accessToken").asText();
     JsonNode claims = objectMapper.readTree(Base64.getUrlDecoder().decode(intruderToken.split("\\.")[1]));
-    assertEquals("le compte cree par B ne doit jamais resoudre l'organisation de A",
-        b.organizationId(), claims.get("organizationId").asLong());
+    assertEquals(b.organizationId(), claims.get("organizationId").asLong(), "le compte cree par B ne doit jamais resoudre l'organisation de A");
   }
 
   @Test

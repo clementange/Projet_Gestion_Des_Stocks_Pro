@@ -15,14 +15,12 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -41,7 +39,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * la convention d'appartenance du depot (un refus d'appartenance se masque en « inexistant »), et
  * elle est ici doublement juste : pour l'appelant, cette ressource n'existe effectivement pas.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class ForeignReferenceInjectionTest extends AbstractIntegrationTest {
@@ -77,7 +74,7 @@ public class ForeignReferenceInjectionTest extends AbstractIntegrationTest {
   /** Une tentative d'injection : quelle reference d'autrui, sur quel endpoint, refusee comment. */
   private record Probe(String label, MockHttpServletRequestBuilder request, String expectedCode) {}
 
-  @Before
+  @BeforeEach
   public void provisionTwoFullyEquippedTenants() throws Exception {
     a = tenant("ref-A");
     b = tenant("ref-B");

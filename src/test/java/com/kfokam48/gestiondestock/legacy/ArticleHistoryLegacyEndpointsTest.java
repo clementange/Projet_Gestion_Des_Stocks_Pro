@@ -13,13 +13,11 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequ
 import java.time.Instant;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -43,7 +41,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * sales/purchasing avant meme cet increment) : il reste en base uniquement pour les lignes
  * historiques anterieures a cette migration, jamais alimente par les tests d'integration.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class ArticleHistoryLegacyEndpointsTest extends AbstractIntegrationTest {
@@ -184,9 +181,9 @@ public class ArticleHistoryLegacyEndpointsTest extends AbstractIntegrationTest {
         .andReturn();
     JsonNode lines = objectMapper.readTree(result.getResponse().getContentAsString());
 
-    org.junit.Assert.assertEquals(1, lines.size());
-    org.junit.Assert.assertEquals(articleId, lines.get(0).get("article").get("id").asLong());
-    org.junit.Assert.assertEquals(4, lines.get(0).get("quantite").asInt());
+    org.junit.jupiter.api.Assertions.assertEquals(1, lines.size());
+    org.junit.jupiter.api.Assertions.assertEquals(articleId, lines.get(0).get("article").get("id").asLong());
+    org.junit.jupiter.api.Assertions.assertEquals(4, lines.get(0).get("quantite").asInt());
   }
 
   @Test
@@ -209,9 +206,9 @@ public class ArticleHistoryLegacyEndpointsTest extends AbstractIntegrationTest {
         .andReturn();
     JsonNode lines = objectMapper.readTree(result.getResponse().getContentAsString());
 
-    org.junit.Assert.assertEquals(1, lines.size());
-    org.junit.Assert.assertEquals(articleId.longValue(), lines.get(0).get("article").get("id").asLong());
-    org.junit.Assert.assertEquals(2, lines.get(0).get("quantite").asInt());
+    org.junit.jupiter.api.Assertions.assertEquals(1, lines.size());
+    org.junit.jupiter.api.Assertions.assertEquals(articleId.longValue(), lines.get(0).get("article").get("id").asLong());
+    org.junit.jupiter.api.Assertions.assertEquals(2, lines.get(0).get("quantite").asInt());
   }
 
   @Test
@@ -235,9 +232,9 @@ public class ArticleHistoryLegacyEndpointsTest extends AbstractIntegrationTest {
         .andReturn();
     JsonNode lines = objectMapper.readTree(result.getResponse().getContentAsString());
 
-    org.junit.Assert.assertEquals(1, lines.size());
-    org.junit.Assert.assertEquals(articleId, lines.get(0).get("article").get("id").asLong());
-    org.junit.Assert.assertEquals(7, lines.get(0).get("quantite").asInt());
+    org.junit.jupiter.api.Assertions.assertEquals(1, lines.size());
+    org.junit.jupiter.api.Assertions.assertEquals(articleId, lines.get(0).get("article").get("id").asLong());
+    org.junit.jupiter.api.Assertions.assertEquals(7, lines.get(0).get("quantite").asInt());
   }
 
   @Test

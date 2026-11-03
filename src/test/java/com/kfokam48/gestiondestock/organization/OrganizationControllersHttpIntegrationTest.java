@@ -12,13 +12,11 @@ import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
@@ -32,7 +30,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * un appelant malveillant pouvait mentir sur le type pour contourner l'invariant. La verification
  * est desormais faite dans WarehouseServiceImpl contre le Site charge depuis la BDD.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class OrganizationControllersHttpIntegrationTest extends AbstractIntegrationTest {

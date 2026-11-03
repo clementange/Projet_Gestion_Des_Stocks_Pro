@@ -32,11 +32,9 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
@@ -44,7 +42,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * l'utilisateur, et un responsable d'entrepot ne doit pas pouvoir voir les statistiques globales
  * s'il n'en a pas la permission.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
 

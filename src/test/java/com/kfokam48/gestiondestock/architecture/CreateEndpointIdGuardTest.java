@@ -1,7 +1,7 @@
 package com.kfokam48.gestiondestock.architecture;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
@@ -12,11 +12,9 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
@@ -45,7 +43,6 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  * {@code OrganizationControllersHttpIntegrationTest}). Les deux niveaux sont complementaires -
  * voir docs/phase-5b2f-report.md.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class CreateEndpointIdGuardTest extends AbstractIntegrationTest {
 
@@ -108,12 +105,10 @@ public class CreateEndpointIdGuardTest extends AbstractIntegrationTest {
     Set<String> classified = new TreeSet<>(GUARDED);
     classified.addAll(KNOWN_UNGUARDED_DEBT);
 
-    assertEquals(
-        "Un POST .../create a ete ajoute, supprime ou renomme sans mettre a jour cet inventaire. "
+    assertEquals(classified, exposed, "Un POST .../create a ete ajoute, supprime ou renomme sans mettre a jour cet inventaire. "
             + "Tout nouvel endpoint de creation doit soit appeler CreationIdGuard.requireNoId et "
             + "rejoindre GUARDED, soit etre ajoute sciemment a KNOWN_UNGUARDED_DEBT avec une "
-            + "justification dans docs/phase-5b2f-report.md.",
-        classified, exposed);
+            + "justification dans docs/phase-5b2f-report.md.");
   }
 
   @Test
@@ -127,19 +122,16 @@ public class CreateEndpointIdGuardTest extends AbstractIntegrationTest {
       boolean callsGuard = service.getMethodCallsFromSelf().stream()
           .anyMatch(call -> call.getTargetOwner().isEquivalentTo(CreationIdGuard.class)
               && "requireNoId".equals(call.getName()));
-      assertTrue(
+      assertTrue(callsGuard,
           serviceName + " est declare protege mais n'appelle pas CreationIdGuard.requireNoId : "
-              + "soit le garde-fou a ete retire, soit l'inventaire GUARDED est faux.",
-          callsGuard);
+              + "soit le garde-fou a ete retire, soit l'inventaire GUARDED est faux.");
     }
   }
 
   @Test
   public void theDebtListMustStayEmpty() {
-    assertTrue(
-        "La dette d'endpoints de creation non gardes doit rester vide (Phase 5b-2g l'a ramenee a "
+    assertTrue(KNOWN_UNGUARDED_DEBT.isEmpty(), "La dette d'endpoints de creation non gardes doit rester vide (Phase 5b-2g l'a ramenee a "
             + "zero). Un nouvel endpoint de creation doit appeler CreationIdGuard.requireNoId, pas "
-            + "rejoindre KNOWN_UNGUARDED_DEBT : " + KNOWN_UNGUARDED_DEBT,
-        KNOWN_UNGUARDED_DEBT.isEmpty());
+            + "rejoindre KNOWN_UNGUARDED_DEBT : " + KNOWN_UNGUARDED_DEBT);
   }
 }

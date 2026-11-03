@@ -13,13 +13,11 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequ
 import com.kfokam48.gestiondestock.shared.AdresseDto;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -32,7 +30,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * metier elle-meme (validation, garde-fou de suppression) est deja testee au niveau service par
  * CustomerServiceImplTest/SupplierServiceImplTest.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class CustomerSupplierControllerCharacterizationTest extends AbstractIntegrationTest {

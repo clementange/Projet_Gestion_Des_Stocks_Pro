@@ -1,9 +1,9 @@
 package com.kfokam48.gestiondestock.identity;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -21,13 +21,11 @@ import com.kfokam48.gestiondestock.utils.JwtUtil;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -50,7 +48,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * {@code integration.WritePermissionEnforcementHttpIntegrationTest}. Porter ce test aurait
  * consiste a re-affirmer une faille fermee - voir docs/phase-4e-report.md.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class AuthenticationCharacterizationTest extends AbstractIntegrationTest {
@@ -314,7 +311,7 @@ public class AuthenticationCharacterizationTest extends AbstractIntegrationTest 
         found = true;
       }
     }
-    assertTrue("l'utilisateur cree doit apparaitre dans /users/all", found);
+    assertTrue(found, "l'utilisateur cree doit apparaitre dans /users/all");
   }
 
   @Test

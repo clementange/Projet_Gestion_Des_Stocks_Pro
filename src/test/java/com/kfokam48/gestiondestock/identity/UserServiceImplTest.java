@@ -11,18 +11,15 @@ import com.kfokam48.gestiondestock.tenant.application.TenantService;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantDto;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Phase 5b-2c : findById/findByEmail/findAll/delete sont scopes au tenant de l'appelant
  * (User.idEntreprise, pas organizationId) - voir docs/phase-5b2c-report.md.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class UserServiceImplTest extends AbstractIntegrationTest {
 

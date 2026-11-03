@@ -13,11 +13,9 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequ
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
@@ -29,7 +27,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * via identity.application.UserService (le module qui le possede reellement), pas via
  * l'UtilisateurRepository legacy orphelin.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class EntrepriseServiceRbacBootstrapIntegrationTest extends AbstractIntegrationTest {
 

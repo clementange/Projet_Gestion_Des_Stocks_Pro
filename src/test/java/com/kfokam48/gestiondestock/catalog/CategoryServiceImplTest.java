@@ -12,14 +12,11 @@ import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.organization.application.OrganizationService;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class CategoryServiceImplTest extends AbstractIntegrationTest {
 
@@ -110,9 +107,12 @@ public class CategoryServiceImplTest extends AbstractIntegrationTest {
     assertEquals("Aucune category avec l'ID = 0 n' ete trouve dans la BDD", expectedException.getMessage());
   }
 
-  @Test(expected = EntityNotFoundException.class)
+  // Phase P1 : @Test(expected = ...) n'existe plus en JUnit 5. assertThrows est plus precis :
+  // il cible l'instruction attendue en echec, au lieu d'accepter l'exception depuis
+  // n'importe quel endroit de la methode - voir docs/phase-P1-report.md.
+  @Test
   public void shouldThrowEntityNotFoundException2() {
-    service.findById(0L, null);
+    assertThrows(EntityNotFoundException.class, () -> service.findById(0L, null));
   }
 
   // Phase 5b-2a : voir docs/phase-5b2a-report.md.

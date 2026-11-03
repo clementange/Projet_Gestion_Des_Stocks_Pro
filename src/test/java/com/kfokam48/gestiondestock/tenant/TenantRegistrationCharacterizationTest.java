@@ -10,13 +10,11 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -27,7 +25,6 @@ import org.springframework.test.web.servlet.MockMvc;
  * l'appelant) : inscription puis connexion immediate avec le mot de passe fourni, et la nouvelle
  * politique de validation (8 caracteres minimum, correspondance des deux champs).
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class TenantRegistrationCharacterizationTest extends AbstractIntegrationTest {
@@ -65,7 +62,7 @@ public class TenantRegistrationCharacterizationTest extends AbstractIntegrationT
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.organizationId").exists())
         .andReturn();
-    org.junit.Assert.assertNotNull(objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id"));
+    org.junit.jupiter.api.Assertions.assertNotNull(objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id"));
 
     // Preuve directe qu'aucun mot de passe genere par le serveur n'existe : seul le mot de passe
     // fourni dans la requete fonctionne.

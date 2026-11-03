@@ -14,18 +14,15 @@ import com.kfokam48.gestiondestock.organization.application.OrganizationService;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import java.math.BigDecimal;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Non-regression apres migration d'Article/Category vers le module catalog (Phase 5) : creation,
  * lecture, filtrage par categorie et rattachement a une Organization.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class ArticleServiceImplTest extends AbstractIntegrationTest {
 
@@ -94,9 +91,12 @@ public class ArticleServiceImplTest extends AbstractIntegrationTest {
     assertEquals(1, exception.getErrors().size());
   }
 
-  @Test(expected = EntityNotFoundException.class)
+  // Phase P1 : @Test(expected = ...) n'existe plus en JUnit 5. assertThrows est plus precis :
+  // il cible l'instruction attendue en echec, au lieu d'accepter l'exception depuis
+  // n'importe quel endroit de la methode - voir docs/phase-P1-report.md.
+  @Test
   public void shouldThrowWhenArticleNotFound() {
-    articleService.findById(0L);
+    assertThrows(EntityNotFoundException.class, () -> articleService.findById(0L));
   }
 
   // Phase 5b-2a : voir docs/phase-5b2a-report.md.

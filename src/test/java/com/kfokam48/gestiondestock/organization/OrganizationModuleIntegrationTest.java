@@ -18,14 +18,11 @@ import com.kfokam48.gestiondestock.organization.application.dto.SiteDto;
 import com.kfokam48.gestiondestock.organization.application.dto.WarehouseDto;
 import com.kfokam48.gestiondestock.organization.domain.model.SiteType;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class OrganizationModuleIntegrationTest extends AbstractIntegrationTest {
 

@@ -1,8 +1,8 @@
 package com.kfokam48.gestiondestock.reporting;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,14 +15,12 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequ
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -45,7 +43,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * dans le corps produirait des faux positifs (un id de site peut coincider avec un id d'article),
  * erreur deja commise et corrigee en 5b-2h.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class GlobalStockReportIsScopedToOrganizationTest extends AbstractIntegrationTest {
@@ -81,7 +78,7 @@ public class GlobalStockReportIsScopedToOrganizationTest extends AbstractIntegra
 
   private record Tenant(String token, long organizationId, long siteId, String articleCode) {}
 
-  @Before
+  @BeforeEach
   public void provisionTwoTenantsEachWithStock() throws Exception {
     a = tenantWithStock("glob-A");
     b = tenantWithStock("glob-B");
@@ -133,22 +130,19 @@ public class GlobalStockReportIsScopedToOrganizationTest extends AbstractIntegra
   public void globalStockReportMustNotExposeAnotherTenantStock() throws Exception {
     String body = ok(get("/gestiondestock/v1/reporting/stock/global"), a.token());
 
-    assertTrue("l'admin de A doit voir SON propre stock", body.contains(a.articleCode()));
-    assertFalse("le stock du tenant B ne doit jamais apparaitre dans le rapport global de A : "
+    assertTrue(body.contains(a.articleCode()), "l'admin de A doit voir SON propre stock");
+    assertFalse(body.contains(b.articleCode()), "le stock du tenant B ne doit jamais apparaitre dans le rapport global de A : "
             + "la portee GLOBAL de REPORTING_VIEW signifie « toute mon organisation », pas "
-            + "« toutes les organisations ». Corps recu : " + body,
-        body.contains(b.articleCode()));
+            + "« toutes les organisations ». Corps recu : " + body);
   }
 
   @Test
   public void everyLineOfTheGlobalReportBelongsToTheCallerOrganization() throws Exception {
     JsonNode lines = objectMapper.readTree(ok(get("/gestiondestock/v1/reporting/stock/global"), a.token()));
 
-    assertTrue("le rapport ne doit pas etre vide, sinon ce test passerait pour la mauvaise raison",
-        lines.size() > 0);
+    assertTrue(lines.size() > 0, "le rapport ne doit pas etre vide, sinon ce test passerait pour la mauvaise raison");
     for (JsonNode line : lines) {
-      assertEquals("chaque ligne doit porter un site de l'organisation de l'appelant",
-          a.siteId(), line.get("site").get("id").asLong());
+      assertEquals(a.siteId(), line.get("site").get("id").asLong(), "chaque ligne doit porter un site de l'organisation de l'appelant");
     }
   }
 
@@ -159,11 +153,9 @@ public class GlobalStockReportIsScopedToOrganizationTest extends AbstractIntegra
 
     String body = ok(get("/gestiondestock/v1/reporting/stock/low"), a.token());
 
-    assertTrue("A doit voir sa propre rupture, sinon ce test passerait sur un corps vide",
-        body.contains(a.articleCode()));
-    assertFalse("le stock du tenant B ne doit jamais apparaitre dans le rapport de rupture de A. "
-            + "Corps recu : " + body,
-        body.contains(b.articleCode()));
+    assertTrue(body.contains(a.articleCode()), "A doit voir sa propre rupture, sinon ce test passerait sur un corps vide");
+    assertFalse(body.contains(b.articleCode()), "le stock du tenant B ne doit jamais apparaitre dans le rapport de rupture de A. "
+            + "Corps recu : " + body);
   }
 
   private String ok(MockHttpServletRequestBuilder request, String token) throws Exception {

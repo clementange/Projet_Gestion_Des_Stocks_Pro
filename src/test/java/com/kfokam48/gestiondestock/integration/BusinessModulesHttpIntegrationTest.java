@@ -11,13 +11,11 @@ import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
@@ -33,7 +31,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * n'importe quel appelant pouvait ainsi usurper l'identite de n'importe quel utilisateur pour les
  * besoins d'AuthorizationService. Corrige avec @AuthenticationPrincipal.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest {

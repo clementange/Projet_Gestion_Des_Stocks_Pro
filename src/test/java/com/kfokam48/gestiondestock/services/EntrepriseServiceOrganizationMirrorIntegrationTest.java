@@ -12,11 +12,9 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantDto;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
@@ -26,7 +24,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * exige desormais des identifiants admin explicites (voir docs/phase-4b-report.md). Memes
  * assertions finales qu'avant la reecriture.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class EntrepriseServiceOrganizationMirrorIntegrationTest extends AbstractIntegrationTest {
 

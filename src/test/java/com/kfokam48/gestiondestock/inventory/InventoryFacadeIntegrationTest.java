@@ -28,11 +28,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
@@ -40,7 +38,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * insuffisant), et verifie explicitement l'invariant de la section 25 : deux ventes concurrentes
  * ne doivent jamais faire passer le stock sous zero.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class InventoryFacadeIntegrationTest extends AbstractIntegrationTest {
 
@@ -111,7 +108,7 @@ public class InventoryFacadeIntegrationTest extends AbstractIntegrationTest {
 
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
-    InvalidOperationException exception = org.junit.Assert.assertThrows(InvalidOperationException.class,
+    InvalidOperationException exception = org.junit.jupiter.api.Assertions.assertThrows(InvalidOperationException.class,
         () -> inventoryFacade.issue(article.getId(), site.getId(), BigDecimal.valueOf(15), StockMovementSource.VENTE, "VEN-002", null));
 
     assertEquals(com.kfokam48.gestiondestock.exception.ErrorCodes.STOCK_INSUFFICIENT, exception.getErrorCode());

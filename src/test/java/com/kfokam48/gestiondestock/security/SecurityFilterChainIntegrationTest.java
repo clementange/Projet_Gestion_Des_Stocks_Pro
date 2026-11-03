@@ -13,13 +13,11 @@ import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequ
 import java.time.Instant;
 import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
@@ -39,7 +37,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * Ces deux bugs ne pouvaient etre detectes qu'en passant reellement par le filtre de securite et
  * la generation de JWT, d'ou ces tests MockMvc.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class SecurityFilterChainIntegrationTest extends AbstractIntegrationTest {

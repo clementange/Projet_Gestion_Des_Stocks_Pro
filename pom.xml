@@ -123,16 +123,9 @@
       <artifactId>spring-security-test</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.vintage</groupId>
-      <artifactId>junit-vintage-engine</artifactId>
-      <scope>test</scope>
-    </dependency>
+    <!-- Phase P1 : JUnit 4 et le moteur vintage sont retires. Spring Framework 7 / Boot 4
+         abandonnent JUnit 4 et SpringRunner ; la suite est entierement sur Jupiter. Laisser le
+         moteur vintage en place aurait permis a une classe JUnit 4 de revenir sans etre vue. -->
 
     <!-- Phase 0 : filet de securite - Testcontainers PostgreSQL pour ne plus dependre d'un
          Postgres local demarre a la main pendant les tests d'integration. -->

@@ -36,18 +36,15 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
  * Reproduit le Test 3 de la section 43 du prompt maitre : Entrepot A = 100, transfert A -> B =
  * 30, resultat A = 70 / B = 30 ; et verifie le cycle de vie complet de la section 15.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest {
 

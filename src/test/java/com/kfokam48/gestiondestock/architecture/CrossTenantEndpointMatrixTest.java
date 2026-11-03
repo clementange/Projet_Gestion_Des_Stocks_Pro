@@ -1,6 +1,6 @@
 package com.kfokam48.gestiondestock.architecture;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -19,13 +19,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -45,7 +43,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * <p>Limite assumee : la matrice prouve qu'un appel inter-tenant est refuse, pas que l'endpoint est
  * exempt de tout autre defaut (permission metier, validation). Voir docs/phase-5b2h-report.md.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
@@ -424,7 +421,7 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
       }
     }
 
-    assertTrue("Fuites inter-tenant detectees :\n  - " + String.join("\n  - ", leaks), leaks.isEmpty());
+    assertTrue(leaks.isEmpty(), "Fuites inter-tenant detectees :\n  - " + String.join("\n  - ", leaks));
   }
 
   @Test
@@ -452,9 +449,8 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
       }
     }
 
-    assertTrue("Endpoints ni sondes par la matrice ni exclus avec justification :\n  - "
+    assertTrue(unclassified.isEmpty(), "Endpoints ni sondes par la matrice ni exclus avec justification :\n  - "
         + String.join("\n  - ", unclassified)
-        + "\nAjoutez une sonde dans probes(), ou une entree justifiee dans EXCLUDED.",
-        unclassified.isEmpty());
+        + "\nAjoutez une sonde dans probes(), ou une entree justifiee dans EXCLUDED.");
   }
 }

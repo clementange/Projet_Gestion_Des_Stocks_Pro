@@ -36,11 +36,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
@@ -49,7 +47,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * insuffisant meme si un autre site de la meme organisation est largement approvisionne
  * (decision actee du plan : pas d'auto-transfert en V1).
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
 

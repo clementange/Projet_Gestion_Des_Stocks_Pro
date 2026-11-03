@@ -1,7 +1,7 @@
 package com.kfokam48.gestiondestock.architecture;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
@@ -19,11 +19,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
@@ -55,7 +53,6 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  * {@code CrossTenantEndpointMatrixTest}. Les trois niveaux sont complementaires - voir
  * docs/phase-5c-report.md et docs/rbac-matrix.md.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class WriteEndpointPermissionGateTest extends AbstractIntegrationTest {
 
@@ -211,12 +208,10 @@ public class WriteEndpointPermissionGateTest extends AbstractIntegrationTest {
     Set<String> classified = new TreeSet<>(GATED.keySet());
     classified.addAll(EXCLUDED.keySet());
 
-    assertEquals(
-        "Un endpoint d'ecriture a ete ajoute, supprime ou renomme sans mettre a jour cet "
+    assertEquals(classified, exposed, "Un endpoint d'ecriture a ete ajoute, supprime ou renomme sans mettre a jour cet "
             + "inventaire. Tout nouvel endpoint d'ecriture doit soit verifier une permission via "
             + "AuthorizationService.hasPermission et rejoindre GATED, soit etre ajoute a EXCLUDED "
-            + "avec une justification explicite.",
-        classified, exposed);
+            + "avec une justification explicite.");
   }
 
   @Test
@@ -230,11 +225,10 @@ public class WriteEndpointPermissionGateTest extends AbstractIntegrationTest {
       boolean callsHasPermission = gating.getMethodCallsFromSelf().stream()
           .anyMatch(call -> call.getTargetOwner().isEquivalentTo(AuthorizationService.class)
               && "hasPermission".equals(call.getName()));
-      assertTrue(
+      assertTrue(callsHasPermission,
           className + " est declare gardien d'au moins un endpoint d'ecriture mais n'appelle pas "
               + "AuthorizationService.hasPermission : soit le controle a ete retire, soit "
-              + "l'inventaire GATED est faux.",
-          callsHasPermission);
+              + "l'inventaire GATED est faux.");
     }
   }
 
@@ -242,11 +236,9 @@ public class WriteEndpointPermissionGateTest extends AbstractIntegrationTest {
   public void everyDeclaredPermissionCodeAppearsInTheSourceThatEnforcesIt() {
     GATED.forEach((endpoint, gate) -> {
       String source = read(Path.of(gate.sourcePath()));
-      assertTrue(
-          "L'endpoint " + endpoint + " est declare garde par " + gate.permissionCode() + ", mais ce "
+      assertTrue(source.contains('"' + gate.permissionCode() + '"'), "L'endpoint " + endpoint + " est declare garde par " + gate.permissionCode() + ", mais ce "
               + "code n'apparait pas dans " + gate.sourcePath() + " : le controle a ete retire ou "
-              + "le code renomme.",
-          source.contains('"' + gate.permissionCode() + '"'));
+              + "le code renomme.");
     });
   }
 
@@ -265,19 +257,15 @@ public class WriteEndpointPermissionGateTest extends AbstractIntegrationTest {
         .map(Gate::permissionCode)
         .collect(Collectors.toSet()));
     for (String code : codes) {
-      assertTrue(
-          "La permission " + code + " est exigee par un endpoint d'ecriture mais aucune migration "
+      assertTrue(migrations.contains('\'' + code + '\''), "La permission " + code + " est exigee par un endpoint d'ecriture mais aucune migration "
               + "Flyway ne l'accorde a un role : elle serait impossible a obtenir, donc "
-              + "l'endpoint serait definitivement bloque (lecon de V7).",
-          migrations.contains('\'' + code + '\''));
+              + "l'endpoint serait definitivement bloque (lecon de V7).");
     }
   }
 
   @Test
   public void everyExclusionCarriesAJustification() {
-    EXCLUDED.forEach((endpoint, reason) -> assertTrue(
-        "L'exclusion de " + endpoint + " doit porter une justification explicite.",
-        reason != null && reason.strip().length() > 30));
+    EXCLUDED.forEach((endpoint, reason) -> assertTrue(reason != null && reason.strip().length() > 30, "L'exclusion de " + endpoint + " doit porter une justification explicite."));
   }
 
   private static String read(Path path) {

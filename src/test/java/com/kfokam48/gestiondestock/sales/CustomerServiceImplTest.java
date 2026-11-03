@@ -12,14 +12,11 @@ import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
 import com.kfokam48.gestiondestock.sales.application.CustomerService;
 import com.kfokam48.gestiondestock.sales.application.dto.CustomerDto;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class CustomerServiceImplTest extends AbstractIntegrationTest {
 
@@ -34,7 +31,7 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
   private OrganizationDto fixtureOrganization;
   private Long fixtureUser;
 
-  @org.junit.Before
+  @org.junit.jupiter.api.BeforeEach
   public void grantWritePermissions() {
     fixtureOrganization = organizationService.save(
         OrganizationDto.builder().name("Societe Client Test").active(true).build());
@@ -69,9 +66,12 @@ public class CustomerServiceImplTest extends AbstractIntegrationTest {
     assertEquals(ErrorCodes.CUSTOMER_NOT_VALID, exception.getErrorCode());
   }
 
-  @Test(expected = EntityNotFoundException.class)
+  // Phase P1 : @Test(expected = ...) n'existe plus en JUnit 5. assertThrows est plus precis :
+  // il cible l'instruction attendue en echec, au lieu d'accepter l'exception depuis
+  // n'importe quel endroit de la methode - voir docs/phase-P1-report.md.
+  @Test
   public void shouldThrowEntityNotFoundException() {
-    service.findById(0L);
+    assertThrows(EntityNotFoundException.class, () -> service.findById(0L));
   }
 
   @Test

@@ -40,11 +40,9 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 
 /**
@@ -57,7 +55,6 @@ import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
  * dans cette boutique -> vente refusee dans une autre boutique jamais approvisionnee -> lecture
  * reporting filtree par perimetre RBAC sur l'etat final.
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest
 public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest {
 

@@ -119,9 +119,9 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
     String adminToken = tokenFor(uniqueCode("admin3") + "@test.local");
     String plainEmail = uniqueCode("plain") + "@test.local";
     String createUserPayload = "{\"nom\":\"Plain\",\"prenom\":\"User\",\"email\":\"" + plainEmail + "\","
-        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Passw0rd!\","
         + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}";
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content(createUserPayload))
@@ -163,11 +163,11 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
         RoleDto.builder().code(uniqueCode("ROLE4")).name("Role HTTP 4").build()).getId();
 
     String plainEmail = uniqueCode("plain4") + "@test.local";
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Plain\",\"prenom\":\"User\",\"email\":\"" + plainEmail + "\","
-                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Passw0rd!\","
                 + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
         .andExpect(status().isOk());
     MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
@@ -202,11 +202,11 @@ public class RbacAdminEndpointsHttpIntegrationTest extends AbstractIntegrationTe
     long adminUserId = idUtilisateurFromToken(adminToken);
 
     String plainEmail = uniqueCode("plain5") + "@test.local";
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Plain\",\"prenom\":\"User\",\"email\":\"" + plainEmail + "\","
-                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Passw0rd!\","
                 + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
         .andExpect(status().isOk());
     MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")

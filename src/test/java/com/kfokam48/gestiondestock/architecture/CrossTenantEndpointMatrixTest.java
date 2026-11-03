@@ -73,7 +73,6 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
     EXCLUDED.put("/gestiondestock/v1/sites/all", "liste auto-scopee, aucun id en entree");
     EXCLUDED.put("/gestiondestock/v1/warehouses/all", "liste auto-scopee, aucun id en entree");
     EXCLUDED.put("/gestiondestock/v1/users/all", "liste auto-scopee, aucun id en entree");
-    EXCLUDED.put("/gestiondestock/v1/utilisateurs/all", "liste auto-scopee, aucun id en entree");
     EXCLUDED.put("/gestiondestock/v1/organizations/all", "self-only (5b-2c), aucun id en entree");
     EXCLUDED.put("/gestiondestock/v1/tenants/all", "self-only (5b-2c), aucun id en entree");
     EXCLUDED.put("/gestiondestock/v1/roles/all", "catalogue GLOBAL, gate RBAC_MANAGE (5b-2f)");
@@ -93,13 +92,11 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
     EXCLUDED.put("/gestiondestock/v1/stock-transfers/create", "creation : idem 5b-2g");
     EXCLUDED.put("/gestiondestock/v1/sites/create", "creation : idem 5b-2f");
     EXCLUDED.put("/gestiondestock/v1/users/create", "creation : idem 5b-2f");
-    EXCLUDED.put("/gestiondestock/v1/utilisateurs/create", "creation : idem 5b-2f");
     EXCLUDED.put("/gestiondestock/v1/user-role-assignments/create", "creation : idem 5b-2f");
     EXCLUDED.put("/gestiondestock/v1/organizations/create", "supprime en 5b-2e (n'existe plus)");
     // Mot de passe / photo de soi-meme : self-only, couvert par 5a et 5b-2c.
     EXCLUDED.put("/gestiondestock/v1/users/{id}/password", "self-only (5a), id = l'appelant");
     EXCLUDED.put("/gestiondestock/v1/users/{id}/photo", "self-only (5b-2c), id = l'appelant");
-    EXCLUDED.put("/gestiondestock/v1/utilisateurs/update/password", "self-only (5a)");
     EXCLUDED.put("/gestiondestock/v1/roles/{idRole}", "catalogue GLOBAL, gate RBAC_MANAGE (5b-2f)");
     EXCLUDED.put("/gestiondestock/v1/permissions/{idPermission}", "catalogue GLOBAL, gate RBAC_MANAGE (5b-2f)");
     EXCLUDED.put("/gestiondestock/v1/reporting/stock/low", "liste filtree par RBAC, aucun id en entree");
@@ -268,7 +265,6 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
     p.add(new Probe("GET", v + "/stock-transfers/{idTransfert}", v + "/stock-transfers/" + a.stockTransferId, null));
     p.add(new Probe("GET", v + "/stock-transfers/{idTransfert}/lignes", v + "/stock-transfers/" + a.stockTransferId + "/lignes", null));
     p.add(new Probe("GET", v + "/users/{id}", v + "/users/" + a.userId, null));
-    p.add(new Probe("GET", v + "/utilisateurs/{idUtilisateur}", v + "/utilisateurs/" + a.userId, null));
     p.add(new Probe("GET", v + "/organizations/{idOrganization}", v + "/organizations/" + a.orgId, null));
     p.add(new Probe("GET", v + "/tenants/{id}", v + "/tenants/" + a.tenantId, null));
     p.add(new Probe("GET", v + "/user-role-assignments/{idAssignment}", v + "/user-role-assignments/" + a.assignmentId, null));
@@ -285,7 +281,6 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
     p.add(new Probe("GET", v + "/stocks/article/{idArticle}/site/{idSite}/mouvements", v + "/stocks/article/" + a.articleId + "/site/" + a.siteId + "/mouvements", null));
     // lectures par code : le code de A n'est pas devinable, mais l'endpoint doit rester scope
     p.add(new Probe("GET", v + "/users/find/{email}", v + "/users/find/" + uniq("nobody") + "@x.test", null));
-    p.add(new Probe("GET", v + "/utilisateurs/find/{email}", v + "/utilisateurs/find/" + uniq("nobody") + "@x.test", null));
 
     // lookups par code : le code de A est connu de la fixture, donc reellement exploitable
     p.add(new Probe("GET", v + "/articles/filter/{codeArticle}", v + "/articles/filter/" + a.articleCode, null));
@@ -352,7 +347,6 @@ public class CrossTenantEndpointMatrixTest extends AbstractIntegrationTest {
     p.add(new Probe("DELETE", v + "/customers/delete/{id}", v + "/customers/delete/" + a.customerId, null));
     p.add(new Probe("DELETE", v + "/suppliers/delete/{id}", v + "/suppliers/delete/" + a.supplierId, null));
     p.add(new Probe("DELETE", v + "/users/delete/{id}", v + "/users/delete/" + a.userId, null));
-    p.add(new Probe("DELETE", v + "/utilisateurs/delete/{idUtilisateur}", v + "/utilisateurs/delete/" + a.userId, null));
     p.add(new Probe("DELETE", v + "/organizations/delete/{idOrganization}", v + "/organizations/delete/" + a.orgId, null));
     p.add(new Probe("DELETE", v + "/tenants/delete/{id}", v + "/tenants/delete/" + a.tenantId, null));
     p.add(new Probe("DELETE", v + "/user-role-assignments/delete/{idAssignment}", v + "/user-role-assignments/delete/" + a.assignmentId, null));

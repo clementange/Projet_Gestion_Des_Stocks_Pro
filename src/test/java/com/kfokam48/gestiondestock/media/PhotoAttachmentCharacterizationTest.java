@@ -250,11 +250,11 @@ public class PhotoAttachmentCharacterizationTest extends AbstractIntegrationTest
 
     String attackerEmail = uniqueCode("photo-attacker") + "@test.local";
     String attackerPassword = "Passw0rd!";
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Attacker\",\"prenom\":\"User\",\"email\":\"" + attackerEmail + "\","
-                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"" + attackerPassword + "\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"" + attackerPassword + "\","
                 + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
         .andExpect(status().isOk());
     MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")

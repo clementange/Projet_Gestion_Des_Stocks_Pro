@@ -276,13 +276,13 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
 
     String noPermEmail = uniqueCode("noperm-stock") + "@test.local";
     long idEntreprise = idEntrepriseFromToken(adminToken);
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"NoPerm\",\"prenom\":\"User\",\"email\":\"" + noPermEmail + "\","
-                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Passw0rd!\","
                 + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"},"
-                + "\"entreprise\":{\"id\":" + idEntreprise + "}}"))
+                + "\"idEntreprise\":" + idEntreprise + "}"))
         .andExpect(status().isOk());
     MvcResult login = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")
             .contentType(MediaType.APPLICATION_JSON)
@@ -311,7 +311,7 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
   }
 
   /**
-   * Phase 5b-2d, trouve en ecrivant le test ci-dessus : /utilisateurs/create (legacy) ne force
+   * Phase 5b-2d, trouve en ecrivant le test ci-dessus : /users/create ne force
    * jamais idEntreprise depuis l'appelant - il faut le fournir explicitement dans le payload,
    * sinon l'utilisateur cree n'appartient a AUCUN tenant (organizationId ne se resout jamais au
    * login). Gap deja connu et delibere sur le contrat legacy (meme posture que Phase 4a, jamais
@@ -331,12 +331,12 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
     // place. Desormais resolu depuis le principal authentifie : impossible d'usurper.
     String plainAdminToken = adminToken(); // a REPORTING_VIEW via ADMINISTRATEUR/GLOBAL
     String noPermEmail = uniqueCode("noperm") + "@test.local";
-    // Utilisateur cree via /utilisateurs/create : aucune UserRoleAssignment.
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    // Utilisateur cree via /users/create : aucune UserRoleAssignment.
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + plainAdminToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"NoPerm\",\"prenom\":\"User\",\"email\":\"" + noPermEmail + "\","
-                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Passw0rd!\","
                 + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
         .andExpect(status().isOk());
     MvcResult login = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")

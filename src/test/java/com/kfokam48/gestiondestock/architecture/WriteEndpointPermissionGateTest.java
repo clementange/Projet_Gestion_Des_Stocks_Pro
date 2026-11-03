@@ -169,16 +169,6 @@ public class WriteEndpointPermissionGateTest extends AbstractIntegrationTest {
             + "listee en backlog de docs/phase-5c-report.md");
     EXCLUDED.put("/clients/{idClient}/photo", "meme motif que articles/{idArticle}/photo");
     EXCLUDED.put("/fournisseurs/{idFournisseur}/photo", "meme motif que articles/{idArticle}/photo");
-    EXCLUDED.put("/utilisateurs/create",
-        "adaptateur legacy : delegue a UserServiceImpl.save(dto) (variante sans permission). "
-            + "Gap de permission assume, la route devant etre supprimee en 4e - voir "
-            + "docs/phase-5c-report.md");
-    EXCLUDED.put("/utilisateurs/update/password",
-        "adaptateur legacy du changement de mot de passe : meme motif que /utilisateurs/create, "
-            + "route devant etre supprimee en 4e");
-    EXCLUDED.put("/utilisateurs/delete/{idUtilisateur}",
-        "adaptateur legacy : delegue a UserService.delete(id, callerTenantId), qui verifie "
-            + "l'appartenance (5b-2h) mais pas la permission. Meme motif");
   }
 
   /** Classes declarees gardees : verifiees une par une sur le bytecode. */

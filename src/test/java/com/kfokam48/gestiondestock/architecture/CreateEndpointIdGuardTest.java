@@ -62,8 +62,6 @@ public class CreateEndpointIdGuardTest extends AbstractIntegrationTest {
       "/gestiondestock/v1/stock-transfers/create",
       "/gestiondestock/v1/suppliers/create",
       "/gestiondestock/v1/users/create",
-      // Adaptateur legacy : delegue a UserServiceImpl.save, donc couvert par le meme garde-fou.
-      "/gestiondestock/v1/utilisateurs/create",
       "/gestiondestock/v1/user-role-assignments/create",
       "/gestiondestock/v1/warehouses/create"));
 

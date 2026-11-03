@@ -20,7 +20,8 @@ import org.springframework.stereotype.Component;
  * message - voir docs/phase-5b2i-report.md.
  */
 @Component
-public class RequiredSecretsValidator implements InitializingBean {
+public class
+RequiredSecretsValidator implements InitializingBean {
 
   /** HS256 exige une cle d'au moins 256 bits ; en dessous, jjwt refuse de signer. */
   static final int JWT_SECRET_MIN_BYTES = 32;

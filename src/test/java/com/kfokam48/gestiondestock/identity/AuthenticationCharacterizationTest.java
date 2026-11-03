@@ -1,8 +1,9 @@
-package com.kfokam48.gestiondestock.legacy;
+package com.kfokam48.gestiondestock.identity;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -12,10 +13,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfokam48.gestiondestock.shared.AdresseDto;
-import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
-import java.time.Instant;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
+import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
 import com.kfokam48.gestiondestock.utils.JwtUtil;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,25 +30,28 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
- * Phase 4a, caracterisation prealable (etape 0) : le flux d'authentification legacy
- * (model.Utilisateur, /utilisateurs/*, /auth/authenticate) n'avait jusqu'ici AUCUN test dedie
- * (contrairement aux 7 autres adaptateurs legacy caracterises en Phase 0) - ce fichier comble ce
- * vide AVANT tout changement de code, pour servir de filet direct pendant la migration de
- * model.Utilisateur vers identity.User. Ecrit et verifie vert AVANT la migration, doit rester
- * vert et sans modification d'assertion apres.
+ * Caracterisation du flux d'authentification ({@code /auth/authenticate}) et du cycle de vie
+ * utilisateur sur le contrat canonique {@code /users/**}.
  *
- * <p>Reproduit deliberement le comportement actuel, bugs inclus : {@link #create...WithoutAnyPermission}
- * documente l'absence de verification de permission sur create/delete/find, non corrige ici (voir
- * docs/migration-notes.md). L'IDOR sur le changement de mot de passe, lui, a ete corrige en Phase
- * 5a (self-only) - voir {@link #changerMotDePasseRejectsWhenCallerIsNotTargetUser} et
- * docs/phase-5a-report.md ; ce n'est pas une exception a la regle "ne jamais modifier un test sans
- * comprendre pourquoi il echouait" mais le cas exact ou elle autorise la modification, le
- * comportement qu'il verrouillait ayant ete volontairement change.
+ * <p>Successeur direct de {@code legacy.UtilisateurAuthenticationCharacterizationTest}, ecrit en
+ * Phase 4a pour servir de filet pendant la migration de {@code model.Utilisateur} vers
+ * {@code identity.User}. La Phase 4e ayant supprime le contrat {@code /utilisateurs/**} que ce
+ * filet protegeait, chaque cas a ete **porte** sur {@code /users/**} plutot que supprime : les
+ * assertions sont les memes, seuls l'URL, le nom du champ de mot de passe
+ * ({@code moteDePasse} -> {@code motDePasse}), la reference au tenant
+ * ({@code entreprise:{id}} -> {@code idEntreprise}) et le prefixe des codes d'erreur
+ * ({@code UTILISATEUR_*} -> {@code USER_*}) changent - voir docs/api-migration-map.md §3.
+ *
+ * <p>Un seul cas n'a pas ete porte : {@code createDoesNotRequireAnySpecificPermission...}, qui
+ * verrouillait deliberement un BUG (aucune verification de permission sur la creation
+ * d'utilisateur). La Phase 5c a corrige ce bug ; le comportement inverse est desormais prouve par
+ * {@code integration.WritePermissionEnforcementHttpIntegrationTest}. Porter ce test aurait
+ * consiste a re-affirmer une faille fermee - voir docs/phase-4e-report.md.
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
-public class UtilisateurAuthenticationCharacterizationTest extends AbstractIntegrationTest {
+public class AuthenticationCharacterizationTest extends AbstractIntegrationTest {
 
   @Autowired
   private MockMvc mockMvc;
@@ -88,15 +93,32 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
   }
 
   private long idEntrepriseFromToken(String token) throws Exception {
-    byte[] decoded = java.util.Base64.getUrlDecoder().decode(token.split("\\.")[1]);
+    byte[] decoded = Base64.getUrlDecoder().decode(token.split("\\.")[1]);
     return objectMapper.readTree(decoded).get("idEntreprise").asLong();
   }
 
+  /**
+   * Cree un utilisateur SANS tenant : {@link #loginSucceedsAndJwtCarriesExpectedClaims()}
+   * caracterise precisement ce cas (la reclamation {@code idEntreprise} doit rester absente).
+   */
   private long createUser(String callerToken, String email, String password) throws Exception {
+    return createUser(callerToken, email, password, null);
+  }
+
+  /**
+   * Cree l'utilisateur DANS le tenant de l'appelant : utilise par les tests qui relisent ensuite
+   * la ressource, les lectures de {@code /users/**} etant scopees au tenant depuis la Phase 5b-2c.
+   */
+  private long createUserInCallerTenant(String callerToken, String email, String password) throws Exception {
+    return createUser(callerToken, email, password, idEntrepriseFromToken(callerToken));
+  }
+
+  private long createUser(String callerToken, String email, String password, Long tenantId) throws Exception {
     String payload = "{\"nom\":\"Nom\",\"prenom\":\"Prenom\",\"email\":\"" + email + "\","
-        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"" + password + "\","
+        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"" + password + "\","
+        + (tenantId == null ? "" : "\"idEntreprise\":" + tenantId + ",")
         + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}";
-    MvcResult result = mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    MvcResult result = mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + callerToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content(payload))
@@ -105,28 +127,7 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
     return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
   }
 
-  /**
-   * Phase 5b-2h : les routes {@code /utilisateurs/**} sont desormais scopees au tenant de
-   * l'appelant. Un utilisateur cree sans {@code entreprise} n'appartient a aucun tenant et reste
-   * donc invisible en lecture scopee. Ce helper cree l'utilisateur DANS le tenant de l'appelant,
-   * et n'est utilise que par les tests qui lisent ensuite la ressource ; {@link #createUser}
-   * reste volontairement sans entreprise, car
-   * {@link #loginSucceedsAndJwtCarriesExpectedClaims()} caracterise precisement ce cas. Aucune
-   * assertion n'a ete modifiee - seule la fixture l'a ete (meme cause racine qu'en 5b-2d §3).
-   */
-  private long createUserInCallerTenant(String callerToken, String email, String password) throws Exception {
-    String payload = "{\"nom\":\"Nom\",\"prenom\":\"Prenom\",\"email\":\"" + email + "\","
-        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"" + password + "\","
-        + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"},"
-        + "\"entreprise\":{\"id\":" + idEntrepriseFromToken(callerToken) + "}}";
-    MvcResult result = mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
-            .header("Authorization", "Bearer " + callerToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(payload))
-        .andExpect(status().isOk())
-        .andReturn();
-    return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
-  }
+  // ------------------------------------------------------------ authentification
 
   @Test
   public void loginSucceedsAndJwtCarriesExpectedClaims() throws Exception {
@@ -169,59 +170,19 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
         .andExpect(jsonPath("$.code").value("BAD_CREDENTIALS"));
   }
 
+  // --------------------------------------------------------- mot de passe (self-only)
+
   @Test
-  public void changerMotDePasseRejectsWhenCallerIsNotTargetUser() throws Exception {
-    // Phase 5a : l'IDOR verrouille ici jusqu'a Phase 4a est corrige (self-only) - voir
-    // docs/phase-5a-report.md. L'appelant ne peut plus changer le mot de passe d'un autre
-    // utilisateur, et le mot de passe de la victime n'est pas modifie.
+  public void passwordChangeRejectsWhenCallerIsNotTargetUser() throws Exception {
+    // Phase 5a : l'IDOR est corrige (self-only) - voir docs/phase-5a-report.md. L'appelant ne peut
+    // plus changer le mot de passe d'un autre utilisateur, et le mot de passe de la victime n'est
+    // pas modifie.
     String adminToken = adminToken();
     String attackerEmail = uniqueCode("attacker") + "@test.local";
     createUser(adminToken, attackerEmail, "Passw0rd!");
     String attackerToken = login(attackerEmail, "Passw0rd!");
 
     String victimEmail = uniqueCode("victim") + "@test.local";
-    long victimId = createUser(adminToken, victimEmail, "OldPassw0rd!");
-
-    String changePayload = "{\"id\":" + victimId + ",\"motDePasse\":\"NewPassw0rd!\",\"confirmMotDePasse\":\"NewPassw0rd!\"}";
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/update/password")
-            .header("Authorization", "Bearer " + attackerToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(changePayload))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("USER_CHANGE_PASSWORD_FORBIDDEN"));
-
-    // Le mot de passe de la victime n'a pas change : l'ancien fonctionne toujours.
-    String victimToken = login(victimEmail, "OldPassw0rd!");
-    assertNotNull(victimToken);
-  }
-
-  @Test
-  public void changerMotDePasseSucceedsWhenCallerIsTargetUser() throws Exception {
-    String adminToken = adminToken();
-    String email = uniqueCode("self") + "@test.local";
-    long userId = createUser(adminToken, email, "OldPassw0rd!");
-    String ownToken = login(email, "OldPassw0rd!");
-
-    String changePayload = "{\"id\":" + userId + ",\"motDePasse\":\"NewPassw0rd!\",\"confirmMotDePasse\":\"NewPassw0rd!\"}";
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/update/password")
-            .header("Authorization", "Bearer " + ownToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(changePayload))
-        .andExpect(status().isOk());
-
-    assertNotNull(login(email, "NewPassw0rd!"));
-  }
-
-  @Test
-  public void usersRoutePasswordChangeRejectsWhenCallerIsNotTargetUser() throws Exception {
-    // Meme correctif (self-only), verifie aussi sur la route module-neuf /users/{id}/password -
-    // voir docs/phase-5a-report.md.
-    String adminToken = adminToken();
-    String attackerEmail = uniqueCode("attacker-neuf") + "@test.local";
-    createUser(adminToken, attackerEmail, "Passw0rd!");
-    String attackerToken = login(attackerEmail, "Passw0rd!");
-
-    String victimEmail = uniqueCode("victim-neuf") + "@test.local";
     long victimId = createUser(adminToken, victimEmail, "OldPassw0rd!");
 
     mockMvc.perform(post("/gestiondestock/v1/users/" + victimId + "/password")
@@ -231,8 +192,27 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("USER_CHANGE_PASSWORD_FORBIDDEN"));
 
+    // Le mot de passe de la victime n'a pas change : l'ancien fonctionne toujours.
     assertNotNull(login(victimEmail, "OldPassw0rd!"));
   }
+
+  @Test
+  public void passwordChangeSucceedsWhenCallerIsTargetUser() throws Exception {
+    String adminToken = adminToken();
+    String email = uniqueCode("self") + "@test.local";
+    long userId = createUser(adminToken, email, "OldPassw0rd!");
+    String ownToken = login(email, "OldPassw0rd!");
+
+    mockMvc.perform(post("/gestiondestock/v1/users/" + userId + "/password")
+            .header("Authorization", "Bearer " + ownToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"motDePasse\":\"NewPassw0rd!\"}"))
+        .andExpect(status().isOk());
+
+    assertNotNull(login(email, "NewPassw0rd!"));
+  }
+
+  // ------------------------------------------------------- cycle de vie utilisateur
 
   @Test
   public void createRejectsDuplicateEmail() throws Exception {
@@ -240,46 +220,45 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
     String email = uniqueCode("dup") + "@test.local";
     createUser(adminToken, email, "Passw0rd!");
 
-    String payload = "{\"nom\":\"Nom\",\"prenom\":\"Prenom\",\"email\":\"" + email + "\","
-        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Autre!Passw0rd\","
-        + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}";
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
-            .content(payload))
+            .content("{\"nom\":\"Nom\",\"prenom\":\"Prenom\",\"email\":\"" + email + "\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Autre!Passw0rd\","
+                + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("UTILISATEUR_ALREADY_EXISTS"));
+        .andExpect(jsonPath("$.code").value("USER_ALREADY_EXISTS"));
   }
 
   @Test
   public void createRejectsMissingRequiredFields() throws Exception {
     String adminToken = adminToken();
 
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + adminToken)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("UTILISATEUR_NOT_VALID"));
+        .andExpect(jsonPath("$.code").value("USER_NOT_VALID"));
   }
 
   @Test
-  public void findByIdUnknownReturnsUtilisateurNotFound() throws Exception {
+  public void findByIdUnknownReturnsUserNotFound() throws Exception {
     String adminToken = adminToken();
 
-    mockMvc.perform(get("/gestiondestock/v1/utilisateurs/0").header("Authorization", "Bearer " + adminToken))
+    mockMvc.perform(get("/gestiondestock/v1/users/0").header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.code").value("UTILISATEUR_NOT_FOUND"));
+        .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
   }
 
   @Test
-  public void findByEmailUnknownReturnsUtilisateurNotFound() throws Exception {
+  public void findByEmailUnknownReturnsUserNotFound() throws Exception {
     String adminToken = adminToken();
 
-    mockMvc.perform(get("/gestiondestock/v1/utilisateurs/find/" + uniqueCode("ghost") + "@test.local")
+    mockMvc.perform(get("/gestiondestock/v1/users/find/" + uniqueCode("ghost") + "@test.local")
             .header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.code").value("UTILISATEUR_NOT_FOUND"));
+        .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
   }
 
   @Test
@@ -288,7 +267,8 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
     String email = uniqueCode("findall") + "@test.local";
     createUserInCallerTenant(adminToken, email, "Passw0rd!");
 
-    MvcResult result = mockMvc.perform(get("/gestiondestock/v1/utilisateurs/all").header("Authorization", "Bearer " + adminToken))
+    MvcResult result = mockMvc.perform(get("/gestiondestock/v1/users/all")
+            .header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isOk())
         .andReturn();
     JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
@@ -298,7 +278,7 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
         found = true;
       }
     }
-    org.junit.Assert.assertTrue("l'utilisateur cree doit apparaitre dans /utilisateurs/all", found);
+    assertTrue("l'utilisateur cree doit apparaitre dans /users/all", found);
   }
 
   @Test
@@ -306,38 +286,21 @@ public class UtilisateurAuthenticationCharacterizationTest extends AbstractInteg
     String adminToken = adminToken();
     long userId = createUserInCallerTenant(adminToken, uniqueCode("todelete") + "@test.local", "Passw0rd!");
 
-    mockMvc.perform(delete("/gestiondestock/v1/utilisateurs/delete/" + userId).header("Authorization", "Bearer " + adminToken))
+    mockMvc.perform(delete("/gestiondestock/v1/users/delete/" + userId)
+            .header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isOk());
 
-    mockMvc.perform(get("/gestiondestock/v1/utilisateurs/" + userId).header("Authorization", "Bearer " + adminToken))
+    mockMvc.perform(get("/gestiondestock/v1/users/" + userId)
+            .header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isNotFound());
   }
 
   @Test
-  public void createDoesNotRequireAnySpecificPermissionForAnyAuthenticatedUser() throws Exception {
-    // Bug connu, delibere, non corrige ici : create/delete/find n'ont aucune verification de
-    // permission au-dela de "authenticated()" (SecurityConfiguration). Un utilisateur fraichement
-    // cree, sans aucune UserRoleAssignment, peut quand meme creer un autre utilisateur.
-    String adminToken = adminToken();
-    String plainEmail = uniqueCode("plain") + "@test.local";
-    createUser(adminToken, plainEmail, "Passw0rd!");
-    String plainToken = login(plainEmail, "Passw0rd!");
-
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
-            .header("Authorization", "Bearer " + plainToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"nom\":\"Nom\",\"prenom\":\"Prenom\",\"email\":\"" + uniqueCode("byplain") + "@test.local\","
-                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
-                + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
-        .andExpect(status().isOk());
-  }
-
-  @Test
-  public void utilisateursCreateIsRejectedWithoutAuthentication() throws Exception {
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+  public void createIsRejectedWithoutAuthentication() throws Exception {
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Nom\",\"prenom\":\"Prenom\",\"email\":\"" + uniqueCode("anon") + "@test.local\","
-                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+                + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Passw0rd!\","
                 + "\"adresse\":{\"adresse1\":\"x\",\"ville\":\"x\",\"pays\":\"x\",\"codePostale\":\"00000\"}}"))
         .andExpect(status().isForbidden());
   }

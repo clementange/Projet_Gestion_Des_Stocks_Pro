@@ -120,10 +120,10 @@ public class SecurityFilterChainIntegrationTest extends AbstractIntegrationTest 
     // trouvee et corrigee lors de l'audit curl manuel).
     String email = "nolink-" + UUID.randomUUID().toString().substring(0, 8) + "@test.local";
     String createPayload = "{\"nom\":\"Sans Entreprise\",\"prenom\":\"Test\",\"email\":\"" + email + "\","
-        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"moteDePasse\":\"Passw0rd!\","
+        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Passw0rd!\","
         + "\"adresse\":{\"adresse1\":\"1 Rue\",\"ville\":\"Douala\",\"pays\":\"Cameroun\",\"codePostale\":\"00000\"}}";
 
-    mockMvc.perform(post("/gestiondestock/v1/utilisateurs/create")
+    mockMvc.perform(post("/gestiondestock/v1/users/create")
             .header("Authorization", "Bearer " + bootstrapAdminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(createPayload))
@@ -141,7 +141,7 @@ public class SecurityFilterChainIntegrationTest extends AbstractIntegrationTest 
   }
 
   /**
-   * /utilisateurs/create est protege (authenticated() seul, pas de permission fine sur ce
+   * /users/create est protege (authenticated(), plus la permission USER_CREATE depuis la Phase 5c ; ce
    * endpoint legacy) : il faut un token valide quelconque pour l'appeler. On en cree un via une
    * Entreprise jetable plutot que de dupliquer la logique de login.
    */

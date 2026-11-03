@@ -31,6 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Phase 5a : {@link #changePassword} est self-only (l'appelant doit etre la cible), sans
  * introduire de nouvelle permission RBAC pour un override admin - voir docs/phase-5a-report.md.
  *
+ * <p>Phase 5d : {@link #save} impose {@code idEntreprise} depuis le principal — le corps de la
+ * requete ne peut plus choisir le tenant du compte cree.
+ *
  * <p>Phase 5b-2c : {@link #findById}/{@link #findByEmail}/{@link #findAll}/{@link #delete} sont
  * scopes au tenant de l'appelant ({@code User.idEntreprise}, pas {@code organizationId}) ;
  * {@link #updatePhoto} devient self-only, meme motif que {@link #changePassword} - voir
@@ -50,7 +53,8 @@ public class UserController {
 
   @PostMapping(value = APP_ROOT + "/users/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public UserDto save(@RequestBody UserDto dto, @AuthenticationPrincipal ExtendedUser principal) {
-    return userService.save(dto, principal.getIdUtilisateur(), principal.getOrganizationId());
+    return userService.save(dto, principal.getIdEntreprise(), principal.getIdUtilisateur(),
+        principal.getOrganizationId());
   }
 
   @PostMapping(value = APP_ROOT + "/users/{id}/password", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)

@@ -1411,3 +1411,24 @@ comme contexte de log uniquement - l'intercepteur en etait le seul consommateur.
 `roles` n'est plus renvoye (RBAC via `/user-role-assignments/**`). Piege rencontre en portant les
 tests : `UserDto` ignore silencieusement `entreprise`, l'utilisateur se retrouve sans tenant et
 les verifications d'appartenance renvoient 404 au lieu de 400.
+
+## Phase 5d — le tenant d'un utilisateur cree ne vient plus du corps
+
+`POST /users/create` lisait `idEntreprise` depuis le CORPS. L'admin du tenant B pouvait creer un
+compte - mot de passe compris - directement dans le tenant A, compte qui resolvait ensuite
+l'`organizationId` de A au login. Porte d'entree permanente, pas simple fuite de lecture.
+
+**Classe de bug nouvelle pour ce depot** : appartenance d'un CHAMP du corps, et non de la
+ressource ciblee. Les trois garde-fous existants passaient a cote, chacun pour une bonne raison :
+la matrice de 5b-2h sonde l'id de la RESSOURCE, `hasPermission(USER_CREATE)` passe legitimement
+(B a bien le droit de creer des utilisateurs, juste pas chez A), et `CreationIdGuard` surveille
+`dto.getId()`, pas `dto.getIdEntreprise()`.
+
+Correctif : la variante gardee `save(dto, callerTenantId, userId, organizationId)` ECRASE
+`dto.setIdEntreprise(callerTenantId)`. Forcer, pas rejeter - envoyer son PROPRE tenant est un
+usage legitime et repandu, contrairement a un `id` sur une creation. Fail-closed si l'appelant
+n'a pas de tenant. L'amorcage de tenant garde la variante interne `save(dto)`, seule autorisee a
+choisir le tenant.
+
+A retenir pour la suite : **`UserDto.toEntity` n'a qu'un seul appelant**, et c'est ce qui rend
+l'audit concluant. Si un second apparait, cette garantie tombe.

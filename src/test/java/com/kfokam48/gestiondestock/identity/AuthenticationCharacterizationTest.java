@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kfokam48.gestiondestock.identity.application.UserService;
+import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
 import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.support.AbstractIntegrationTest;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
@@ -62,6 +64,9 @@ public class AuthenticationCharacterizationTest extends AbstractIntegrationTest 
   @Autowired
   private JwtUtil jwtUtil;
 
+  @Autowired
+  private UserService userService;
+
   private static String uniqueCode(String prefix) {
     return prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
   }
@@ -98,11 +103,28 @@ public class AuthenticationCharacterizationTest extends AbstractIntegrationTest 
   }
 
   /**
-   * Cree un utilisateur SANS tenant : {@link #loginSucceedsAndJwtCarriesExpectedClaims()}
-   * caracterise precisement ce cas (la reclamation {@code idEntreprise} doit rester absente).
+   * Phase 5d : {@code /users/create} impose le tenant de l'appelant, donc ce helper cree
+   * desormais l'utilisateur DANS le tenant de l'appelant, quoi que contienne le corps. Les tests
+   * qui en dependent ({@code login*}, {@code passwordChange*}) ne caracterisent pas le tenant,
+   * seulement l'authentification - leurs assertions sont inchangees.
    */
   private long createUser(String callerToken, String email, String password) throws Exception {
     return createUser(callerToken, email, password, null);
+  }
+
+  /**
+   * Cree un utilisateur SANS aucun tenant, via la variante interne du service - le seul chemin qui
+   * le permette encore depuis la Phase 5d. Utilise par
+   * {@link #loginOfATenantlessUserCarriesNoIdEntrepriseClaim()}, qui caracterise precisement ce
+   * cas limite (la reclamation doit etre absente, pas "0" ni une chaine vide).
+   */
+  private long createTenantlessUser(String email, String password) {
+    return userService.save(UserDto.builder()
+        .nom("Nom").prenom("Prenom").email(email)
+        .dateDeNaissance(Instant.parse("1990-01-01T00:00:00Z"))
+        .motDePasse(password)
+        .adresse(AdresseDto.builder().adresse1("x").ville("x").pays("x").codePostale("00000").build())
+        .build()).getId();
   }
 
   /**
@@ -139,8 +161,22 @@ public class AuthenticationCharacterizationTest extends AbstractIntegrationTest 
 
     assertEquals(email, jwtUtil.extractUsername(token));
     assertEquals(String.valueOf(userId), jwtUtil.extractIdUtilisateur(token));
-    // Cree sans idEntreprise dans le payload : la reclamation doit rester absente (null), pas "0"
-    // ni une chaine vide - comportement actuel documente dans ApplicationUserDetailsService.
+    // Phase 5d : l'utilisateur rejoint le tenant de l'appelant, la reclamation le porte donc
+    // desormais. L'absence de reclamation reste caracterisee ci-dessous, sur le seul cas qui peut
+    // encore la produire.
+    assertNotNull(jwtUtil.extractIdEntreprise(token));
+  }
+
+  @Test
+  public void loginOfATenantlessUserCarriesNoIdEntrepriseClaim() throws Exception {
+    // Assertion inchangee depuis la Phase 4a ; seule la fixture a change (voir
+    // createTenantlessUser). Elle verrouille une NullPointerException reelle de
+    // ApplicationUserDetailsService/JwtUtil sur un utilisateur sans Entreprise.
+    String email = uniqueCode("tenantless") + "@test.local";
+    createTenantlessUser(email, "Passw0rd!");
+
+    String token = login(email, "Passw0rd!");
+
     assertNull(jwtUtil.extractIdEntreprise(token));
   }
 

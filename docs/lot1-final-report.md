@@ -87,10 +87,12 @@ Elles sont détaillées dans chaque rapport ; la liste sert à ne pas les répé
 
 Par gravité décroissante :
 
-1. **⚠ `UserDto.idEntreprise` est accepté du client** sur `POST /users/create` : un appelant peut
-   créer un utilisateur dans le tenant d'autrui. C'est un défaut d'**appartenance**, hors
-   périmètre 5c, et la matrice ne le détecte pas (elle teste l'id de la ressource, pas ses
-   champs). **Gravité élevée.**
+1. ~~**`UserDto.idEntreprise` est accepté du client**~~ — **CORRIGÉ en Phase 5d** (reproduit par
+   un test rouge, `idEntreprise` désormais imposé depuis le principal, 274 tests verts). Voir
+   `docs/phase-5d-report.md`. **Reste ouvert** : la matrice ne sonde toujours pas les champs du
+   corps, donc les autres références imbriquées (point 4) demeurent non vérifiées — et, si l'API a
+   déjà été exposée, un audit des comptes éventuellement implantés avant le correctif est à
+   faire.
 2. **⚠ L'`Interceptor` supprimé retirait une défense en profondeur.** Condition du lot remplie
    (matrice + suite complète vertes sans lui), mais un test vert n'est pas une preuve de
    couverture. Le remettre est un changement d'une ligne dans `application.yml`. **À faire

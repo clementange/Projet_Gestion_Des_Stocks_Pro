@@ -12,8 +12,14 @@ public interface UserService {
    * sans permission reste necessaire a l'AMORCAGE d'un tenant : l'admin bootstrap est cree avant
    * qu'aucune affectation RBAC n'existe, donc aucune permission ne pourrait etre verifiee a ce
    * moment-la - voir docs/rbac-matrix.md.
+   *
+   * <p>Phase 5d : {@code callerTenantId} IMPOSE le tenant de l'utilisateur cree ; la valeur
+   * {@code idEntreprise} du corps de la requete est ignoree. Sans cela, l'admin d'un tenant
+   * pouvait implanter un compte — mot de passe compris — dans le tenant d'autrui. C'est pourquoi
+   * cette surcharge prend le tenant de l'appelant et la variante d'amorcage, non : elle seule a
+   * le droit de choisir le tenant - voir docs/phase-5d-report.md.
    */
-  UserDto save(UserDto dto, Long userId, Long organizationId);
+  UserDto save(UserDto dto, Long callerTenantId, Long userId, Long organizationId);
 
   UserDto findById(Long id);
 

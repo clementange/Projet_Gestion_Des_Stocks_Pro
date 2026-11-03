@@ -196,8 +196,19 @@ public class UserServiceImpl implements UserService {
   }
   // Phase 5c : voir docs/rbac-matrix.md.
   @Override
-  public UserDto save(UserDto dto, Long userId, Long organizationId) {
+  public UserDto save(UserDto dto, Long callerTenantId, Long userId, Long organizationId) {
     requirePermission(userId, "USER_CREATE", organizationId);
+    // Phase 5d : fail-closed. Un appelant sans tenant n'a aucun tenant ou creer, et le laisser
+    // passer produirait un compte orphelin invisible aux lectures scopees.
+    if (callerTenantId == null) {
+      log.warn("User {} without a tenant tried to create a user", userId);
+      throw new InvalidOperationException(
+          "Vous n'avez pas la permission d'effectuer cette action",
+          ErrorCodes.USER_ACCESS_DENIED);
+    }
+    // Le tenant est impose depuis le principal : la valeur du corps est ecrasee, jamais lue.
+    // Meme posture que /cities/filter/organization/{id} en 5b-2h (seul le principal fait foi).
+    dto.setIdEntreprise(callerTenantId);
     return save(dto);
   }
 

@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfokam48.gestiondestock.shared.AdresseDto;
 import com.kfokam48.gestiondestock.tenant.application.dto.TenantRegistrationRequest;
 import java.time.Instant;
+import com.kfokam48.gestiondestock.identity.application.dto.UserDto;
 import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,6 +49,9 @@ public class SecurityFilterChainIntegrationTest extends AbstractIntegrationTest 
 
   @Autowired
   private ObjectMapper objectMapper;
+
+  @Autowired
+  private com.kfokam48.gestiondestock.identity.application.UserService userService;
 
   private static String uniqueEmail() {
     return "sec-" + UUID.randomUUID().toString().substring(0, 8) + "@test.local";
@@ -118,16 +122,20 @@ public class SecurityFilterChainIntegrationTest extends AbstractIntegrationTest 
     // Un Utilisateur peut exister sans Entreprise (UtilisateurValidator ne l'exige pas) :
     // ApplicationUserDetailsService/JwtUtil ne doivent pas planter dessus (NullPointerException
     // trouvee et corrigee lors de l'audit curl manuel).
+    // Phase 5d : /users/create impose desormais le tenant de l'appelant, donc un utilisateur sans
+    // Entreprise n'est plus creable par HTTP. L'assertion ci-dessous est INCHANGEE - seule la
+    // fixture change : le compte est cree par la variante interne du service (celle que
+    // l'amorcage de tenant utilise), seule capable de produire ce cas. Supprimer ce test aurait
+    // perdu la couverture d'une NullPointerException reelle de
+    // ApplicationUserDetailsService/JwtUtil, trouvee lors d'un audit curl manuel.
     String email = "nolink-" + UUID.randomUUID().toString().substring(0, 8) + "@test.local";
-    String createPayload = "{\"nom\":\"Sans Entreprise\",\"prenom\":\"Test\",\"email\":\"" + email + "\","
-        + "\"dateDeNaissance\":\"1990-01-01T00:00:00Z\",\"motDePasse\":\"Passw0rd!\","
-        + "\"adresse\":{\"adresse1\":\"1 Rue\",\"ville\":\"Douala\",\"pays\":\"Cameroun\",\"codePostale\":\"00000\"}}";
-
-    mockMvc.perform(post("/gestiondestock/v1/users/create")
-            .header("Authorization", "Bearer " + bootstrapAdminToken())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(createPayload))
-        .andExpect(status().isOk());
+    userService.save(UserDto.builder()
+        .nom("Sans Entreprise").prenom("Test").email(email)
+        .dateDeNaissance(Instant.parse("1990-01-01T00:00:00Z"))
+        .motDePasse("Passw0rd!")
+        .adresse(AdresseDto.builder().adresse1("1 Rue").ville("Douala").pays("Cameroun")
+            .codePostale("00000").build())
+        .build());
 
     String loginPayload = "{\"login\":\"" + email + "\",\"password\":\"Passw0rd!\"}";
     MvcResult loginResult = mockMvc.perform(post("/gestiondestock/v1/auth/authenticate")

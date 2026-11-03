@@ -2,6 +2,7 @@ package com.kfokam48.gestiondestock.identity.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
+import com.kfokam48.gestiondestock.identity.application.UserService;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
 import com.kfokam48.gestiondestock.identity.application.UserRoleAssignmentService;
 import com.kfokam48.gestiondestock.identity.application.dto.UserRoleAssignmentDto;
@@ -29,12 +30,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserRoleAssignmentServiceImpl implements UserRoleAssignmentService {
 
   private UserRoleAssignmentRepository userRoleAssignmentRepository;
+  private UserService userService;
   private RoleRepository roleRepository;
 
   @Autowired
   public UserRoleAssignmentServiceImpl(UserRoleAssignmentRepository userRoleAssignmentRepository,
-      RoleRepository roleRepository) {
+      RoleRepository roleRepository,
+      UserService userService) {
     this.userRoleAssignmentRepository = userRoleAssignmentRepository;
+    this.userService = userService;
     this.roleRepository = roleRepository;
   }
 
@@ -118,5 +122,27 @@ public class UserRoleAssignmentServiceImpl implements UserRoleAssignmentService 
       return;
     }
     userRoleAssignmentRepository.deleteById(id);
+  }
+  /**
+   * Phase 5f : l'{@code userId} arrivait du corps sans aucun controle - ni appartenance au tenant
+   * de l'appelant, ni meme existence. Il est desormais recharge via le finder deja scope de
+   * {@code UserService}, qui renvoie un {@code USER_NOT_FOUND} masque : pour l'appelant, un
+   * utilisateur d'un autre tenant n'existe pas.
+   *
+   * <p>Le scope est {@code User.idEntreprise} (Tenant.id) et non {@code organizationId} : c'est
+   * la colonne qui rattache un utilisateur a son tenant - meme distinction qu'en Phase 5b-2c.
+   */
+  // @Transactional est INDISPENSABLE ici : la classe est @Transactional(readOnly = true), et
+  // l'appel interne a save(dto) ci-dessous court-circuite le proxy Spring - l'annotation
+  // read-write portee par save(dto) ne s'appliquerait donc jamais. Sans cette ligne, l'insertion
+  // etait silencieusement abandonnee au commit : la reponse HTTP portait bien un id, mais la
+  // ligne n'existait pas. Trouve par CreateEndpointIdInjectionHttpIntegrationTest.
+  @Transactional
+  @Override
+  public UserRoleAssignmentDto save(UserRoleAssignmentDto dto, Long callerTenantId) {
+    if (dto != null && dto.getUserId() != null) {
+      userService.findById(dto.getUserId(), callerTenantId);
+    }
+    return save(dto);
   }
 }

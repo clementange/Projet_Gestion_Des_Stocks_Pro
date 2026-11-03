@@ -58,7 +58,8 @@ public class UserRoleAssignmentController {
     // accorder un role. TOUJOURS ecrase, pas seulement renseigne si absent - voir
     // docs/phase-5b2f-report.md.
     dto.setOrganizationId(principal.getOrganizationId());
-    return userRoleAssignmentService.save(dto);
+    // Phase 5f : l'utilisateur cible doit appartenir au tenant de l'appelant.
+    return userRoleAssignmentService.save(dto, principal.getIdEntreprise());
   }
 
   /**

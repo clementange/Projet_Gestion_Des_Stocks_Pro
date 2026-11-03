@@ -138,10 +138,9 @@ réécrit le nom de méthode du builder `.organizationId(` en `.organization.get
   neuf introduit une douzième référence non vérifiée. Un test d'inventaire dérivé du
   `RequestMappingHandlerMapping`, comme `WriteEndpointPermissionGateTest` le fait pour les
   permissions, serait la vraie protection. **Reste au backlog.**
-- **`UserRoleAssignment.userId` n'est pas vérifié** : l'admin de B peut attribuer un rôle de SON
-  organisation à un utilisateur de A. L'`organizationId` étant forcé depuis le principal (5b-2f),
-  ce n'est pas un vol inter-tenant mais une **auto-exposition** : B fait entrer un étranger chez
-  lui. Gravité faible, hors périmètre, ajouté au backlog.
+- ~~**`UserRoleAssignment.userId` n'est pas vérifié**~~ — **CORRIGÉ en Phase 5f** : refusé à la
+  création via le finder scopé, et l'analyse y montre que le grant était de toute façon inerte
+  (`hasPermission` filtre par l'organisation de l'appelant). Voir `docs/phase-5f-report.md`.
 - **Les agrégats déjà créés avec des références étrangères ne sont pas détectés.** Le correctif
   ferme la porte, il ne fait pas l'inventaire du passé. Même réserve qu'en 5d : audit de données à
   prévoir si l'API a déjà été exposée.

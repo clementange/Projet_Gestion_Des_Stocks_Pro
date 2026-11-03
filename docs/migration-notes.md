@@ -1465,3 +1465,35 @@ seul chemin correct.
 `customerId(1L)` / `supplierId(1L)` apparaissaient dans 6 tests : cet id ne designait AUCUNE
 entite reelle. Idem pour `createArticle()` qui fabriquait sa propre organisation jetable depuis la
 4e. Ces fixtures ne passaient que parce que rien ne croisait les references.
+
+## Phase 5f — l'utilisateur cible d'une affectation de role
+
+`POST /user-role-assignments/create` acceptait n'importe quel `userId` : ni appartenance au tenant
+de l'appelant, ni meme existence (un entier arbitraire suffisait).
+
+**Gravite reelle, a ne pas surestimer** : ce n'etait PAS une escalade. `hasPermission` ne retient
+que les affectations dont l'`organizationId` egale celui de l'APPELANT, et `organizationId` est
+impose depuis le principal depuis 5b-2f : une affectation creee par B pour un utilisateur de A est
+inerte. L'enjeu etait l'integrite du referentiel RBAC et un risque DORMANT (utilisateur deplace de
+tenant, ou futur chemin de lecture moins filtre). D'ou un refus a la creation plutot qu'une
+confiance dans le filtrage en aval.
+
+### Le piege `@Transactional(readOnly = true)` + auto-invocation
+
+**A retenir absolument pour toute surcharge gardee de ce type.** `UserRoleAssignmentServiceImpl`
+porte `@Transactional(readOnly = true)` au niveau CLASSE. Ma nouvelle methode
+`save(dto, callerTenantId)` n'etait pas annotee : elle heritait donc du read-only, et son appel
+interne a `save(dto)` court-circuitait le proxy Spring - le `@Transactional` read-write de
+`save(dto)` n'etait JAMAIS applique. **L'insertion etait silencieusement abandonnee au commit** :
+la reponse HTTP portait un id (alloue par la sequence), la ligne n'existait pas.
+
+Deux lecons :
+- **une assertion sur la reponse d'un POST ne prouve pas la persistance** - il faut RELIRE. Mon
+  propre test ne voyait rien ; c'est un test preexistant qui relisait l'affectation qui l'a
+  attrape.
+- sur une classe `readOnly = true`, toute methode d'ecriture doit porter `@Transactional`, y
+  compris celle qui ne fait que deleguer.
+
+Audit fait : seules `RoleServiceImpl` et `AuthorizationServiceImpl` sont aussi `readOnly` au niveau
+classe, et aucune n'a de surcharge deleguante. `UserServiceImpl` (surcharges de 5d) n'a aucune
+annotation de classe, donc pas de read-only herite.

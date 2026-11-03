@@ -16,10 +16,11 @@ spring:
       # au lieu de laisser Hibernate le modifier silencieusement (Phase 11).
       ddl-auto: validate
       dialect: org.hibernate.dialect.PostgreSQLDialect
-    properties:
-      hibernate:
-        session_factory:
-          statement_inspector: com.kfokam48.gestiondestock.interceptor.Interceptor
+    # Phase 4e : le statement_inspector interceptor.Interceptor (reecriture SQL d'isolation
+    # multi-tenant) est SUPPRIME. L'isolation repose desormais entierement sur les verifications
+    # d'appartenance explicites des Phases 5b-2a a 5b-2h, prouvees par
+    # CrossTenantEndpointMatrixTest. Preuve avant suppression : suite complete verte (271 tests)
+    # ET matrice inter-tenant verte avec l'intercepteur desactive - voir docs/phase-4e-report.md.
   flyway:
     enabled: true
     locations: classpath:db/migration

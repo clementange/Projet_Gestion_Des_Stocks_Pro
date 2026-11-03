@@ -11,9 +11,9 @@ import java.util.Set;
  * s'appuient sur le meme {@link DescribedPredicate}, puisque {@code ApplicationModules.of(Class,
  * DescribedPredicate)} de Spring Modulith accepte directement un predicat ArchUnit.
  *
- * <p>Les dix packages listes ici (model, services, dto, controller, validator, repository,
- * exception, handlers, interceptor, config, utils) sont les adaptateurs de compatibilite legacy
- * decrits dans CLAUDE.md — jamais concus comme des modules, en cours d'extinction (Phase 4). Sans
+ * <p>Les packages listes ici (validator, exception, handlers, config, utils) sont des packages
+ * TECHNIQUES — jamais concus comme des modules metier. Les cinq paquets plats legacy (model,
+ * services, dto, controller, repository) ont, eux, ete vides et supprimes en Phase 4e. Sans
  * cette exclusion, Spring Modulith/ArchUnit les traitent par defaut comme des modules a part
  * entiere et produisent des cycles/violations artificiels sans rapport avec les regles verifiees
  * ici (voir docs/phase-1-report.md pour le detail du run brut).
@@ -28,7 +28,7 @@ public final class ModuleBoundaries {
    * {@code repository} ont ete VIDES et supprimes. Ne restent que des paquets TECHNIQUES, qui
    * n'ont jamais ete des modules metier et ne le deviendront pas : plomberie Spring
    * ({@code config}), utilitaires ({@code utils}, {@code validator}), erreurs
-   * ({@code exception}, {@code handlers}) et l'intercepteur d'isolation ({@code interceptor}).
+   * ({@code exception}, {@code handlers}).
    *
    * <p>{@code shared} et {@code legacy}, eux, sont de VRAIS modules et ne figurent
    * volontairement pas ici : leurs dependances doivent etre verifiees comme celles des autres -
@@ -36,7 +36,7 @@ public final class ModuleBoundaries {
    * {@code ArticleUsagePort} (voir docs/phase-4e-report.md).
    */
   public static final Set<String> LEGACY_FLAT_PACKAGES = Set.of(
-      "validator", "exception", "handlers", "interceptor", "config", "utils");
+      "validator", "exception", "handlers", "config", "utils");
 
   public static final DescribedPredicate<JavaClass> IN_LEGACY_FLAT_PACKAGE =
       new DescribedPredicate<>("dans un package legacy plat (pas un module)") {

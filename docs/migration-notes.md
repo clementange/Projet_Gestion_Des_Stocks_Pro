@@ -1363,3 +1363,51 @@ utilisateurs non-admin existants perdent l'acces en ecriture tant qu'aucun role 
 attribue** - changement de comportement assume et signale. Les quatre roles metier standards
 (magasinier, commercial, acheteur, lecture seule) sont **proposes** dans `docs/rbac-matrix.md`,
 pas seedes.
+
+## Phase 4e — Suppression du legacy plat
+
+### Les paquets plats masquaient de vrais cycles
+
+`ModuleBoundaries.LEGACY_FLAT_PACKAGES` excluait les paquets plats du graphe de modules : y laisser
+une classe suffisait a CACHER une dependance circulaire. Les vider en a revele deux
+immediatement, rejetes au premier run par ModularityTests :
+
+1. **`identity <-> tenant`** : `ApplicationUserDetailsService` compose `UserService` ET
+   `TenantService`, or `TenantRegistrationServiceImpl` appelle deja `UserService`. La classe va
+   donc dans `config/` (plomberie de securite), pas dans `identity`.
+2. **`catalog <-> legacy`** : `ArticleServiceImpl.delete` lisait les repositories de lignes
+   historiques, alors que ces entites portent un `@ManyToOne Article`. Resolu par inversion :
+   `catalog.domain.port.ArticleUsagePort` declare le besoin, `legacy.LegacyArticleUsageAdapter`
+   le satisfait.
+
+A savoir pour la suite : **`shared` et `legacy` sont de VRAIS modules**, volontairement absents de
+la liste d'exclusion. C'est ce qui permet aux regles de mordre. Ne les y ajoutez pas « pour faire
+passer le build ».
+
+### Le code a corrige le plan sur le cluster historique
+
+La carte annoncait la suppression de neuf entites sur la foi des seuls importateurs. Les mappings
+JPA disent autre chose : les trois entites de ligne portent un `@ManyToOne` vers leur parent, et
+`LigneVenteDto` expose `vente` dans son JSON. Tout le cluster est une seule piece, et il porte
+l'historique ANTERIEUR a la migration que `/articles/historique/**` fusionne avec les tables des
+modules. Supprimer = retirer des donnees de la reponse HTTP. Donc **deplace** dans un module
+`legacy` explicite, pas supprime.
+
+Lecon generale : pour une entite JPA, les importateurs ne suffisent pas - il faut lire les
+relations.
+
+### Plus aucun filet SQL pour l'isolation multi-tenant
+
+`interceptor/Interceptor` est supprime apres verification (matrice inter-tenant verte ET suite
+complete verte sans lui). **L'isolation repose desormais entierement sur les verifications
+d'appartenance explicites.** Une lecture qui oublie la sienne fuit, sans rattrapage. Le remettre
+est un changement d'une ligne dans `application.yml`. `MDC.put("idEntreprise", ...)` est conserve
+comme contexte de log uniquement - l'intercepteur en etait le seul consommateur.
+
+### `/utilisateurs/**` n'existe plus
+
+`/users/**` est le contrat canonique. Differences pour tout appelant : `moteDePasse` ->
+`motDePasse`, `entreprise:{id}` -> `idEntreprise`, codes `UTILISATEUR_*` -> `USER_*`, et le champ
+`roles` n'est plus renvoye (RBAC via `/user-role-assignments/**`). Piege rencontre en portant les
+tests : `UserDto` ignore silencieusement `entreprise`, l'utilisateur se retrouve sans tenant et
+les verifications d'appartenance renvoient 404 au lieu de 400.

@@ -74,6 +74,9 @@ public class ApplicationRequestFilter extends OncePerRequestFilter {
         log.warn("Rejected JWT for unknown user {}: {}", userEmail, e.getMessage());
       }
     }
+    // Phase 4e : interceptor.Interceptor etait le seul CONSOMMATEUR de cette valeur MDC (il
+    // reecrivait le SQL avec). Il est supprime ; la mise en MDC est conservee comme contexte de
+    // log (correlation par tenant), plus comme mecanisme d'isolation.
     MDC.put("idEntreprise", idEntreprise);
     chain.doFilter(request, response);
   }

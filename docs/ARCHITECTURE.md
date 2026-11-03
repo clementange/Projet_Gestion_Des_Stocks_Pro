@@ -39,9 +39,9 @@ C4Container
     Person(user, "Utilisateur métier")
 
     Container_Boundary(api, "gestion-de-stock-api (Spring Boot 3.3.5, un seul JAR déployé)") {
-        Container(web, "API REST", "Spring MVC + springdoc-openapi", "Contrôleurs presentation/ de chaque module + contrôleurs legacy controller/api")
+        Container(web, "API REST", "Spring MVC + springdoc-openapi", "Contrôleurs presentation/rest de chaque module (plus aucun contrôleur hors module depuis la Phase 4e)")
         Container(security, "Sécurité", "Spring Security 6 + JJWT 0.11.5", "Authentification JWT stateless (SecurityFilterChain)")
-        Container(modules, "Modules métier", "Java, package-par-module", "organization, identity, catalog, inventory, purchasing, sales, transfers, reporting + legacy model/services")
+        Container(modules, "Modules métier", "Java, package-par-module", "organization, identity, catalog, inventory, purchasing, sales, transfers, reporting, tenant, media + shared (briques transverses) et legacy (historique pré-migration)")
     }
 
     ContainerDb(pg, "PostgreSQL 14", "Relationnel", "Un seul schéma, migré par Flyway (V1, V2)")
@@ -343,22 +343,29 @@ classDiagram
 
 ## 5. UML — Architecture des modules (dépendances autorisées)
 
-**Mise à jour Phase 16-23** : le nœud `legacy` n'est plus un système parallèle non raccordé —
-`controller/`+`services/impl/` (Client, Fournisseur, Ventes, CommandeClient, CommandeFournisseur,
-MvtStk) sont désormais de purs adaptateurs HTTP qui **délèguent** aux modules `sales`/`purchasing`/
-`inventory`/`organization` (voir §11). Ce qui reste dans `model/`/`repository/` n'est plus
-qu'un **substrat de données** conservé pour deux raisons concrètes, pas par défaut de travail :
-(1) `Entreprise`/`EntrepriseRepository` est le pont actif `idEntreprise → organizationId` que ces
-cinq adaptateurs résolvent à chaque requête (le supprimer casserait les cinq d'un coup) ; (2)
-`LigneVente`/`LigneCommandeClient`/`LigneCommandeFournisseur` (+ leurs parents `Ventes`/
-`CommandeClient`/`CommandeFournisseur`/`Client`/`Fournisseur` requis par le type JPA) sont encore
-lus par `catalog.ArticleServiceImpl` (historique par article + garde-fou de suppression), fusionnés
-avec les nouvelles tables `sale_line`/`customer_order_line`/`purchase_order_line` pour ne pas
-perdre l'historique pré-migration. `Roles`/`RolesRepository`/`RolesDto` restent aussi (plus aucun
-écrivain depuis la Phase 17) car `UtilisateurDto.roles` fait encore partie du contrat JSON de
-`/utilisateurs/*`. Les 7 repositories vraiment morts (`ClientRepository`, `FournisseurRepository`,
-`VentesRepository`, `CommandeClientRepository`, `CommandeFournisseurRepository`, `MvtStkRepository`,
-`RolesRepository` — zéro consommateur confirmé par grep) ont été supprimés.
+**Mise à jour Phase 4e** : les cinq paquets plats legacy (`model/`, `dto/`, `repository/`,
+`services/`, `controller/`) **n'existent plus**. La règle ArchUnit
+`the_flat_legacy_packages_must_never_come_back` interdit de les recréer. Ce qui en restait a été
+réparti en trois :
+
+- **`shared/`** — `AbstractEntity`, `Adresse`, `AdresseDto`, `ExtendedUser` : briques utilisées par
+  tous les modules, placées dans la racine du paquet (interface publique par défaut pour Modulith).
+- **`identity/` + `config/`** — l'authentification. `AuthenticationController`/`Api` et
+  `AuthenticationRequest`/`Response` sont dans `identity` ; `ApplicationUserDetailsService` est
+  dans `config/` car il compose `identity` **et** `tenant`, et le mettre dans `identity` crée un
+  cycle `identity ↔ tenant` (voir §9a).
+- **`legacy/`** — 18 classes, et rien d'autre : les trois tables plates `lignevente`,
+  `lignecommandeclient`, `lignecommandefournisseur`, leurs parents requis par le type JPA
+  (`Ventes`, `CommandeClient`, `CommandeFournisseur`, `Client`, `Fournisseur`, `EtatCommande`),
+  leurs DTO et leurs repositories. Elles portent l'historique **antérieur à la migration**, que
+  les tables des modules ne contiennent pas, et que `/articles/historique/**` fusionne avec elles.
+  Les supprimer retirerait des données de la réponse HTTP. Ce module ne doit pas grossir.
+
+`catalog` ne connaît plus `legacy` : `ArticleServiceImpl.delete` passe par
+`catalog.domain.port.ArticleUsagePort`, que `legacy.LegacyArticleUsageAdapter` implémente —
+inversion de dépendance qui supprime le cycle `catalog ↔ legacy` révélé en faisant de `legacy` un
+vrai module. Le contrat `/utilisateurs/**` et les doublons `Entreprise`/`Utilisateur`/`Roles` ont
+été supprimés (voir `docs/api-migration-map.md`).
 
 ```mermaid
 graph TD
@@ -371,8 +378,7 @@ graph TD
     sales["sales<br/>(Sale/CustomerOrder/Customer)"]
     transfers["transfers<br/>(StockTransfer)"]
     reporting["reporting<br/>(lecture seule cross-module)"]
-    legacyAdapters["legacy adapters<br/>(controller/services impl)<br/>Client, Fournisseur, Ventes, CommandeClient, CommandeFournisseur, MvtStk, Entreprise"]
-    legacyData["legacy data substrate<br/>(model/repository restants)<br/>Entreprise (pont idEntreprise), lignes historiques, Roles (mort, lu par contrat)"]
+    legacyData["legacy<br/>(module explicite, Phase 4e)<br/>historique pré-migration : lignes de vente et de commande + parents JPA"]
 
     organization --> shared
     identity --> shared
@@ -393,21 +399,24 @@ graph TD
     reporting -- "lecture" --> organization
     reporting -- "lecture" --> sales
     reporting -- "hasPermission" --> identity
-    legacyAdapters -- "delegue" --> sales
-    legacyAdapters -- "delegue" --> purchasing
-    legacyAdapters -- "delegue" --> inventory
-    legacyAdapters -- "delegue" --> organization
-    catalog -- "historique fusionne" --> legacyData
-    legacyAdapters -.-> legacyData
+    legacyData -- "Article, ArticleDto" --> catalog
+    legacyData -- "ArticleUsagePort" --> catalog
+    sales -- "historique fusionne" --> legacyData
+    purchasing -- "historique fusionne" --> legacyData
 
     style legacyData fill:#f9d,stroke:#933
 ```
 
 Légende : trait plein = dépendance de construction du modèle (référence de domaine ou appel de
 facade) ; trait pointillé = couplage transitoire toléré (`catalog → organization` est une FK
-nullable en cours d'adoption ; `legacyAdapters → legacyData` est la résolution `idEntreprise` et
-l'écriture legacy résiduelle). `legacyData` (rose) est le seul nœud encore non éliminable — voir
-§11 pour la justification détaillée classe par classe.
+nullable en cours d'adoption).
+
+**Le sens des flèches autour de `legacyData` a changé en Phase 4e** : `legacy` dépend de `catalog`
+(ses entités portent un `@ManyToOne Article`) et **fournit** `catalog.domain.port.ArticleUsagePort`
+— `catalog` ne dépend plus de `legacy`. Les deux contrôleurs d'historique
+(`sales`/`purchasing presentation/rest/legacy`) lisent `legacy` directement. `legacyData` (rose)
+reste le seul nœud non éliminable : il porte des données que les tables des modules n'ont pas —
+voir `docs/api-migration-map.md` §5.
 
 ---
 
@@ -603,7 +612,7 @@ consommé aujourd'hui par `reporting` **et** par les 4 services d'écriture (`Sa
 d'authentification (9a) ; ce que Phase 14 a changé, c'est qu'il alimente maintenant 9b au lieu
 d'être un système parallèle non consommé.
 
-### 9a. Authentification JWT (`services/auth`, `config/SecurityConfiguration`)
+### 9a. Authentification JWT (`identity/presentation/rest`, `config/`)
 
 ```mermaid
 sequenceDiagram
@@ -700,7 +709,7 @@ l'exige la section 46 du prompt maître.
 ## 11. Phases 16-23 — Décommissionnement du legacy (adaptateurs, pas suppression totale)
 
 Plan détaillé : `~/.claude/plans/reflective-conjuring-horizon.md`. Objectif de départ : éliminer
-toute duplication d'organisation entre le legacy plat (`model/services/controller/repository`) et
+toute duplication d'organisation entre le legacy plat (`model`/`services`/`controller`/`repository`, supprimé depuis en Phase 4e) et
 les modules neufs. Résultat réel, vérifié par lecture du code avant d'écrire cette section (pas
 aspirationnel) : **la duplication de logique métier est éliminée**, mais la suppression physique
 totale des fichiers/tables legacy s'est révélée **non sûre** pour deux raisons concrètes

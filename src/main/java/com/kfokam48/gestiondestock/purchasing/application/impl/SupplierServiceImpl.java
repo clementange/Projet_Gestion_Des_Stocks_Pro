@@ -46,6 +46,12 @@ public class SupplierServiceImpl implements SupplierService {
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'un fournisseur");
+    // Phase 5e : l'organisation de la ressource creee est imposee ICI, depuis le parametre, et
+    // non plus seulement par le controleur. Un service qui recoit organizationId sans l'appliquer
+    // laisse tout appelant interne creer une ressource ORPHELINE (organisation nulle), invisible
+    // aux lectures scopees - voir docs/phase-5e-report.md.
+    dto.setOrganizationId(organizationId);
+
     List<String> errors = SupplierValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("Supplier is not valid {}", dto);

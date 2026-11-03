@@ -110,18 +110,18 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
         .type(SiteType.BOUTIQUE).active(true).city(city).build(), userWithAllWritePermissions(city.getOrganization().getId()), city.getOrganization().getId());
   }
 
-  // Phase 5c : categorie et article sont desormais crees dans une organisation explicite, avec un
-  // utilisateur autorise - aucune organisation n'etait en portee dans ce helper.
-  private ArticleDto createArticle() {
-    OrganizationDto organization = organizationService.save(
-        OrganizationDto.builder().name("Societe Article Sale").active(true).build());
+  // Phase 5e : l'article doit appartenir a la MEME organisation que l'agregat qui le reference.
+  // Ce helper creait sa propre organisation jetable depuis la Phase 4e - acceptable tant que rien
+  // ne croisait les references, incoherent maintenant. L'organisation est donc un parametre
+  // explicite - voir docs/phase-5e-report.md.
+  private ArticleDto createArticle(Long organizationId) {
     CategoryDto category = categoryService.save(
         CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
-        userWithAllWritePermissions(organization.getId()), organization.getId());
+        userWithAllWritePermissions(organizationId), organizationId);
     return articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
         .category(category).build(),
-        userWithAllWritePermissions(organization.getId()), organization.getId());
+        userWithAllWritePermissions(organizationId), organizationId);
   }
 
   @Test
@@ -130,7 +130,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto akwa = createBoutique(douala, "Boutique Akwa");
     SiteDto bonamoussadi = createBoutique(douala, "Boutique Bonamoussadi");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
 
     inventoryFacade.receive(article.getId(), akwa.getId(), BigDecimal.valueOf(50), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-AKWA", null);
     inventoryFacade.receive(article.getId(), bonamoussadi.getId(), BigDecimal.valueOf(30), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-BONA", null);
@@ -153,7 +153,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Dup").active(true).build());
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto akwa = createBoutique(douala, "Boutique Akwa");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     inventoryFacade.receive(article.getId(), akwa.getId(), BigDecimal.valueOf(50), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
     Long userId = grantSaleCreate(akwa, organization.getId());
     String code = uniqueCode("VEN");
@@ -173,7 +173,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto akwa = createBoutique(douala, "Boutique Akwa");
     SiteDto entrepotCentral = createBoutique(douala, "Entrepot Central");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
 
     // Akwa n'a que 5 unites, l'entrepot central en a 500 : la vente a Akwa doit quand meme
     // etre refusee, sans bascule automatique sur le stock de l'entrepot (decision V1).
@@ -197,8 +197,8 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Z").active(true).build());
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto site = createBoutique(douala, "Boutique Test");
-    ArticleDto articleOk = createArticle();
-    ArticleDto articleInsuffisant = createArticle();
+    ArticleDto articleOk = createArticle(organization.getId());
+    ArticleDto articleInsuffisant = createArticle(organization.getId());
 
     inventoryFacade.receive(articleOk.getId(), site.getId(), BigDecimal.valueOf(20), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-1", null);
     inventoryFacade.receive(articleInsuffisant.getId(), site.getId(), BigDecimal.valueOf(2), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-2", null);
@@ -225,7 +225,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     CityDto cityA = cityService.save(CityDto.builder().name("Douala").organization(orgA).build(),
         userWithAllWritePermissions(orgA.getId()), orgA.getId());
     SiteDto siteA = createBoutique(cityA, "Boutique A");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(orgA.getId());
     inventoryFacade.receive(article.getId(), siteA.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
     Long userId = grantSaleCreate(siteA, orgA.getId());
     SaleDto sale = saleService.create(SaleDto.builder().code(uniqueCode("VEN")).site(siteA).build(),
@@ -244,7 +244,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
   /**
    * Phase 5b-2b : avant ce correctif, un appelant avec une affectation GLOBAL dans son
    * organisation pouvait creer une vente sur le site de N'IMPORTE QUELLE AUTRE organisation - la
-   * verification hasPermission(..., ScopeType.SITE, siteId, organizationId) filtre les
+   * verification hasPermission(..., ScopeType.SITE, siteId, organization.getId()) filtre les
    * affectations sur l'organisation de l'appelant PUIS matche GLOBAL sans jamais verifier que le
    * siteId demande appartient reellement a cette organisation. requireSiteInOrganization ferme ce
    * contournement independamment de hasPermission - voir docs/phase-5b2b-report.md.
@@ -256,7 +256,7 @@ public class SaleServiceIntegrationTest extends AbstractIntegrationTest {
     CityDto cityB = cityService.save(CityDto.builder().name("Yaounde").organization(orgB).build(),
         userWithAllWritePermissions(orgB.getId()), orgB.getId());
     SiteDto siteB = createBoutique(cityB, "Boutique B");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(orgA.getId());
     inventoryFacade.receive(article.getId(), siteB.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     PermissionDto permission;

@@ -2,6 +2,7 @@ package com.kfokam48.gestiondestock.inventory.presentation.rest;
 
 import static com.kfokam48.gestiondestock.utils.Constants.APP_ROOT;
 
+import com.kfokam48.gestiondestock.catalog.application.ArticleService;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.exception.InvalidOperationException;
 import com.kfokam48.gestiondestock.identity.application.AuthorizationService;
@@ -44,13 +45,16 @@ public class InventoryController {
 
   private InventoryFacade inventoryFacade;
   private SiteService siteService;
+  private ArticleService articleService;
   private AuthorizationService authorizationService;
 
   @Autowired
   public InventoryController(InventoryFacade inventoryFacade, SiteService siteService,
-      AuthorizationService authorizationService) {
+      AuthorizationService authorizationService,
+      ArticleService articleService) {
     this.inventoryFacade = inventoryFacade;
     this.siteService = siteService;
+    this.articleService = articleService;
     this.authorizationService = authorizationService;
   }
 
@@ -75,8 +79,14 @@ public class InventoryController {
    * RBAC elle-meme, meme ordre que requireSiteInOrganization avant hasPermission (5b-2b) et le
    * garde-fou d'appartenance de UserRoleAssignment (5b-2c).
    */
-  private void requirePermissionOnOwnSite(Long idSite, ExtendedUser principal, String permissionCode, ErrorCodes deniedCode) {
+  private void requirePermissionOnOwnSiteAndArticle(Long idArticle, Long idSite, ExtendedUser principal,
+      String permissionCode, ErrorCodes deniedCode) {
     siteService.findById(idSite, principal.getOrganizationId());
+    // Phase 5e : l'appartenance du SITE etait verifiee (5b-2d), celle de l'ARTICLE non. Le tenant
+    // B pouvait donc creer un mouvement de stock sur l'article du tenant A, vers son propre site -
+    // ce qui rendait au passage cet article lisible via GET /stocks/article/{id}/site/{id}.
+    // Meme finder scope que les lectures : ARTICLE_NOT_FOUND masque - voir docs/phase-5e-report.md.
+    articleService.findById(idArticle, principal.getOrganizationId());
     if (!authorizationService.hasPermission(principal.getIdUtilisateur(), permissionCode, ScopeType.SITE, idSite, principal.getOrganizationId())) {
       log.warn("User {} tried to {} on site {} without permission", principal.getIdUtilisateur(), permissionCode, idSite);
       throw new InvalidOperationException(
@@ -89,7 +99,7 @@ public class InventoryController {
   public StockMovementDto receive(@PathVariable("idArticle") Long idArticle, @PathVariable("idSite") Long idSite,
       @RequestParam BigDecimal quantite, @RequestParam(required = false) String reference,
       @AuthenticationPrincipal ExtendedUser principal) {
-    requirePermissionOnOwnSite(idSite, principal, STOCK_RECEIVE, ErrorCodes.STOCK_ACCESS_DENIED);
+    requirePermissionOnOwnSiteAndArticle(idArticle, idSite, principal, STOCK_RECEIVE, ErrorCodes.STOCK_ACCESS_DENIED);
     return inventoryFacade.receive(idArticle, idSite, quantite, StockMovementSource.CORRECTION, reference, principal.getIdUtilisateur());
   }
 
@@ -97,7 +107,7 @@ public class InventoryController {
   public StockMovementDto issue(@PathVariable("idArticle") Long idArticle, @PathVariable("idSite") Long idSite,
       @RequestParam BigDecimal quantite, @RequestParam(required = false) String reference,
       @AuthenticationPrincipal ExtendedUser principal) {
-    requirePermissionOnOwnSite(idSite, principal, STOCK_ISSUE, ErrorCodes.STOCK_ACCESS_DENIED);
+    requirePermissionOnOwnSiteAndArticle(idArticle, idSite, principal, STOCK_ISSUE, ErrorCodes.STOCK_ACCESS_DENIED);
     return inventoryFacade.issue(idArticle, idSite, quantite, StockMovementSource.CORRECTION, reference, principal.getIdUtilisateur());
   }
 
@@ -105,7 +115,7 @@ public class InventoryController {
   public StockMovementDto correct(@PathVariable("idArticle") Long idArticle, @PathVariable("idSite") Long idSite,
       @RequestParam BigDecimal delta, @RequestParam(required = false) String reference,
       @AuthenticationPrincipal ExtendedUser principal) {
-    requirePermissionOnOwnSite(idSite, principal, STOCK_CORRECT, ErrorCodes.STOCK_ACCESS_DENIED);
+    requirePermissionOnOwnSiteAndArticle(idArticle, idSite, principal, STOCK_CORRECT, ErrorCodes.STOCK_ACCESS_DENIED);
     return inventoryFacade.correct(idArticle, idSite, delta, reference, principal.getIdUtilisateur());
   }
 }

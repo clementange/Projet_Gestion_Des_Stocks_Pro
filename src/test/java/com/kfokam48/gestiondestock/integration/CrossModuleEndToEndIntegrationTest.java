@@ -63,6 +63,10 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
 
   @Autowired
   private OrganizationService organizationService;
+
+  // Phase 5e : voir CustomerOrderServiceIntegrationTest.
+  @Autowired
+  private com.kfokam48.gestiondestock.purchasing.application.SupplierService supplierService;
   @Autowired
   private CityService cityService;
   @Autowired
@@ -144,7 +148,7 @@ public class CrossModuleEndToEndIntegrationTest extends AbstractIntegrationTest 
 
     // 3. Achat : commande fournisseur de 500 unites, receptionnee integralement a l'entrepot.
     PurchaseOrderDto commandeFournisseur = purchaseOrderService.create(
-        PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(entrepotCentral).build(),
+        PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(supplierService.save(com.kfokam48.gestiondestock.purchasing.application.dto.SupplierDto.builder().nom("Fournisseur " + uniqueCode("F")).build(), userWithAllWritePermissions(societeX.getId()), societeX.getId()).getId()).site(entrepotCentral).build(),
         List.of(PurchaseOrderLineDto.builder().article(ord001).quantiteCommandee(BigDecimal.valueOf(500)).prixUnitaire(BigDecimal.valueOf(400)).build()), userWithAllWritePermissions(organizationId), organizationId);
     purchaseOrderService.validate(commandeFournisseur.getId(), userWithAllWritePermissions(organizationId), organizationId);
     Long ligneCommande = purchaseOrderService.findLines(commandeFournisseur.getId(), organizationId).get(0).getId();

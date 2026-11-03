@@ -1432,3 +1432,36 @@ choisir le tenant.
 
 A retenir pour la suite : **`UserDto.toEntity` n'a qu'un seul appelant**, et c'est ce qui rend
 l'audit concluant. Si un second apparait, cette garantie tombe.
+
+## Phase 5e — appartenance des REFERENCES, pas seulement de la ressource
+
+Suite directe de la 5d, meme classe de bug etendue aux references metier. Le tenant B pouvait,
+sur SON site et avec toutes ses permissions, rattacher ses agregats aux ressources de A :
+categorie, client, fournisseur, article de ligne. 11 points d'injection, 9 repondaient HTTP 200.
+
+Le cas le plus instructif : `/stocks/article/{A}/site/{B}/entree`. L'appartenance du SITE etait
+verifiee depuis 5b-2d, celle de l'ARTICLE non. B creait donc un mouvement sur l'article de A, ce
+qui rendait cet article LISIBLE par B via `GET /stocks/article/{id}/site/{id}`. **Une ecriture non
+verifiee ouvre une lecture.**
+
+Correctif : reutilisation des finders deja scopes (`xService.findById(id, organizationId)`), qui
+levent le `*_NOT_FOUND` masque. Aucun controle neuf a maintenir. Place avec le bloc d'appartenance,
+donc avant la permission.
+
+### Defaut trouve en corrigeant : les services ne posaient pas l'organisation
+
+`CategoryServiceImpl.save(dto, userId, organizationId)` n'appliquait pas `organizationId` a
+l'entite : c'est le CONTROLEUR qui forcait `dto.setOrganization(...)`. Tout appelant qui n'etait
+pas le controleur creait donc une ressource ORPHELINE, invisible aux lectures scopees. Corrige
+dans les cinq services (Category, Article, Customer, Supplier, City) : l'organisation est imposee
+dans le SERVICE, depuis le parametre.
+
+**Regle generale qui s'en degage** : un service qui recoit `organizationId` doit l'APPLIQUER, pas
+seulement s'en servir pour autoriser. Sinon son contrat est incoherent et le controleur devient le
+seul chemin correct.
+
+### Fixtures de test qui s'appuyaient sur l'absence de controle
+
+`customerId(1L)` / `supplierId(1L)` apparaissaient dans 6 tests : cet id ne designait AUCUNE
+entite reelle. Idem pour `createArticle()` qui fabriquait sa propre organisation jetable depuis la
+4e. Ces fixtures ne passaient que parce que rien ne croisait les references.

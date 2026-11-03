@@ -101,6 +101,19 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
     return jsonId(site);
   }
 
+  // Phase 5e : supplierId doit referencer un VRAI fournisseur du tenant - voir
+  // docs/phase-5e-report.md.
+  private long createSupplier(String token) throws Exception {
+    MvcResult result = mockMvc.perform(post("/gestiondestock/v1/suppliers/create")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nom\":\"Fournisseur\",\"prenom\":\"Un\",\"email\":\"" + uniqueCode("four")
+                + "@test.local\",\"numTel\":\"+237600000106\",\"adresse\":{\"adresse1\":\"1 Rue\","
+                + "\"ville\":\"Douala\",\"pays\":\"Cameroun\",\"codePostale\":\"00000\"}}"))
+        .andExpect(status().isOk()).andReturn();
+    return jsonId(result);
+  }
+
   private long createArticle(String token) throws Exception {
     String catCode = uniqueCode("CAT");
     mockMvc.perform(post("/gestiondestock/v1/categories/create")
@@ -134,7 +147,7 @@ public class BusinessModulesHttpIntegrationTest extends AbstractIntegrationTest 
     MvcResult po = mockMvc.perform(post("/gestiondestock/v1/purchase-orders/create")
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"order\":{\"code\":\"" + uniqueCode("PO") + "\",\"supplierId\":1,\"site\":{\"id\":" + siteId + "}},"
+            .content("{\"order\":{\"code\":\"" + uniqueCode("PO") + "\",\"supplierId\":" + createSupplier(token) + ",\"site\":{\"id\":" + siteId + "}},"
                 + "\"lines\":[{\"article\":{\"id\":" + articleId + "},\"quantiteCommandee\":10,\"prixUnitaire\":90}]}"))
         .andExpect(status().isOk()).andReturn();
     long poId = jsonId(po);

@@ -87,18 +87,18 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
         .type(SiteType.ENTREPOT).active(true).city(city).build(), userWithAllWritePermissions(city.getOrganization().getId()), city.getOrganization().getId());
   }
 
-  // Phase 5c : categorie et article sont desormais crees dans une organisation explicite, avec un
-  // utilisateur autorise - aucune organisation n'etait en portee dans ce helper.
-  private ArticleDto createArticle() {
-    OrganizationDto organization = organizationService.save(
-        OrganizationDto.builder().name("Societe Article Report").active(true).build());
+  // Phase 5e : l'article doit appartenir a la MEME organisation que l'agregat qui le reference.
+  // Ce helper creait sa propre organisation jetable depuis la Phase 4e - acceptable tant que rien
+  // ne croisait les references, incoherent maintenant. L'organisation est donc un parametre
+  // explicite - voir docs/phase-5e-report.md.
+  private ArticleDto createArticle(Long organizationId) {
     CategoryDto category = categoryService.save(
         CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
-        userWithAllWritePermissions(organization.getId()), organization.getId());
+        userWithAllWritePermissions(organizationId), organizationId);
     return articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
         .category(category).build(),
-        userWithAllWritePermissions(organization.getId()), organization.getId());
+        userWithAllWritePermissions(organizationId), organizationId);
   }
 
   /**
@@ -121,7 +121,7 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto mySite = createSite(city, "Entrepot A");
     SiteDto otherSite = createSite(city, "Entrepot B");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
 
     inventoryFacade.receive(article.getId(), mySite.getId(), BigDecimal.valueOf(20), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
     inventoryFacade.receive(article.getId(), otherSite.getId(), BigDecimal.valueOf(99), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
@@ -146,7 +146,7 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto siteA = createSite(city, "Entrepot A");
     SiteDto siteB = createSite(city, "Entrepot B");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     inventoryFacade.receive(article.getId(), siteA.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
     inventoryFacade.receive(article.getId(), siteB.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
@@ -168,7 +168,7 @@ public class ReportingServiceIntegrationTest extends AbstractIntegrationTest {
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe WH").active(true).build());
     CityDto city = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto site = createSite(city, "Entrepot WH");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.valueOf(15), StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     Long userId = 7001L;

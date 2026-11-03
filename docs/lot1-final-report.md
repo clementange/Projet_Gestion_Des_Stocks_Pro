@@ -99,8 +99,12 @@ Par gravité décroissante :
    valider.**
 3. **⚠ La clé `JWT_SECRET` historique est dans l'historique git** et doit être considérée
    compromise : rotation obligatoire avant production, action humaine hors de mon périmètre.
-4. **Références imbriquées non vérifiées** : `Article.category`, `CustomerOrder.customerId`,
-   `PurchaseOrder.supplierId`, l'`article` des lignes — un id d'un autre tenant passe encore.
+4. ~~**Références imbriquées non vérifiées**~~ — **CORRIGÉ en Phase 5e** : 11 points d'injection
+   reproduits en rouge (9 répondaient HTTP 200), tous fermés en réutilisant les finders scopés.
+   Voir `docs/phase-5e-report.md`. **Reste ouvert** : l'inventaire des références est *manuel*,
+   rien ne fait échouer le build si un endpoint neuf en introduit une douzième non vérifiée — un
+   test dérivé du `RequestMappingHandlerMapping`, comme pour les permissions, serait la vraie
+   protection.
 5. **Les utilisateurs non-admin existants perdent l'accès en écriture** tant qu'aucun rôle ne leur
    est attribué (conséquence voulue de 5c, mais rupture fonctionnelle à planifier).
 6. **Pas de permission sur les 3 endpoints `/{ressource}/{id}/photo`** : appartenance seule.

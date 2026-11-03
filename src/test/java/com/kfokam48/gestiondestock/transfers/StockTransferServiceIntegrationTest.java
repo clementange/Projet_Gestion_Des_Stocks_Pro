@@ -106,18 +106,18 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         .type(SiteType.ENTREPOT).active(true).city(city).build(), userWithAllWritePermissions(city.getOrganization().getId()), city.getOrganization().getId());
   }
 
-  // Phase 5c : aucune organisation n'etait en portee dans ce helper ; il en cree donc une,
-  // explicitement, avec un utilisateur autorise.
-  private ArticleDto createArticle() {
-    OrganizationDto organization = organizationService.save(
-        OrganizationDto.builder().name("Societe Article Transfer").active(true).build());
+  // Phase 5e : l'article doit appartenir a la MEME organisation que l'agregat qui le reference.
+  // Ce helper creait sa propre organisation jetable depuis la Phase 4e - acceptable tant que rien
+  // ne croisait les references, incoherent maintenant. L'organisation est donc un parametre
+  // explicite - voir docs/phase-5e-report.md.
+  private ArticleDto createArticle(Long organizationId) {
     CategoryDto category = categoryService.save(
         CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
-        userWithAllWritePermissions(organization.getId()), organization.getId());
+        userWithAllWritePermissions(organizationId), organizationId);
     return articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
         .category(category).build(),
-        userWithAllWritePermissions(organization.getId()), organization.getId());
+        userWithAllWritePermissions(organizationId), organizationId);
   }
 
   private StockTransferDto createTransfer(SiteDto origin, SiteDto destination, ArticleDto article, BigDecimal quantity, Long organizationId) {
@@ -140,7 +140,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepotA = createSite(douala, "Entrepot A");
     SiteDto entrepotB = createSite(douala, "Entrepot B");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
 
     inventoryFacade.receive(article.getId(), entrepotA.getId(), BigDecimal.valueOf(100),
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT-A", null);
@@ -164,7 +164,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     OrganizationDto organization = organizationService.save(OrganizationDto.builder().name("Societe Bad").active(true).build());
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto site = createSite(douala, "Entrepot Unique");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
 
     assertThrows(InvalidEntityException.class, () -> createTransfer(site, site, article, BigDecimal.TEN, organization.getId()));
   }
@@ -175,7 +175,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepotA = createSite(douala, "Entrepot A");
     SiteDto entrepotB = createSite(douala, "Entrepot B");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     inventoryFacade.receive(article.getId(), entrepotA.getId(), BigDecimal.valueOf(50),
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
@@ -192,7 +192,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepotA = createSite(douala, "Entrepot A");
     SiteDto entrepotB = createSite(douala, "Entrepot B");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     inventoryFacade.receive(article.getId(), entrepotA.getId(), BigDecimal.valueOf(5),
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
@@ -213,7 +213,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
     CityDto douala = cityService.save(CityDto.builder().name("Douala").organization(organization).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
     SiteDto entrepotA = createSite(douala, "Entrepot A");
     SiteDto entrepotB = createSite(douala, "Entrepot B");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     inventoryFacade.receive(article.getId(), entrepotA.getId(), BigDecimal.valueOf(50),
         StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
@@ -236,7 +236,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         userWithAllWritePermissions(orgA.getId()), orgA.getId());
     SiteDto entrepotA = createSite(doualaA, "Entrepot A");
     SiteDto entrepotB = createSite(doualaA, "Entrepot B");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(orgA.getId());
     StockTransferDto transfer = createTransfer(entrepotA, entrepotB, article, BigDecimal.TEN, orgA.getId());
 
     assertEquals(transfer.getId(), stockTransferService.findById(transfer.getId(), orgA.getId()).getId());
@@ -263,7 +263,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         userWithAllWritePermissions(orgB.getId()), orgB.getId());
     SiteDto foreignOrigin = createSite(doualaB, "Entrepot etranger origine");
     SiteDto destination = createSite(doualaA, "Entrepot destination");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(orgA.getId());
 
     InvalidOperationException exception = assertThrows(InvalidOperationException.class,
         () -> createTransfer(foreignOrigin, destination, article, BigDecimal.TEN, orgA.getId()));
@@ -286,7 +286,7 @@ public class StockTransferServiceIntegrationTest extends AbstractIntegrationTest
         userWithAllWritePermissions(orgB.getId()), orgB.getId());
     SiteDto origin = createSite(doualaA, "Entrepot origine");
     SiteDto foreignDestination = createSite(doualaB, "Entrepot etranger destination");
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(orgA.getId());
 
     InvalidOperationException exception = assertThrows(InvalidOperationException.class,
         () -> createTransfer(origin, foreignDestination, article, BigDecimal.TEN, orgA.getId()));

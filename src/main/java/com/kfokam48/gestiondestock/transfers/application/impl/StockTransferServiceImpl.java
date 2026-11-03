@@ -1,6 +1,7 @@
 package com.kfokam48.gestiondestock.transfers.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.catalog.application.ArticleService;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
@@ -44,16 +45,19 @@ public class StockTransferServiceImpl implements StockTransferService {
   private StockTransferLineRepository stockTransferLineRepository;
   private InventoryFacade inventoryFacade;
   private AuthorizationService authorizationService;
+  private ArticleService articleService;
   private SiteService siteService;
 
   @Autowired
   public StockTransferServiceImpl(StockTransferRepository stockTransferRepository,
       StockTransferLineRepository stockTransferLineRepository, InventoryFacade inventoryFacade,
-      AuthorizationService authorizationService, SiteService siteService) {
+      AuthorizationService authorizationService, SiteService siteService,
+      ArticleService articleService) {
     this.stockTransferRepository = stockTransferRepository;
     this.stockTransferLineRepository = stockTransferLineRepository;
     this.inventoryFacade = inventoryFacade;
     this.authorizationService = authorizationService;
+    this.articleService = articleService;
     this.siteService = siteService;
   }
 
@@ -72,6 +76,9 @@ public class StockTransferServiceImpl implements StockTransferService {
     // docs/phase-5b2b-report.md.
     requireSiteInOrganization(dto.getOriginSite().getId(), organizationId);
     // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
+    // Phase 5e : appartenance de l'article de chaque ligne, fourni par le client - voir
+    // docs/phase-5e-report.md.
+    requireArticlesInOrganization(lines, organizationId);
     if (!authorizationService.hasPermission(userId, "STOCK_TRANSFER_CREATE", ScopeType.SITE, dto.getOriginSite().getId(), organizationId)) {
       log.warn("User {} lacks STOCK_TRANSFER_CREATE on site {}", userId, dto.getOriginSite().getId());
       throw new InvalidOperationException(
@@ -276,5 +283,14 @@ public class StockTransferServiceImpl implements StockTransferService {
           "Vous n'avez pas la permission d'effectuer cette action sur ce transfert",
           ErrorCodes.STOCK_TRANSFER_ACCESS_DENIED);
     }
+  }
+  // Phase 5e : meme motif que SaleServiceImpl / CustomerOrderServiceImpl.
+  private void requireArticlesInOrganization(List<StockTransferLineDto> lines, Long organizationId) {
+    if (lines == null) {
+      return;
+    }
+    lines.stream()
+        .filter(line -> line != null && line.getArticle() != null && line.getArticle().getId() != null)
+        .forEach(line -> articleService.findById(line.getArticle().getId(), organizationId));
   }
 }

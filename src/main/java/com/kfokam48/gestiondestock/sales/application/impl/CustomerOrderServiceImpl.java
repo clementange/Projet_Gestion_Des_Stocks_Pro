@@ -1,6 +1,8 @@
 package com.kfokam48.gestiondestock.sales.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.catalog.application.ArticleService;
+import com.kfokam48.gestiondestock.sales.application.CustomerService;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
@@ -46,16 +48,21 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
   private CustomerOrderLineRepository customerOrderLineRepository;
   private InventoryFacade inventoryFacade;
   private AuthorizationService authorizationService;
+  private ArticleService articleService;
+  private CustomerService customerService;
   private SiteService siteService;
 
   @Autowired
   public CustomerOrderServiceImpl(CustomerOrderRepository customerOrderRepository,
       CustomerOrderLineRepository customerOrderLineRepository, InventoryFacade inventoryFacade,
-      AuthorizationService authorizationService, SiteService siteService) {
+      AuthorizationService authorizationService, SiteService siteService,
+      CustomerService customerService, ArticleService articleService) {
     this.customerOrderRepository = customerOrderRepository;
     this.customerOrderLineRepository = customerOrderLineRepository;
     this.inventoryFacade = inventoryFacade;
     this.authorizationService = authorizationService;
+    this.articleService = articleService;
+    this.customerService = customerService;
     this.siteService = siteService;
   }
 
@@ -88,6 +95,10 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     // Phase 5b-2b : CustomerOrder.create n'avait aucune verification de permission ni
     // d'appartenance du site a l'organisation de l'appelant - voir docs/phase-5b2b-report.md.
     requireSiteInOrganization(dto.getSite().getId(), organizationId);
+    // Phase 5e : appartenance des REFERENCES fournies par le client (client/fournisseur et
+    // article de chaque ligne). Les finders deja scopes sont reutilises : ils levent le
+    // *_NOT_FOUND masque de l'entite referencee - voir docs/phase-5e-report.md.
+    requireReferencesInOrganization(dto.getCustomerId(), lines, organizationId);
     // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
     if (!authorizationService.hasPermission(userId, "CUSTOMER_ORDER_CREATE", ScopeType.SITE, dto.getSite().getId(), organizationId)) {
       log.warn("User {} lacks CUSTOMER_ORDER_CREATE on site {}", userId, dto.getSite().getId());
@@ -282,5 +293,21 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             "Aucune commande client avec l'ID = " + id + " n'a ete trouvee dans la BDD",
             ErrorCodes.CUSTOMER_ORDER_NOT_FOUND)
         );
+  }
+  /**
+   * Phase 5e : {@code customerId} et l'{@code article} de chaque ligne arrivaient du corps de la
+   * requete sans aucun controle. Le tenant B pouvait donc enregistrer une commande sur SON site,
+   * avec toutes ses permissions, en la rattachant au client ou a l'article du tenant A.
+   */
+  private void requireReferencesInOrganization(Long customerId, List<CustomerOrderLineDto> lines, Long organizationId) {
+    if (customerId != null) {
+      customerService.findById(customerId, organizationId);
+    }
+    if (lines == null) {
+      return;
+    }
+    lines.stream()
+        .filter(line -> line != null && line.getArticle() != null && line.getArticle().getId() != null)
+        .forEach(line -> articleService.findById(line.getArticle().getId(), organizationId));
   }
 }

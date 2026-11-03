@@ -8,6 +8,7 @@ import com.kfokam48.gestiondestock.catalog.infrastructure.persistence.ArticleRep
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
 import com.kfokam48.gestiondestock.catalog.application.dto.CategoryDto;
 import com.kfokam48.gestiondestock.organization.application.dto.OrganizationDto;
+import com.kfokam48.gestiondestock.catalog.application.CategoryService;
 import com.kfokam48.gestiondestock.catalog.domain.port.ArticleUsagePort;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.identity.domain.model.ScopeType;
@@ -72,14 +73,17 @@ public class ArticleServiceImpl implements ArticleService {
   private ArticleRepository articleRepository;
   private AuthorizationService authorizationService;
   private ArticleUsagePort articleUsagePort;
+  private CategoryService categoryService;
 
   @Autowired
   public ArticleServiceImpl(
       ArticleRepository articleRepository,
       ArticleUsagePort articleUsagePort,
-      AuthorizationService authorizationService) {
+      AuthorizationService authorizationService,
+      CategoryService categoryService) {
     this.articleRepository = articleRepository;
     this.articleUsagePort = articleUsagePort;
+    this.categoryService = categoryService;
     this.authorizationService = authorizationService;
   }
 
@@ -89,12 +93,22 @@ public class ArticleServiceImpl implements ArticleService {
     // Phase 5b-2g : un id fourni par le client ferait de ce create un MERGE JPA, donc
     // l'ecrasement d'une ressource existante - voir docs/phase-5b2g-report.md.
     CreationIdGuard.requireNoId(dto.getId(), "d'un article");
+    // Phase 5e : l'organisation de la ressource creee est imposee ICI, depuis le parametre, et
+    // non plus seulement par le controleur. Un service qui recoit organizationId sans l'appliquer
+    // laisse tout appelant interne creer une ressource ORPHELINE (organisation nulle), invisible
+    // aux lectures scopees - voir docs/phase-5e-report.md.
+    dto.setOrganization(OrganizationDto.builder().id(organizationId).build());
+
     List<String> errors = ArticleValidator.validate(dto);
     if (!errors.isEmpty()) {
       log.error("Article is not valid {}", dto);
       throw new InvalidEntityException("L'article n'est pas valide", ErrorCodes.ARTICLE_NOT_VALID, errors);
     }
 
+    // Phase 5e : appartenance des REFERENCES fournies par le client. Les finders deja scopes
+    // sont reutilises : ils levent le *_NOT_FOUND masque de l'entite referencee, donc aucune
+    // nouvelle verification a maintenir - voir docs/phase-5e-report.md.
+    requireCategoryInOrganization(dto.getCategory(), organizationId);
     return ArticleDto.fromEntity(
         articleRepository.save(
             ArticleDto.toEntity(dto)
@@ -242,6 +256,10 @@ public class ArticleServiceImpl implements ArticleService {
     existing.setPrixUnitaireHt(dto.getPrixUnitaireHt());
     existing.setTauxTva(dto.getTauxTva());
     existing.setPrixUnitaireTtc(dto.getPrixUnitaireTtc());
+    // Phase 5e : appartenance des REFERENCES fournies par le client. Les finders deja scopes
+    // sont reutilises : ils levent le *_NOT_FOUND masque de l'entite referencee, donc aucune
+    // nouvelle verification a maintenir - voir docs/phase-5e-report.md.
+    requireCategoryInOrganization(dto.getCategory(), organizationId);
     existing.setCategory(CategoryDto.toEntity(dto.getCategory()));
     return ArticleDto.fromEntity(articleRepository.save(existing));
   }
@@ -278,5 +296,18 @@ public class ArticleServiceImpl implements ArticleService {
           "Vous n'avez pas la permission d'effectuer cette action",
           ErrorCodes.ARTICLE_ACCESS_DENIED);
     }
+  }
+  /**
+   * Phase 5e : la categorie etait prise telle quelle depuis le corps de la requete
+   * ({@code CategoryDto.toEntity}), donc rattachable a la categorie d'un autre tenant. Elle est
+   * desormais rechargee depuis la base via le finder scope, qui renvoie un
+   * {@code CATEGORY_NOT_FOUND} masque si elle n'appartient pas a l'appelant. Null est laisse au
+   * validateur, pour qu'une categorie absente garde son message de validation d'origine.
+   */
+  private void requireCategoryInOrganization(CategoryDto category, Long organizationId) {
+    if (category == null || category.getId() == null) {
+      return;
+    }
+    categoryService.findById(category.getId(), organizationId);
   }
 }

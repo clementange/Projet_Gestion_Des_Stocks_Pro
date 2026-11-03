@@ -1,6 +1,8 @@
 package com.kfokam48.gestiondestock.purchasing.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.catalog.application.ArticleService;
+import com.kfokam48.gestiondestock.purchasing.application.SupplierService;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
@@ -44,16 +46,21 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
   private PurchaseOrderLineRepository purchaseOrderLineRepository;
   private InventoryFacade inventoryFacade;
   private AuthorizationService authorizationService;
+  private ArticleService articleService;
+  private SupplierService supplierService;
   private SiteService siteService;
 
   @Autowired
   public PurchaseOrderServiceImpl(PurchaseOrderRepository purchaseOrderRepository,
       PurchaseOrderLineRepository purchaseOrderLineRepository, InventoryFacade inventoryFacade,
-      AuthorizationService authorizationService, SiteService siteService) {
+      AuthorizationService authorizationService, SiteService siteService,
+      SupplierService supplierService, ArticleService articleService) {
     this.purchaseOrderRepository = purchaseOrderRepository;
     this.purchaseOrderLineRepository = purchaseOrderLineRepository;
     this.inventoryFacade = inventoryFacade;
     this.authorizationService = authorizationService;
+    this.articleService = articleService;
+    this.supplierService = supplierService;
     this.siteService = siteService;
   }
 
@@ -76,6 +83,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     // Phase 5b-2b : PurchaseOrder.create n'avait aucune verification de permission ni
     // d'appartenance du site a l'organisation de l'appelant - voir docs/phase-5b2b-report.md.
     requireSiteInOrganization(dto.getSite().getId(), organizationId);
+    // Phase 5e : appartenance des REFERENCES fournies par le client (client/fournisseur et
+    // article de chaque ligne). Les finders deja scopes sont reutilises : ils levent le
+    // *_NOT_FOUND masque de l'entite referencee - voir docs/phase-5e-report.md.
+    requireReferencesInOrganization(dto.getSupplierId(), lines, organizationId);
     // Phase 5c : appartenance (ci-dessus) -> permission -> ecriture.
     if (!authorizationService.hasPermission(userId, "PURCHASE_ORDER_CREATE", ScopeType.SITE, dto.getSite().getId(), organizationId)) {
       log.warn("User {} lacks PURCHASE_ORDER_CREATE on site {}", userId, dto.getSite().getId());
@@ -253,5 +264,20 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
           "Vous n'avez pas la permission d'effectuer cette action sur cette commande fournisseur",
           ErrorCodes.PURCHASE_ORDER_ACCESS_DENIED);
     }
+  }
+  /**
+   * Phase 5e : meme motif que {@code CustomerOrderServiceImpl} - {@code supplierId} et
+   * l'{@code article} de chaque ligne venaient du corps sans controle d'appartenance.
+   */
+  private void requireReferencesInOrganization(Long supplierId, List<PurchaseOrderLineDto> lines, Long organizationId) {
+    if (supplierId != null) {
+      supplierService.findById(supplierId, organizationId);
+    }
+    if (lines == null) {
+      return;
+    }
+    lines.stream()
+        .filter(line -> line != null && line.getArticle() != null && line.getArticle().getId() != null)
+        .forEach(line -> articleService.findById(line.getArticle().getId(), organizationId));
   }
 }

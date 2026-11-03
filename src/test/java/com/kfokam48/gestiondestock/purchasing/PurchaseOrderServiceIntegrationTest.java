@@ -67,6 +67,17 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
   @Autowired
   private OrganizationService organizationService;
 
+  // Phase 5e : voir le commentaire equivalent dans CustomerOrderServiceIntegrationTest.
+  @Autowired
+  private com.kfokam48.gestiondestock.purchasing.application.SupplierService supplierService;
+
+  private Long realSupplierId(Long organizationId) {
+    return supplierService.save(
+        com.kfokam48.gestiondestock.purchasing.application.dto.SupplierDto.builder()
+            .nom("Fournisseur " + uniqueCode("F")).build(),
+        userWithAllWritePermissions(organizationId), organizationId).getId();
+  }
+
   @Autowired
   private CityService cityService;
 
@@ -113,24 +124,23 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
         .type(SiteType.ENTREPOT).active(true).city(city).build(), userWithAllWritePermissions(organization.getId()), organization.getId());
   }
 
-  // Phase 5c : ce helper ne peut plus s'appuyer sur le champ `organization`, qui n'est renseigne
-  // que par createSite() - les tests d'appartenance ne l'appellent pas. Il cree donc sa propre
-  // organisation, avec un utilisateur autorise.
-  private ArticleDto createArticle() {
-    OrganizationDto articleOrganization = organizationService.save(
-        OrganizationDto.builder().name("Societe Article CmdFour").active(true).build());
-    Long articleUserId = userWithAllWritePermissions(articleOrganization.getId());
+  // Phase 5e : l'article doit appartenir a la MEME organisation que l'agregat qui le reference.
+  // Ce helper creait sa propre organisation jetable depuis la Phase 4e - acceptable tant que rien
+  // ne croisait les references, incoherent maintenant. L'organisation est donc un parametre
+  // explicite - voir docs/phase-5e-report.md.
+  private ArticleDto createArticle(Long organizationId) {
+    Long articleUserId = userWithAllWritePermissions(organizationId);
     CategoryDto category = categoryService.save(
         CategoryDto.builder().code(uniqueCode("CAT")).designation("Cat test").build(),
-        articleUserId, articleOrganization.getId());
+        articleUserId, organizationId);
     return articleService.save(ArticleDto.builder().codeArticle(uniqueCode("ART")).designation("Article test")
         .prixUnitaireHt(BigDecimal.TEN).tauxTva(BigDecimal.ONE).prixUnitaireTtc(BigDecimal.TEN)
-        .category(category).build(), articleUserId, articleOrganization.getId());
+        .category(category).build(), articleUserId, organizationId);
   }
 
   private PurchaseOrderDto createDraftOrder(SiteDto site, ArticleDto article, BigDecimal quantity, Long[] lineIdOut) {
     PurchaseOrderDto order = purchaseOrderService.create(
-        PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(site).build(),
+        PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(realSupplierId(organization.getId())).site(site).build(),
         List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(quantity).prixUnitaire(BigDecimal.TEN).build()),
         userWithAllWritePermissions(organization.getId()), organization.getId());
     lineIdOut[0] = purchaseOrderService.findLines(order.getId(), organization.getId()).get(0).getId();
@@ -141,14 +151,14 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void createShouldRejectDuplicateCodeWithCleanErrorInsteadOfRaw500() {
     SiteDto site = createReceivingSite();
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     String code = uniqueCode("PO");
-    purchaseOrderService.create(PurchaseOrderDto.builder().code(code).supplierId(1L).site(site).build(),
+    purchaseOrderService.create(PurchaseOrderDto.builder().code(code).supplierId(realSupplierId(organization.getId())).site(site).build(),
         List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
         userWithAllWritePermissions(organization.getId()), organization.getId());
 
     InvalidEntityException exception = assertThrows(InvalidEntityException.class, () -> purchaseOrderService.create(
-        PurchaseOrderDto.builder().code(code).supplierId(1L).site(site).build(),
+        PurchaseOrderDto.builder().code(code).supplierId(realSupplierId(organization.getId())).site(site).build(),
         List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()),
         userWithAllWritePermissions(organization.getId()), organization.getId()));
 
@@ -158,7 +168,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void creatingOrderShouldNotAffectStock() {
     SiteDto site = createReceivingSite();
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
 
     createDraftOrder(site, article, BigDecimal.TEN, new Long[1]);
 
@@ -169,7 +179,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void receptionBeforeValidationShouldBeRejected() {
     SiteDto site = createReceivingSite();
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
     Long userId = grantPurchaseOrderReceive(site, organization.getId());
@@ -181,7 +191,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void fullReceptionShouldIncreaseStockAndCloseOrder() {
     SiteDto site = createReceivingSite();
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
 
@@ -197,7 +207,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void partialReceptionsShouldAccumulateAndCloseOrderOnlyWhenComplete() {
     SiteDto site = createReceivingSite();
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
     purchaseOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
@@ -216,7 +226,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
   @Test
   public void overReceptionShouldBeRejected() {
     SiteDto site = createReceivingSite();
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(organization.getId());
     Long[] lineId = new Long[1];
     PurchaseOrderDto order = createDraftOrder(site, article, BigDecimal.TEN, lineId);
     purchaseOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());
@@ -232,7 +242,7 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
     SiteDto siteA = createReceivingSite();
     OrganizationDto orgA = organization;
     OrganizationDto orgB = organizationService.save(OrganizationDto.builder().name("Societe CmdFour B").active(true).build());
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(orgA.getId());
     PurchaseOrderDto order = createDraftOrder(siteA, article, BigDecimal.TEN, new Long[1]);
 
     assertEquals(order.getId(), purchaseOrderService.findById(order.getId(), orgA.getId()).getId());
@@ -256,10 +266,10 @@ public class PurchaseOrderServiceIntegrationTest extends AbstractIntegrationTest
         userWithAllWritePermissions(orgB.getId()), orgB.getId());
     SiteDto siteB = siteService.save(SiteDto.builder().code(uniqueCode("ENT")).name("Entrepot etranger")
         .type(SiteType.ENTREPOT).active(true).city(cityB).build(), userWithAllWritePermissions(orgB.getId()), orgB.getId());
-    ArticleDto article = createArticle();
+    ArticleDto article = createArticle(orgA.getId());
 
     InvalidOperationException exception = assertThrows(InvalidOperationException.class, () -> purchaseOrderService.create(
-        PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(1L).site(siteB).build(),
+        PurchaseOrderDto.builder().code(uniqueCode("PO")).supplierId(realSupplierId(orgB.getId())).site(siteB).build(),
         List.of(PurchaseOrderLineDto.builder().article(article).quantiteCommandee(BigDecimal.ONE).prixUnitaire(BigDecimal.TEN).build()), userWithAllWritePermissions(orgA.getId()), orgA.getId()));
 
     assertEquals(ErrorCodes.PURCHASE_ORDER_ACCESS_DENIED, exception.getErrorCode());

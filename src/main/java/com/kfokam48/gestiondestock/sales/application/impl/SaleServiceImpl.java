@@ -1,6 +1,7 @@
 package com.kfokam48.gestiondestock.sales.application.impl;
 
 import com.kfokam48.gestiondestock.exception.EntityNotFoundException;
+import com.kfokam48.gestiondestock.catalog.application.ArticleService;
 import com.kfokam48.gestiondestock.exception.ErrorCodes;
 import com.kfokam48.gestiondestock.validator.CreationIdGuard;
 import com.kfokam48.gestiondestock.exception.InvalidEntityException;
@@ -38,15 +39,18 @@ public class SaleServiceImpl implements SaleService {
   private SaleLineRepository saleLineRepository;
   private InventoryFacade inventoryFacade;
   private AuthorizationService authorizationService;
+  private ArticleService articleService;
   private SiteService siteService;
 
   @Autowired
   public SaleServiceImpl(SaleRepository saleRepository, SaleLineRepository saleLineRepository,
-      InventoryFacade inventoryFacade, AuthorizationService authorizationService, SiteService siteService) {
+      InventoryFacade inventoryFacade, AuthorizationService authorizationService, SiteService siteService,
+      ArticleService articleService) {
     this.saleRepository = saleRepository;
     this.saleLineRepository = saleLineRepository;
     this.inventoryFacade = inventoryFacade;
     this.authorizationService = authorizationService;
+    this.articleService = articleService;
     this.siteService = siteService;
   }
 
@@ -73,6 +77,9 @@ public class SaleServiceImpl implements SaleService {
     // reellement a l'organisation de l'appelant, avant toute verification de permission - voir
     // docs/phase-5b2b-report.md.
     requireSiteInOrganization(dto.getSite().getId(), organizationId);
+    // Phase 5e : appartenance de l'article de chaque ligne, fourni par le client - voir
+    // docs/phase-5e-report.md.
+    requireArticlesInOrganization(lines, organizationId);
     if (!authorizationService.hasPermission(userId, SALE_CREATE, ScopeType.SITE, dto.getSite().getId(), organizationId)) {
       log.warn("User {} tried to create a sale on site {} without SALE_CREATE on that scope", userId, dto.getSite().getId());
       throw new InvalidOperationException(
@@ -184,5 +191,15 @@ public class SaleServiceImpl implements SaleService {
     return saleRepository.findAllBySiteIdAndSaleDateBetween(siteId, from, to).stream()
         .map(SaleDto::fromEntity)
         .collect(Collectors.toList());
+  }
+  // Phase 5e : l'article d'une ligne venait du corps sans controle - le tenant B pouvait vendre
+  // l'article du tenant A depuis son propre site.
+  private void requireArticlesInOrganization(List<SaleLineDto> lines, Long organizationId) {
+    if (lines == null) {
+      return;
+    }
+    lines.stream()
+        .filter(line -> line != null && line.getArticle() != null && line.getArticle().getId() != null)
+        .forEach(line -> articleService.findById(line.getArticle().getId(), organizationId));
   }
 }

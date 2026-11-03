@@ -73,6 +73,10 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
   private CategoryService categoryService;
   @Autowired
   private OrganizationService organizationService;
+
+  // Phase 5e : voir CustomerOrderServiceIntegrationTest.
+  @Autowired
+  private com.kfokam48.gestiondestock.sales.application.CustomerService customerService;
   @Autowired
   private CityService cityService;
   @Autowired
@@ -125,7 +129,7 @@ public class CrossModuleConcurrencyIntegrationTest extends AbstractIntegrationTe
     inventoryFacade.receive(article.getId(), site.getId(), BigDecimal.TEN, StockMovementSource.COMMANDE_FOURNISSEUR, "INIT", null);
 
     CustomerOrderDto order = customerOrderService.create(
-        CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(1L).site(site).build(),
+        CustomerOrderDto.builder().code(uniqueCode("CMD")).customerId(customerService.save(com.kfokam48.gestiondestock.sales.application.dto.CustomerDto.builder().nom("Client " + uniqueCode("C")).build(), userWithAllWritePermissions(organization.getId()), organization.getId()).getId()).site(site).build(),
         List.of(CustomerOrderLineDto.builder().article(article).quantite(BigDecimal.valueOf(7)).prixUnitaire(BigDecimal.TEN).build()),
         userWithAllWritePermissions(organization.getId()), organization.getId());
     customerOrderService.validate(order.getId(), userWithAllWritePermissions(organization.getId()), organization.getId());

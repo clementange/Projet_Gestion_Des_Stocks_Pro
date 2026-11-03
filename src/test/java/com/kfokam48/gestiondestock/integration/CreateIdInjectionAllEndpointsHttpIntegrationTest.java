@@ -58,6 +58,11 @@ public class CreateIdInjectionAllEndpointsHttpIntegrationTest extends AbstractIn
     long otherSiteId;
     long categoryId;
     long articleId;
+    // Phase 5e : customerId/supplierId doivent desormais referencer de VRAIES ressources du
+    // tenant. Les fixtures utilisaient l'id fictif 1, qui ne designait rien - voir
+    // docs/phase-5e-report.md.
+    long customerId;
+    long supplierId;
   }
 
   private String postOk(String url, String token, String body) throws Exception {
@@ -103,6 +108,14 @@ public class CreateIdInjectionAllEndpointsHttpIntegrationTest extends AbstractIn
     f.articleId = idOf(postOk("/gestiondestock/v1/articles/create", f.token,
         "{\"codeArticle\":\"" + uniq("A") + "\",\"designation\":\"Article\",\"prixUnitaireHt\":100,"
             + "\"tauxTva\":19.25,\"prixUnitaireTtc\":119.25,\"category\":{\"id\":" + f.categoryId + "}}"));
+    f.customerId = idOf(postOk("/gestiondestock/v1/customers/create", f.token,
+        "{\"nom\":\"Client\",\"prenom\":\"Un\",\"email\":\"" + uniq("cli") + "@test.local\","
+            + "\"numTel\":\"+237600000104\",\"adresse\":{\"adresse1\":\"1 Rue\",\"ville\":\"Douala\","
+            + "\"pays\":\"Cameroun\",\"codePostale\":\"00000\"}}"));
+    f.supplierId = idOf(postOk("/gestiondestock/v1/suppliers/create", f.token,
+        "{\"nom\":\"Fournisseur\",\"prenom\":\"Un\",\"email\":\"" + uniq("four") + "@test.local\","
+            + "\"numTel\":\"+237600000105\",\"adresse\":{\"adresse1\":\"1 Rue\",\"ville\":\"Douala\","
+            + "\"pays\":\"Cameroun\",\"codePostale\":\"00000\"}}"));
     return f;
   }
 
@@ -217,10 +230,10 @@ public class CreateIdInjectionAllEndpointsHttpIntegrationTest extends AbstractIn
     Fixture b = tenant();
     String codeA = uniq("CMD");
     long orderA = idOf(postOk("/gestiondestock/v1/customer-orders/create", a.token,
-        "{\"order\":{\"code\":\"" + codeA + "\",\"customerId\":1,\"site\":{\"id\":" + a.siteId + "}},"
+        "{\"order\":{\"code\":\"" + codeA + "\",\"customerId\":" + a.customerId + ",\"site\":{\"id\":" + a.siteId + "}},"
             + "\"lines\":[{\"article\":{\"id\":" + a.articleId + "},\"quantite\":1,\"prixUnitaire\":10}]}"));
     expectRejected("/gestiondestock/v1/customer-orders/create", b.token,
-        "{\"order\":{\"id\":" + orderA + ",\"code\":\"" + uniq("HJ") + "\",\"customerId\":1,"
+        "{\"order\":{\"id\":" + orderA + ",\"code\":\"" + uniq("HJ") + "\",\"customerId\":" + b.customerId + ","
             + "\"site\":{\"id\":" + b.siteId + "}},"
             + "\"lines\":[{\"article\":{\"id\":" + b.articleId + "},\"quantite\":1,\"prixUnitaire\":10}]}");
     expectUnchanged("/gestiondestock/v1/customer-orders/" + orderA, a.token, "$.code", codeA);
@@ -232,10 +245,10 @@ public class CreateIdInjectionAllEndpointsHttpIntegrationTest extends AbstractIn
     Fixture b = tenant();
     String codeA = uniq("PO");
     long orderA = idOf(postOk("/gestiondestock/v1/purchase-orders/create", a.token,
-        "{\"order\":{\"code\":\"" + codeA + "\",\"supplierId\":1,\"site\":{\"id\":" + a.siteId + "}},"
+        "{\"order\":{\"code\":\"" + codeA + "\",\"supplierId\":" + a.supplierId + ",\"site\":{\"id\":" + a.siteId + "}},"
             + "\"lines\":[{\"article\":{\"id\":" + a.articleId + "},\"quantiteCommandee\":1,\"prixUnitaire\":10}]}"));
     expectRejected("/gestiondestock/v1/purchase-orders/create", b.token,
-        "{\"order\":{\"id\":" + orderA + ",\"code\":\"" + uniq("HJ") + "\",\"supplierId\":1,"
+        "{\"order\":{\"id\":" + orderA + ",\"code\":\"" + uniq("HJ") + "\",\"supplierId\":" + b.supplierId + ","
             + "\"site\":{\"id\":" + b.siteId + "}},"
             + "\"lines\":[{\"article\":{\"id\":" + b.articleId + "},\"quantiteCommandee\":1,\"prixUnitaire\":10}]}");
     expectUnchanged("/gestiondestock/v1/purchase-orders/" + orderA, a.token, "$.code", codeA);
